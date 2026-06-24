@@ -1,0 +1,14 @@
+# Dependencies
+node_modules/
+/dist
+/frontend/dist
+
+# Credentials & environment configs
+.env
+backend/.env
+
+# Local agent caches
+.gemini/
+.agents/
+.system_generated/
+*.log
