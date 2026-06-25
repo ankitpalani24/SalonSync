@@ -30,15 +30,6 @@ const Sidebar = ({ activePage, setActivePage, collapsed, setCollapsed, user, log
 
   const branches = db.branches.filter(b => b.salonId === user?.salonId);
 
-  const handleRoleChange = (e) => {
-    const selectedRole = e.target.value;
-    const matchedUser = db.users.find(u => u.role === selectedRole);
-    if (matchedUser) {
-      setCurrentUser(matchedUser);
-      localStorage.setItem('user', JSON.stringify(matchedUser));
-    }
-  };
-
   const filteredMenu = menuItems.filter(item => {
     if (user.role === 'SUPER_ADMIN') return item.id === 'super-admin';
     return item.roles.includes(user.role);
@@ -185,31 +176,6 @@ const Sidebar = ({ activePage, setActivePage, collapsed, setCollapsed, user, log
 
 
 
-          {/* Role Selector */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-            <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>View Role:</span>
-            <select
-              value={user?.role || ''}
-              onChange={handleRoleChange}
-              style={{
-                background: 'var(--bg-primary)',
-                border: '1px solid var(--border-light)',
-                color: 'var(--text-primary)',
-                borderRadius: '4px',
-                padding: '0.35rem 0.5rem',
-                fontSize: '0.75rem',
-                outline: 'none',
-                width: '100%'
-              }}
-            >
-              <option value="SUPER_ADMIN">Super Admin</option>
-              <option value="SALON_OWNER">Salon Owner</option>
-              <option value="SALON_MANAGER">Salon Manager</option>
-              <option value="FRANCHISE_OWNER">Franchise Owner</option>
-              <option value="STAFF">Staff</option>
-              <option value="CLIENT">Client</option>
-            </select>
-          </div>
         </div>
 
         <button

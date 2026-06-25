@@ -14,16 +14,6 @@ const Header = ({ toggleMobileSidebar }) => {
 
   const [showAlerts, setShowAlerts] = useState(false);
 
-  // Switch role helper for testing purposes
-  const handleRoleChange = (e) => {
-    const selectedRole = e.target.value;
-    const matchedUser = db.users.find(u => u.role === selectedRole);
-    if (matchedUser) {
-      setCurrentUser(matchedUser);
-      localStorage.setItem('user', JSON.stringify(matchedUser));
-    }
-  };
-
   // Get active branch options for active salon
   const branches = db.branches.filter(b => b.salonId === currentUser?.salonId);
   const notifications = db.notifications.filter(n => n.salonId === currentUser?.salonId).slice(0, 5);
@@ -100,34 +90,6 @@ const Header = ({ toggleMobileSidebar }) => {
       {/* Control Actions */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
         
-
-
-        {/* Quick Role Tester (Crucial for evaluation) */}
-        <div className="hide-mobile" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>View as:</span>
-          <select
-            value={currentUser?.role || ''}
-            onChange={handleRoleChange}
-            style={{
-              background: 'var(--bg-primary)',
-              border: '1px solid var(--border-light)',
-              color: 'var(--text-primary)',
-              borderRadius: '4px',
-              padding: '0.35rem 0.5rem',
-              fontSize: '0.75rem',
-              fontWeight: '500',
-              outline: 'none'
-            }}
-          >
-            <option value="SUPER_ADMIN">Super Admin</option>
-            <option value="SALON_OWNER">Salon Owner</option>
-            <option value="SALON_MANAGER">Salon Manager</option>
-            <option value="FRANCHISE_OWNER">Franchise Owner</option>
-            <option value="STAFF">Staff</option>
-            <option value="CLIENT">Client</option>
-          </select>
-        </div>
-
         {/* Theme Switcher */}
         <button
           onClick={() => setDarkMode(!darkMode)}
