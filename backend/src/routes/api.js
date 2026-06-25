@@ -1,9 +1,21 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+const mongoose = require('mongoose');
 const router = express.Router();
 const models = require('../models');
 const { protect, authorize, restrictToTenant } = require('../middleware/auth');
+
+// Database connection readiness check middleware
+router.use((req, res, next) => {
+  if (mongoose.connection.readyState !== 1) {
+    return res.status(503).json({
+      success: false,
+      message: 'Database connection is offline. Please authorize your IP in MongoDB Atlas or switch to Demo Mode on the client.'
+    });
+  }
+  next();
+});
 
 // JWT signer helper
 const generateToken = (id) => {
