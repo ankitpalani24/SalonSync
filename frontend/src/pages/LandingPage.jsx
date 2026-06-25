@@ -241,22 +241,21 @@ const LandingPage = ({ onStartTrial, onLogin }) => {
             <p style={{ color: '#888' }}>Select the package tailored for your salon scale. Cancel or switch anytime.</p>
           </div>
 
-          <div className="grid-3-cols">
+          <div className="grid-2-cols-split">
             {[
-              { name: 'Starter', price: '₹1,999', target: 'Single Salon / Spa', features: ['Customer CRM Directory', '1 Branch Included', 'Appointment Roster Calendar', 'Basic Invoicing & Billing', 'Email Activity Alerts'] },
-              { name: 'Professional', price: '₹4,999', target: 'Growing Businesses', features: ['Advanced CRM Profiles', 'Up to 3 Branches Supported', 'Loyalty Program Modules', 'Full Inventory Management', 'Staff Commissions System', 'AI Assistant (50 prompts/mo)'] },
-              { name: 'Enterprise', price: '₹9,999', target: 'Franchise Chains', features: ['Unlimited Branches', 'Centralized Franchise Admin', 'WhatsApp Automations', 'Unlimited AI Insights', 'Suppliers Ledger Tracker', 'Dedicated 24/7 Account Manager'] }
+              { name: 'Starter Salon Plan', price: '₹1,999', target: 'Single Salon / Spa', features: ['Customer CRM Directory', '1 Branch Included', 'Appointment Roster Calendar', 'Basic Invoicing & Billing', 'Email Activity Alerts'] },
+              { name: 'Franchise Plan', price: '₹9,999', target: 'Multi-Branch Chains & Premium Franchises', features: ['Unlimited Branches Support', 'Centralized Franchise Admin Panel', 'WhatsApp Automations & Campaigns', 'Unlimited AI Insights & Analytics', 'Suppliers Ledger Tracker', 'Dedicated 24/7 Account Manager'] }
             ].map((plan, i) => (
               <div key={i} className="glass-card" style={{
-                background: plan.name === 'Professional' ? 'rgba(212,175,55,0.04)' : 'rgba(255,255,255,0.01)',
-                border: plan.name === 'Professional' ? '1px solid var(--gold-primary)' : '1px solid var(--border-light)',
+                background: plan.name === 'Franchise Plan' ? 'rgba(112, 130, 56, 0.05)' : 'rgba(255,255,255,0.01)',
+                border: plan.name === 'Franchise Plan' ? '1px solid var(--gold-primary)' : '1px solid var(--border-light)',
                 display: 'flex',
                 flexDirection: 'column',
                 justifyContent: 'space-between',
                 padding: '2.5rem 2rem',
                 position: 'relative'
               }}>
-                {plan.name === 'Professional' && (
+                {plan.name === 'Franchise Plan' && (
                   <span style={{
                     position: 'absolute',
                     top: '15px',
@@ -288,7 +287,7 @@ const LandingPage = ({ onStartTrial, onLogin }) => {
                   </div>
                 </div>
 
-                <button onClick={onStartTrial} className={plan.name === 'Professional' ? 'gold-btn' : 'outline-btn'} style={{ width: '100%', justifyContent: 'center' }}>
+                <button onClick={onStartTrial} className={plan.name === 'Franchise Plan' ? 'gold-btn' : 'outline-btn'} style={{ width: '100%', justifyContent: 'center' }}>
                   Start Free Trial
                 </button>
               </div>

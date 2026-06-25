@@ -28,8 +28,8 @@ const SalonSchema = new mongoose.Schema({
   businessType: { type: String },
   subscriptionPlan: { 
     type: String, 
-    enum: ['Starter', 'Professional', 'Enterprise'], 
-    default: 'Starter' 
+    enum: ['Starter Salon', 'Franchise'], 
+    default: 'Starter Salon' 
   },
   subscriptionStatus: { 
     type: String, 

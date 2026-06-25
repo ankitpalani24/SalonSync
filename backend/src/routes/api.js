@@ -37,7 +37,7 @@ router.post('/auth/signup', async (req, res) => {
       state,
       gstNumber,
       businessType,
-      subscriptionPlan: 'Starter',
+      subscriptionPlan: 'Starter Salon',
       subscriptionStatus: 'Trial'
     });
 

@@ -13,7 +13,7 @@ export const mockSalons = [
     state: "Maharashtra",
     gstNumber: "27AAAAA1111A1Z1",
     businessType: "Premium Salon & Spa Franchise",
-    subscriptionPlan: "Enterprise",
+    subscriptionPlan: "Franchise",
     subscriptionStatus: "Active"
   },
   {
@@ -27,7 +27,7 @@ export const mockSalons = [
     state: "Delhi",
     gstNumber: "07BBBBB2222B2Z2",
     businessType: "Gentlemen's Barber Shop",
-    subscriptionPlan: "Professional",
+    subscriptionPlan: "Starter Salon",
     subscriptionStatus: "Active"
   }
 ];

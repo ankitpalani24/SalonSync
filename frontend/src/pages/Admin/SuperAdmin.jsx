@@ -7,7 +7,7 @@ const SuperAdmin = () => {
 
   const [selectedSalonId, setSelectedSalonId] = useState('');
   const [showSubModal, setShowSubModal] = useState(false);
-  const [subPlan, setSubPlan] = useState('Starter');
+  const [subPlan, setSubPlan] = useState('Starter Salon');
   const [subStatus, setSubStatus] = useState('Trial');
 
   // Master Calculations
@@ -16,13 +16,12 @@ const SuperAdmin = () => {
   const activeSaaSRevenue = db.salons
     .filter(s => s.subscriptionStatus === 'Active')
     .reduce((sum, s) => {
-      const planPrices = { Starter: 1999, Professional: 4999, Enterprise: 9999 };
+      const planPrices = { 'Starter Salon': 1999, 'Franchise': 9999 };
       return sum + (planPrices[s.subscriptionPlan] || 0);
     }, 0);
 
-  const starterCount = db.salons.filter(s => s.subscriptionPlan === 'Starter').length;
-  const proCount = db.salons.filter(s => s.subscriptionPlan === 'Professional').length;
-  const entCount = db.salons.filter(s => s.subscriptionPlan === 'Enterprise').length;
+  const starterCount = db.salons.filter(s => s.subscriptionPlan === 'Starter Salon').length;
+  const franchiseCount = db.salons.filter(s => s.subscriptionPlan === 'Franchise').length;
 
   const handleOpenSubscription = (salon) => {
     setSelectedSalonId(salon._id);
@@ -71,7 +70,7 @@ const SuperAdmin = () => {
         <div className="glass-card">
           <p style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>SUBSCRIBERS SPLITS</p>
           <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
-            Starter: {starterCount} • Pro: {proCount} • Ent: {entCount}
+            Starter Salon: {starterCount} • Franchise: {franchiseCount}
           </p>
         </div>
       </div>
@@ -185,9 +184,8 @@ const SuperAdmin = () => {
               <div className="form-group">
                 <label>SaaS Subscription Plan</label>
                 <select className="form-control" value={subPlan} onChange={(e) => setSubPlan(e.target.value)}>
-                  <option value="Starter">Starter (₹1,999/mo)</option>
-                  <option value="Professional">Professional (₹4,999/mo)</option>
-                  <option value="Enterprise">Enterprise (₹9,999/mo)</option>
+                  <option value="Starter Salon">Starter Salon (₹1,999/mo)</option>
+                  <option value="Franchise">Franchise (₹9,999/mo)</option>
                 </select>
               </div>
 

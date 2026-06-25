@@ -144,7 +144,7 @@ export const AppProvider = ({ children }) => {
         state: payload.state,
         gstNumber: payload.gstNumber,
         businessType: payload.businessType,
-        subscriptionPlan: 'Starter',
+        subscriptionPlan: 'Starter Salon',
         subscriptionStatus: 'Trial'
       };
 
