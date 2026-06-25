@@ -1,3 +1,10 @@
+const dns = require('dns');
+try {
+  dns.setServers(['8.8.8.8', '1.1.1.1']);
+} catch (e) {
+  console.log('Failed to set Google/Cloudflare DNS servers, using default resolver.');
+}
+
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');

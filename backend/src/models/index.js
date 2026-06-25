@@ -106,9 +106,8 @@ const ServiceSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Auto-calculate profit margin on save
-ServiceSchema.pre('save', function(next) {
+ServiceSchema.pre('save', function() {
   this.profitMargin = this.price - this.materialCost;
-  next();
 });
 
 // 7. Package Schema
