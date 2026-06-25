@@ -70,7 +70,7 @@ export const mockUsers = [
   {
     _id: "user_super_admin",
     name: "SalonSync Administrator",
-    email: "admin@salonflow.ai",
+    email: "admin@salonsync.com",
     phone: "+91 99999 88888",
     role: "SUPER_ADMIN",
     salonId: null,

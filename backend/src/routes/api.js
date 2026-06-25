@@ -7,7 +7,7 @@ const { protect, authorize, restrictToTenant } = require('../middleware/auth');
 
 // JWT signer helper
 const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET || 'salonflow_secret_key_12345', {
+  return jwt.sign({ id }, process.env.JWT_SECRET || 'salonsync_secret_key_12345', {
     expiresIn: '30d',
   });
 };
