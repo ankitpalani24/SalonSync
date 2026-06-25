@@ -62,7 +62,7 @@ router.post('/auth/signup', async (req, res) => {
       email,
       phone,
       password: hashedPassword,
-      role: 'Salon Owner',
+      role: 'SALON_OWNER',
       salonId: salon._id,
       branchId: branch._id
     });
@@ -689,7 +689,7 @@ router.get('/dashboard/stats', async (req, res) => {
 });
 
 // @route   GET /api/superadmin/salons
-router.get('/superadmin/salons', authorize('Super Admin'), async (req, res) => {
+router.get('/superadmin/salons', authorize('SUPER_ADMIN'), async (req, res) => {
   try {
     const salons = await models.Salon.find({});
     res.json({ success: true, data: salons });
@@ -699,7 +699,7 @@ router.get('/superadmin/salons', authorize('Super Admin'), async (req, res) => {
 });
 
 // @route   PUT /api/superadmin/salons/:id/subscription
-router.put('/superadmin/salons/:id/subscription', authorize('Super Admin'), async (req, res) => {
+router.put('/superadmin/salons/:id/subscription', authorize('SUPER_ADMIN'), async (req, res) => {
   try {
     const { plan, status } = req.body;
     const salon = await models.Salon.findByIdAndUpdate(

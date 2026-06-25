@@ -62,9 +62,9 @@ const Header = ({ toggleMobileSidebar }) => {
         </button>
         <div>
           <h2 style={{ fontSize: '1.2rem', color: 'var(--text-primary)' }}>
-            {currentUser?.role === 'Super Admin' ? 'Platform Command Center' : currentSalon?.name}
+            {currentUser?.role === 'SUPER_ADMIN' ? 'Platform Command Center' : currentSalon?.name}
           </h2>
-          {currentUser?.role !== 'Super Admin' && (
+          {currentUser?.role !== 'SUPER_ADMIN' && (
             <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
               <MapPin size={12} style={{ color: 'var(--gold-primary)' }} />
               {currentBranch?.name} ({currentBranch?.city})
@@ -73,7 +73,7 @@ const Header = ({ toggleMobileSidebar }) => {
         </div>
 
         {/* Branch Selector for Owners/Managers */}
-        {['Salon Owner', 'Manager'].includes(currentUser?.role) && branches.length > 1 && (
+        {['SALON_OWNER', 'FRANCHISE_OWNER', 'SALON_MANAGER'].includes(currentUser?.role) && branches.length > 1 && (
           <select
             value={currentBranch?._id || ''}
             onChange={(e) => switchBranch(e.target.value)}
@@ -119,11 +119,12 @@ const Header = ({ toggleMobileSidebar }) => {
               outline: 'none'
             }}
           >
-            <option value="Super Admin">Super Admin</option>
-            <option value="Salon Owner">Salon Owner</option>
-            <option value="Manager">Manager</option>
-            <option value="Receptionist">Receptionist</option>
-            <option value="Staff">Staff</option>
+            <option value="SUPER_ADMIN">Super Admin</option>
+            <option value="SALON_OWNER">Salon Owner</option>
+            <option value="SALON_MANAGER">Salon Manager</option>
+            <option value="FRANCHISE_OWNER">Franchise Owner</option>
+            <option value="STAFF">Staff</option>
+            <option value="CLIENT">Client</option>
           </select>
         </div>
 
@@ -234,7 +235,19 @@ const Header = ({ toggleMobileSidebar }) => {
           </div>
           <div className="header-user-details">
             <p style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-primary)' }}>{currentUser?.name}</p>
-            <p style={{ fontSize: '0.7rem', color: 'var(--gold-primary)', fontWeight: '500' }}>{currentUser?.role}</p>
+            <p style={{ fontSize: '0.7rem', color: 'var(--gold-primary)', fontWeight: '500' }}>
+              {(() => {
+                const rolesMap = {
+                  SUPER_ADMIN: 'Super Admin',
+                  SALON_OWNER: 'Salon Owner',
+                  SALON_MANAGER: 'Salon Manager',
+                  FRANCHISE_OWNER: 'Franchise Owner',
+                  STAFF: 'Staff Member',
+                  CLIENT: 'Client'
+                };
+                return rolesMap[currentUser?.role] || currentUser?.role;
+              })()}
+            </p>
           </div>
         </div>
 

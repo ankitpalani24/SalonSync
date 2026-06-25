@@ -3,12 +3,14 @@ import { ChevronLeft, ChevronRight, Plus, Calendar, Clock, User, Check, X, Shiel
 import { useApp } from '../context/AppContext';
 
 const Appointments = ({ setActivePage, setSelectedApptForCheckout }) => {
-  const { tenantFilter, db, addAppointment, updateAppointmentStatus, addNotification } = useApp();
+  const { currentUser, tenantFilter, db, addAppointment, updateAppointmentStatus, addNotification } = useApp();
 
   const appointments = tenantFilter(db.appointments);
   const customers = tenantFilter(db.customers);
   const services = tenantFilter(db.services);
   const staffMembers = tenantFilter(db.staff);
+  
+  const customerProfile = currentUser?.role === 'CLIENT' ? db.customers.find(c => c.email === currentUser.email) : null;
 
   // Calendar views: 'month', 'week', 'day'
   const [viewType, setViewType] = useState('month');
@@ -59,7 +61,7 @@ const Appointments = ({ setActivePage, setSelectedApptForCheckout }) => {
   };
 
   const handleOpenBookModal = () => {
-    setSelectedCustId(customers[0]?._id || '');
+    setSelectedCustId(currentUser?.role === 'CLIENT' ? (customerProfile?._id || '') : (customers[0]?._id || ''));
     setWalkinName('');
     setSelectedServId(services[0]?._id || '');
     setSelectedStaffId(staffMembers[0]?._id || '');
@@ -224,10 +226,15 @@ const Appointments = ({ setActivePage, setSelectedApptForCheckout }) => {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem', overflow: 'hidden' }}>
                       {dayAppts.slice(0, 3).map((appt) => {
                         const cust = db.customers.find(c => c._id === appt.customerId);
+                        const isMine = customerProfile && appt.customerId === customerProfile._id;
+                        const labelText = isMine ? 'My Session' : 'Slot Blocked';
                         return (
                           <div 
                             key={appt._id}
-                            onClick={() => handleApptClick(appt)}
+                            onClick={() => {
+                              if (currentUser.role === 'CLIENT' && !isMine) return;
+                              handleApptClick(appt);
+                            }}
                             style={{
                               fontSize: '0.65rem',
                               padding: '0.15rem 0.35rem',
@@ -237,11 +244,11 @@ const Appointments = ({ setActivePage, setSelectedApptForCheckout }) => {
                               whiteSpace: 'nowrap',
                               overflow: 'hidden',
                               textOverflow: 'ellipsis',
-                              cursor: 'pointer',
+                              cursor: (currentUser.role === 'CLIENT' && !isMine) ? 'default' : 'pointer',
                               borderLeft: `2px solid ${appt.status === 'Completed' ? 'var(--accent-green)' : 'var(--gold-primary)'}`
                             }}
                           >
-                            {appt.time} {cust ? cust.name.split(' ')[0] : 'Walk-in'}
+                            {appt.time} {currentUser.role === 'CLIENT' ? labelText : (cust ? cust.name.split(' ')[0] : 'Walk-in')}
                           </div>
                         );
                       })}
@@ -285,6 +292,34 @@ const Appointments = ({ setActivePage, setSelectedApptForCheckout }) => {
                           slotAppts.map((appt) => {
                             const cust = db.customers.find(c => c._id === appt.customerId);
                             const staff = db.staff.find(s => s._id === appt.staffId);
+                            const isMine = customerProfile && appt.customerId === customerProfile._id;
+                            
+                            if (currentUser.role === 'CLIENT' && !isMine) {
+                              return (
+                                <div
+                                  key={appt._id}
+                                  style={{
+                                    background: 'rgba(255,255,255,0.02)',
+                                    border: '1px solid var(--border-light)',
+                                    borderRadius: '4px',
+                                    padding: '0.5rem',
+                                    display: 'inline-flex',
+                                    justifyContent: 'space-between',
+                                    width: '100%',
+                                    maxWidth: '450px',
+                                    cursor: 'default'
+                                  }}
+                                >
+                                  <div>
+                                    <strong style={{ color: 'var(--text-muted)' }}>Slot Blocked</strong>
+                                    <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                                      Unavailable for scheduling
+                                    </p>
+                                  </div>
+                                </div>
+                              );
+                            }
+
                             return (
                               <div
                                 key={appt._id}
@@ -332,19 +367,28 @@ const Appointments = ({ setActivePage, setSelectedApptForCheckout }) => {
               <button onClick={() => setShowBookModal(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)' }}><X size={18} /></button>
             </div>
             <form onSubmit={handleBookSubmit}>
-              <div className="form-group">
-                <label>Select Registered Client</label>
-                <select className="form-control" value={selectedCustId} onChange={(e) => setSelectedCustId(e.target.value)}>
-                  {customers.map(c => <option key={c._id} value={c._id}>{c.name} ({c.phone})</option>)}
-                  <option value="">-- Add Walk-in Customer --</option>
-                </select>
-              </div>
-
-              {!selectedCustId && (
+              {currentUser?.role === 'CLIENT' ? (
                 <div className="form-group">
-                  <label>Walk-in Client Name</label>
-                  <input type="text" required placeholder="Guest Client" className="form-control" value={walkinName} onChange={(e) => setWalkinName(e.target.value)} />
+                  <label>Booking Customer</label>
+                  <input type="text" className="form-control" disabled value={`${currentUser.name} (${customerProfile?.phone || ''})`} />
                 </div>
+              ) : (
+                <>
+                  <div className="form-group">
+                    <label>Select Registered Client</label>
+                    <select className="form-control" value={selectedCustId} onChange={(e) => setSelectedCustId(e.target.value)}>
+                      {customers.map(c => <option key={c._id} value={c._id}>{c.name} ({c.phone})</option>)}
+                      <option value="">-- Add Walk-in Customer --</option>
+                    </select>
+                  </div>
+
+                  {!selectedCustId && (
+                    <div className="form-group">
+                      <label>Walk-in Client Name</label>
+                      <input type="text" required placeholder="Guest Client" className="form-control" value={walkinName} onChange={(e) => setWalkinName(e.target.value)} />
+                    </div>
+                  )}
+                </>
               )}
 
               <div className="form-group">
@@ -414,55 +458,74 @@ const Appointments = ({ setActivePage, setSelectedApptForCheckout }) => {
             </div>
 
             {/* Status Modification Actions */}
-            <div style={{ marginBottom: '1.5rem' }}>
-              <h4 style={{ fontSize: '0.85rem', color: 'var(--gold-primary)', marginBottom: '0.5rem' }}>Set Progress Status</h4>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-                {['Scheduled', 'Confirmed', 'In Progress', 'Completed', 'Cancelled'].map((st) => (
-                  <button
-                    key={st}
-                    onClick={() => handleStatusChange(st)}
-                    style={{
-                      background: selectedAppt.status === st ? 'var(--gold-primary)' : 'rgba(255,255,255,0.03)',
-                      color: selectedAppt.status === st ? '#000' : 'var(--text-secondary)',
-                      border: '1px solid var(--border-light)',
-                      borderRadius: '4px',
-                      padding: '0.35rem 0.5rem',
-                      fontSize: '0.7rem',
-                      fontWeight: '500'
-                    }}
-                  >
-                    {st}
-                  </button>
-                ))}
+            {currentUser?.role !== 'CLIENT' && (
+              <div style={{ marginBottom: '1.5rem' }}>
+                <h4 style={{ fontSize: '0.85rem', color: 'var(--gold-primary)', marginBottom: '0.5rem' }}>Set Progress Status</h4>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                  {['Scheduled', 'Confirmed', 'In Progress', 'Completed', 'Cancelled'].map((st) => (
+                    <button
+                      key={st}
+                      onClick={() => handleStatusChange(st)}
+                      style={{
+                        background: selectedAppt.status === st ? 'var(--gold-primary)' : 'rgba(255,255,255,0.03)',
+                        color: selectedAppt.status === st ? '#000' : 'var(--text-secondary)',
+                        border: '1px solid var(--border-light)',
+                        borderRadius: '4px',
+                        padding: '0.35rem 0.5rem',
+                        fontSize: '0.7rem',
+                        fontWeight: '500'
+                      }}
+                    >
+                      {st}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Campaign Automation simulator */}
-            <div style={{ background: 'rgba(255,255,255,0.02)', padding: '1rem', borderRadius: '6px', border: '1px solid var(--border-light)', marginBottom: '1.5rem' }}>
-              <h4 style={{ fontSize: '0.8rem', color: 'var(--text-primary)', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                <AlertCircle size={14} style={{ color: 'var(--gold-primary)' }} /> WhatsApp Automation Triggers
-              </h4>
-              <div className="grid-3-cols">
-                <button onClick={() => handleSendReminder('confirmation')} style={{ background: 'transparent', border: '1px solid var(--gold-border)', color: 'var(--gold-primary)', fontSize: '0.65rem', padding: '0.4rem', borderRadius: '4px' }}>
-                  Send Confirm
-                </button>
-                <button onClick={() => handleSendReminder('reminder')} style={{ background: 'transparent', border: '1px solid var(--gold-border)', color: 'var(--gold-primary)', fontSize: '0.65rem', padding: '0.4rem', borderRadius: '4px' }}>
-                  Send Reminder
-                </button>
-                <button onClick={() => handleSendReminder('followup')} style={{ background: 'transparent', border: '1px solid var(--gold-border)', color: 'var(--gold-primary)', fontSize: '0.65rem', padding: '0.4rem', borderRadius: '4px' }}>
-                  Send Follow-up
-                </button>
+            {currentUser?.role !== 'CLIENT' && (
+              <div style={{ background: 'rgba(255,255,255,0.02)', padding: '1rem', borderRadius: '6px', border: '1px solid var(--border-light)', marginBottom: '1.5rem' }}>
+                <h4 style={{ fontSize: '0.8rem', color: 'var(--text-primary)', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                  <AlertCircle size={14} style={{ color: 'var(--gold-primary)' }} /> WhatsApp Automation Triggers
+                </h4>
+                <div className="grid-3-cols">
+                  <button onClick={() => handleSendReminder('confirmation')} style={{ background: 'transparent', border: '1px solid var(--gold-border)', color: 'var(--gold-primary)', fontSize: '0.65rem', padding: '0.4rem', borderRadius: '4px' }}>
+                    Send Confirm
+                  </button>
+                  <button onClick={() => handleSendReminder('reminder')} style={{ background: 'transparent', border: '1px solid var(--gold-border)', color: 'var(--gold-primary)', fontSize: '0.65rem', padding: '0.4rem', borderRadius: '4px' }}>
+                    Send Reminder
+                  </button>
+                  <button onClick={() => handleSendReminder('followup')} style={{ background: 'transparent', border: '1px solid var(--gold-border)', color: 'var(--gold-primary)', fontSize: '0.65rem', padding: '0.4rem', borderRadius: '4px' }}>
+                    Send Follow-up
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Transition hook to POS billing */}
-            {selectedAppt.status === 'Completed' && (
+            {currentUser?.role !== 'CLIENT' && selectedAppt.status === 'Completed' && (
               <button 
                 onClick={handleProceedToCheckout} 
                 className="gold-btn" 
                 style={{ width: '100%', justifyContent: 'center' }}
               >
                 Proceed to POS Checkout (Invoice Billing)
+              </button>
+            )}
+
+            {/* CLIENT Cancel Booking Option */}
+            {currentUser?.role === 'CLIENT' && (selectedAppt.status !== 'Completed' && selectedAppt.status !== 'Cancelled') && (
+              <button 
+                onClick={() => {
+                  handleStatusChange('Cancelled');
+                  setShowDetailModal(false);
+                  alert('Your appointment has been cancelled successfully.');
+                }} 
+                className="outline-btn" 
+                style={{ width: '100%', justifyContent: 'center', borderColor: 'var(--accent-red)', color: 'var(--accent-red)' }}
+              >
+                Cancel Booking Reservation
               </button>
             )}
 

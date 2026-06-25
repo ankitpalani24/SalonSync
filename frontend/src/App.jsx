@@ -28,18 +28,36 @@ function App() {
   // Transfer state for checking out appointments
   const [selectedApptForCheckout, setSelectedApptForCheckout] = useState(null);
 
-  // Sync active page with login status
+  // Sync active page with login status and check role permissions
   useEffect(() => {
     if (currentUser) {
-      if (currentUser.role === 'Super Admin') {
-        setActivePage('super-admin');
+      if (currentUser.role === 'SUPER_ADMIN') {
+        if (activePage !== 'super-admin') {
+          setActivePage('super-admin');
+        }
       } else {
-        setActivePage('dashboard');
+        const pagePermissions = {
+          'dashboard': ['SALON_OWNER', 'SALON_MANAGER', 'FRANCHISE_OWNER', 'STAFF', 'CLIENT'],
+          'customers': ['SALON_OWNER', 'SALON_MANAGER', 'FRANCHISE_OWNER'],
+          'appointments': ['SALON_OWNER', 'SALON_MANAGER', 'FRANCHISE_OWNER', 'STAFF', 'CLIENT'],
+          'services': ['SALON_OWNER', 'SALON_MANAGER', 'FRANCHISE_OWNER'],
+          'billing': ['SALON_OWNER', 'SALON_MANAGER', 'FRANCHISE_OWNER'],
+          'inventory': ['SALON_OWNER', 'SALON_MANAGER', 'FRANCHISE_OWNER'],
+          'staff': ['SALON_OWNER', 'SALON_MANAGER', 'FRANCHISE_OWNER', 'STAFF'],
+          'analytics': ['SALON_OWNER', 'SALON_MANAGER', 'FRANCHISE_OWNER'],
+          'marketing': ['SALON_OWNER', 'FRANCHISE_OWNER']
+        };
+        const allowedRoles = pagePermissions[activePage];
+        if (activePage === 'super-admin' || (allowedRoles && !allowedRoles.includes(currentUser.role))) {
+          setActivePage('dashboard');
+        }
       }
     } else {
-      setActivePage('landing');
+      if (activePage !== 'login' && activePage !== 'signup') {
+        setActivePage('landing');
+      }
     }
-  }, [currentUser]);
+  }, [currentUser, activePage]);
 
   // Route Dispatcher
   const renderActivePage = () => {

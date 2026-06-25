@@ -9,16 +9,16 @@ import { useApp } from '../context/AppContext';
 const Sidebar = ({ activePage, setActivePage, collapsed, setCollapsed, user, logout }) => {
   // Navigation mapping according to role
   const menuItems = [
-    { id: 'dashboard', label: 'Overview', icon: LayoutDashboard, roles: ['Salon Owner', 'Manager', 'Receptionist', 'Staff'] },
-    { id: 'customers', label: 'Customer CRM', icon: Users, roles: ['Salon Owner', 'Manager', 'Receptionist'] },
-    { id: 'appointments', label: 'Calendar Bookings', icon: Calendar, roles: ['Salon Owner', 'Manager', 'Receptionist', 'Staff'] },
-    { id: 'services', label: 'Services & Packages', icon: Scissors, roles: ['Salon Owner', 'Manager', 'Receptionist'] },
-    { id: 'billing', label: 'POS Billing', icon: CreditCard, roles: ['Salon Owner', 'Manager', 'Receptionist'] },
-    { id: 'inventory', label: 'Inventory', icon: Package, roles: ['Salon Owner', 'Manager', 'Receptionist'] },
-    { id: 'staff', label: 'Staff & Roster', icon: UserCheck, roles: ['Salon Owner', 'Manager', 'Staff'] },
-    { id: 'analytics', label: 'BI Analytics', icon: BarChart3, roles: ['Salon Owner', 'Manager'] },
-    { id: 'marketing', label: 'Marketing Auto', icon: MessageSquare, roles: ['Salon Owner'] },
-    { id: 'super-admin', label: 'Super Admin', icon: Crown, roles: ['Super Admin'] }
+    { id: 'dashboard', label: 'Overview', icon: LayoutDashboard, roles: ['SALON_OWNER', 'SALON_MANAGER', 'FRANCHISE_OWNER', 'STAFF', 'CLIENT'] },
+    { id: 'customers', label: 'Customer CRM', icon: Users, roles: ['SALON_OWNER', 'SALON_MANAGER', 'FRANCHISE_OWNER'] },
+    { id: 'appointments', label: 'Calendar Bookings', icon: Calendar, roles: ['SALON_OWNER', 'SALON_MANAGER', 'FRANCHISE_OWNER', 'STAFF', 'CLIENT'] },
+    { id: 'services', label: 'Services & Packages', icon: Scissors, roles: ['SALON_OWNER', 'SALON_MANAGER', 'FRANCHISE_OWNER'] },
+    { id: 'billing', label: 'POS Billing', icon: CreditCard, roles: ['SALON_OWNER', 'SALON_MANAGER', 'FRANCHISE_OWNER'] },
+    { id: 'inventory', label: 'Inventory', icon: Package, roles: ['SALON_OWNER', 'SALON_MANAGER', 'FRANCHISE_OWNER'] },
+    { id: 'staff', label: 'Staff & Roster', icon: UserCheck, roles: ['SALON_OWNER', 'SALON_MANAGER', 'FRANCHISE_OWNER', 'STAFF'] },
+    { id: 'analytics', label: 'BI Analytics', icon: BarChart3, roles: ['SALON_OWNER', 'SALON_MANAGER', 'FRANCHISE_OWNER'] },
+    { id: 'marketing', label: 'Marketing Auto', icon: MessageSquare, roles: ['SALON_OWNER', 'FRANCHISE_OWNER'] },
+    { id: 'super-admin', label: 'Super Admin', icon: Crown, roles: ['SUPER_ADMIN'] }
   ];
 
   const {
@@ -40,7 +40,7 @@ const Sidebar = ({ activePage, setActivePage, collapsed, setCollapsed, user, log
   };
 
   const filteredMenu = menuItems.filter(item => {
-    if (user.role === 'Super Admin') return item.id === 'super-admin';
+    if (user.role === 'SUPER_ADMIN') return item.id === 'super-admin';
     return item.roles.includes(user.role);
   });
 
@@ -157,7 +157,7 @@ const Sidebar = ({ activePage, setActivePage, collapsed, setCollapsed, user, log
           marginBottom: '0.5rem'
         }}>
           {/* Branch Selector */}
-          {['Salon Owner', 'Manager'].includes(user?.role) && branches.length > 1 && (
+          {['SALON_OWNER', 'FRANCHISE_OWNER', 'SALON_MANAGER'].includes(user?.role) && branches.length > 1 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
               <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Branch:</span>
               <select
@@ -202,11 +202,12 @@ const Sidebar = ({ activePage, setActivePage, collapsed, setCollapsed, user, log
                 width: '100%'
               }}
             >
-              <option value="Super Admin">Super Admin</option>
-              <option value="Salon Owner">Salon Owner</option>
-              <option value="Manager">Manager</option>
-              <option value="Receptionist">Receptionist</option>
-              <option value="Staff">Staff</option>
+              <option value="SUPER_ADMIN">Super Admin</option>
+              <option value="SALON_OWNER">Salon Owner</option>
+              <option value="SALON_MANAGER">Salon Manager</option>
+              <option value="FRANCHISE_OWNER">Franchise Owner</option>
+              <option value="STAFF">Staff</option>
+              <option value="CLIENT">Client</option>
             </select>
           </div>
         </div>

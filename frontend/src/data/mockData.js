@@ -72,7 +72,7 @@ export const mockUsers = [
     name: "SalonSync Administrator",
     email: "admin@salonflow.ai",
     phone: "+91 99999 88888",
-    role: "Super Admin",
+    role: "SUPER_ADMIN",
     salonId: null,
     branchId: null
   },
@@ -82,7 +82,7 @@ export const mockUsers = [
     name: "Alexander Wright",
     email: "alex@luxegold.com",
     phone: "+91 98765 43210",
-    role: "Salon Owner",
+    role: "FRANCHISE_OWNER",
     salonId: "salon_luxe_123",
     branchId: "branch_mumbai_1"
   },
@@ -92,17 +92,17 @@ export const mockUsers = [
     name: "Victoria Beckham",
     email: "victoria@luxegold.com",
     phone: "+91 98765 43211",
-    role: "Manager",
+    role: "SALON_MANAGER",
     salonId: "salon_luxe_123",
     branchId: "branch_mumbai_1"
   },
-  // Receptionist
+  // Receptionist (Staff)
   {
     _id: "user_luxe_receptionist",
     name: "Rachel Green",
     email: "rachel@luxegold.com",
     phone: "+91 98765 43212",
-    role: "Receptionist",
+    role: "STAFF",
     salonId: "salon_luxe_123",
     branchId: "branch_mumbai_1"
   },
@@ -112,7 +112,17 @@ export const mockUsers = [
     name: "Daniel Craig",
     email: "daniel@luxegold.com",
     phone: "+91 98765 43213",
-    role: "Staff",
+    role: "STAFF",
+    salonId: "salon_luxe_123",
+    branchId: "branch_mumbai_1"
+  },
+  // Client (Priyanka Chopra)
+  {
+    _id: "user_luxe_client",
+    name: "Priyanka Chopra",
+    email: "priyanka@chopra.com",
+    phone: "9819999999",
+    role: "CLIENT",
     salonId: "salon_luxe_123",
     branchId: "branch_mumbai_1"
   }

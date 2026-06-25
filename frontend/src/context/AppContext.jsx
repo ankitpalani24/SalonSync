@@ -225,8 +225,12 @@ export const AppProvider = ({ children }) => {
 
   // Helper filter by tenant (salonId)
   const tenantFilter = (items) => {
-    if (!currentUser || currentUser.role === 'Super Admin') return items;
-    return items.filter(item => item.salonId === currentUser.salonId);
+    if (!currentUser || currentUser.role === 'SUPER_ADMIN') return items;
+    let filtered = items.filter(item => item.salonId === currentUser.salonId);
+    if (['SALON_MANAGER', 'STAFF'].includes(currentUser.role) && currentUser.branchId) {
+      filtered = filtered.filter(item => !item.branchId || item.branchId === currentUser.branchId);
+    }
+    return filtered;
   };
 
   // ----------------------------------------------------

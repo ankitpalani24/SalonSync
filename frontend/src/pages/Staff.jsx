@@ -3,11 +3,21 @@ import { Plus, User, Clock, Award, Shield, UserCheck, Calculator, X } from 'luci
 import { useApp } from '../context/AppContext';
 
 const Staff = () => {
-  const { tenantFilter, db, addStaff, clockInStaff, clockOutStaff } = useApp();
+  const { currentUser, tenantFilter, db, addStaff, clockInStaff, clockOutStaff } = useApp();
 
   const staff = tenantFilter(db.staff);
   const attendance = tenantFilter(db.attendance);
   const commissions = tenantFilter(db.commissions);
+
+  const isStaffRole = currentUser?.role === 'STAFF';
+  const myStaffRecord = db.staff.find(s => 
+    (s.phone && currentUser?.phone && s.phone.replace(/[\s+-]/g, '').endsWith(currentUser?.phone.replace(/[\s+-]/g, '').slice(-10))) ||
+    (s.email && currentUser?.email && s.email.toLowerCase() === currentUser?.email.toLowerCase()) ||
+    (s.name && currentUser?.name && s.name.toLowerCase() === currentUser?.name.toLowerCase())
+  );
+
+  const displayAttendanceStaff = isStaffRole ? staff.filter(member => member._id === myStaffRecord?._id) : staff;
+  const displayCommissions = isStaffRole ? commissions.filter(c => c.staffId === myStaffRecord?._id) : commissions;
 
   const [activePane, setActivePane] = useState('roster'); // 'roster', 'attendance', 'commissions'
   const [showStaffModal, setShowStaffModal] = useState(false);
@@ -72,9 +82,11 @@ const Staff = () => {
         <div>
           <div className="page-header" style={{ marginBottom: '1.5rem' }}>
             <h3 style={{ fontSize: '1rem', color: 'var(--text-primary)' }}>Active Salon Professionals</h3>
-            <button onClick={() => setShowStaffModal(true)} className="gold-btn" style={{ padding: '0.5rem 1rem' }}>
-              <Plus size={16} /> Add Employee
-            </button>
+            {['SALON_OWNER', 'FRANCHISE_OWNER', 'SALON_MANAGER'].includes(currentUser?.role) && (
+              <button onClick={() => setShowStaffModal(true)} className="gold-btn" style={{ padding: '0.5rem 1rem' }}>
+                <Plus size={16} /> Add Employee
+              </button>
+            )}
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.5rem' }}>
@@ -108,8 +120,8 @@ const Staff = () => {
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '1.25rem' }}>
                     <p><strong>Mobile:</strong> {member.phone}</p>
-                    <p><strong>Base Monthly Salary:</strong> ₹{member.salary.toLocaleString()}</p>
-                    <p><strong>Commission Ratio:</strong> {member.commissionPercentage}% on services</p>
+                    <p><strong>Base Monthly Salary:</strong> {(!isStaffRole || member._id === myStaffRecord?._id) ? `₹${member.salary.toLocaleString()}` : '₹[Confidential]'}</p>
+                    <p><strong>Commission Ratio:</strong> {(!isStaffRole || member._id === myStaffRecord?._id) ? `${member.commissionPercentage}% on services` : '[Confidential]'}</p>
                     <p style={{ display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
                       <strong>Performance:</strong> <Award size={14} style={{ color: 'var(--gold-primary)' }} /> {member.rating || 5.0} / 5
                     </p>
@@ -128,7 +140,9 @@ const Staff = () => {
                     fontSize: '0.8rem'
                   }}>
                     <span style={{ color: 'var(--text-muted)' }}>Month Commissions:</span>
-                    <strong style={{ color: 'var(--accent-green)' }}>₹{totalCommEarned.toLocaleString()}</strong>
+                    <strong style={{ color: 'var(--accent-green)' }}>
+                      {(!isStaffRole || member._id === myStaffRecord?._id) ? `₹${totalCommEarned.toLocaleString()}` : '₹[Confidential]'}
+                    </strong>
                   </div>
                 </div>
               );
@@ -158,7 +172,7 @@ const Staff = () => {
                 </tr>
               </thead>
               <tbody>
-                {staff.map(member => {
+                {displayAttendanceStaff.map(member => {
                   const log = attendance.find(a => a.staffId === member._id && a.date === today);
                   return (
                     <tr key={member._id}>
@@ -246,12 +260,12 @@ const Staff = () => {
                 </tr>
               </thead>
               <tbody>
-                {commissions.length === 0 ? (
+                {displayCommissions.length === 0 ? (
                   <tr>
                     <td colSpan="6" style={{ textAlign: 'center', color: 'var(--text-muted)' }}>No commissions transactions recorded.</td>
                   </tr>
                 ) : (
-                  commissions.map(c => {
+                  displayCommissions.map(c => {
                     const member = db.staff.find(st => st._id === c.staffId);
                     const inv = db.invoices.find(i => i._id === c.invoiceId);
                     return (

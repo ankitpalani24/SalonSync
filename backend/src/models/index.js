@@ -8,8 +8,8 @@ const UserSchema = new mongoose.Schema({
   password: { type: String, required: true },
   role: { 
     type: String, 
-    enum: ['Super Admin', 'Salon Owner', 'Manager', 'Receptionist', 'Staff'], 
-    default: 'Staff' 
+    enum: ['SUPER_ADMIN', 'SALON_OWNER', 'SALON_MANAGER', 'FRANCHISE_OWNER', 'STAFF', 'CLIENT'], 
+    default: 'STAFF' 
   },
   salonId: { type: mongoose.Schema.Types.ObjectId, ref: 'Salon' },
   branchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch' },
@@ -250,7 +250,7 @@ const CommissionSchema = new mongoose.Schema({
 // 17. Subscription Schema (For Salon platforms/Super Admin)
 const SubscriptionSchema = new mongoose.Schema({
   salonId: { type: mongoose.Schema.Types.ObjectId, ref: 'Salon', required: true },
-  plan: { type: String, enum: ['Starter', 'Professional', 'Enterprise'], required: true },
+  plan: { type: String, enum: ['Starter Salon', 'Franchise'], required: true },
   price: { type: Number, required: true },
   startDate: { type: Date, required: true },
   endDate: { type: Date, required: true },
