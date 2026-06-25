@@ -230,7 +230,7 @@ const AuthPages = ({ defaultView = 'login', onAuthSuccess, onBackToLanding }) =>
         {/* 2. SIGNUP VIEW */}
         {view === 'signup' && (
           <form onSubmit={handleSignupSubmit}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+            <div className="grid-2-cols-split">
               
               {/* Owner Info Column */}
               <div>
@@ -291,7 +291,7 @@ const AuthPages = ({ defaultView = 'login', onAuthSuccess, onBackToLanding }) =>
                   </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                <div className="grid-2-cols">
                   <div className="form-group">
                     <label>City</label>
                     <input type="text" required placeholder="Mumbai" className="form-control" value={city} onChange={(e) => setCity(e.target.value)} />
@@ -302,7 +302,7 @@ const AuthPages = ({ defaultView = 'login', onAuthSuccess, onBackToLanding }) =>
                   </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                <div className="grid-2-cols">
                   <div className="form-group">
                     <label>GST Number</label>
                     <input type="text" placeholder="27AAAAA1111A1Z1" className="form-control" value={gstNumber} onChange={(e) => setGstNumber(e.target.value)} />

@@ -11,7 +11,7 @@ export const AppProvider = ({ children }) => {
   });
 
   // Demo Mode state
-  const [demoMode, setDemoMode] = useState(true);
+  const [demoMode, setDemoMode] = useState(false);
 
   // Active tenant states
   const [currentUser, setCurrentUser] = useState(() => {
@@ -332,7 +332,7 @@ export const AppProvider = ({ children }) => {
       _id: `exp_${Date.now()}`,
       salonId: currentUser.salonId,
       branchId: currentBranch ? currentBranch._id : null,
-      date: new Date().toISOString().split('T')[0],
+      date: new Date().toLocaleDateString('en-CA'),
       ...exp
     };
     setDb(prev => ({
@@ -388,7 +388,7 @@ export const AppProvider = ({ children }) => {
   };
 
   const clockInStaff = (staffId) => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = new Date().toLocaleDateString('en-CA');
     const nowTime = new Date().toTimeString().split(' ')[0].substring(0, 5); // "HH:MM"
     
     // Check if already clocked in
@@ -414,7 +414,7 @@ export const AppProvider = ({ children }) => {
   };
 
   const clockOutStaff = (staffId) => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = new Date().toLocaleDateString('en-CA');
     const nowTime = new Date().toTimeString().split(' ')[0].substring(0, 5);
 
     setDb(prev => {
@@ -538,7 +538,7 @@ export const AppProvider = ({ children }) => {
             revenueGenerated: serviceRev,
             commissionRate: employee.commissionPercentage,
             commissionEarned,
-            date: new Date().toISOString().split('T')[0]
+            date: new Date().toLocaleDateString('en-CA')
           }]
         }));
       }

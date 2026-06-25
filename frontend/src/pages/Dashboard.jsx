@@ -22,10 +22,10 @@ const Dashboard = ({ setActivePage }) => {
   const branchExpenses = salonExpenses.filter(e => e.branchId === currentBranch?._id);
   
   // Date ranges
-  const today = new Date().toISOString().split('T')[0];
+  const today = new Date().toLocaleDateString('en-CA');
   const startOfMonth = new Date();
   startOfMonth.setDate(1);
-  const startOfMonthStr = startOfMonth.toISOString().split('T')[0];
+  const startOfMonthStr = startOfMonth.toLocaleDateString('en-CA');
 
   // ----------------------------------------------------
   // CALCULATIONS (PROFIT & LOSS ENGINE)
@@ -81,14 +81,14 @@ const Dashboard = ({ setActivePage }) => {
   return (
     <div className="page-container animated-fade-in">
       {/* Header Info */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+      <div className="page-header">
         <div>
           <h1 style={{ fontSize: '1.85rem', color: 'var(--text-primary)' }}>Dashboard Overview</h1>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
             Real-time financial analytics and operational desk logs.
           </p>
         </div>
-        <div style={{ display: 'flex', gap: '0.75rem' }}>
+        <div className="flex-mobile-column" style={{ gap: '0.75rem' }}>
           {['Salon Owner', 'Manager', 'Receptionist'].includes(currentUser.role) && (
             <button onClick={() => setActivePage('billing')} className="gold-btn">
               <CreditCard size={16} /> Open POS Checkout
@@ -171,7 +171,7 @@ const Dashboard = ({ setActivePage }) => {
       </div>
 
       {/* Analytics Charts Panel */}
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1.5rem', marginBottom: '2rem' }}>
+      <div className="grid-split-2-1" style={{ marginBottom: '2rem' }}>
         <div className="glass-card">
           <h3 style={{ fontSize: '1rem', color: 'var(--text-primary)', marginBottom: '1rem' }}>Revenue Trends (Last 6 Months)</h3>
           <RevenueLineChart />
@@ -183,7 +183,7 @@ const Dashboard = ({ setActivePage }) => {
       </div>
 
       {/* Widgets Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '1.5rem' }}>
+      <div className="grid-split-1-5-1">
         
         {/* Upcoming Appointments */}
         <div className="glass-card">

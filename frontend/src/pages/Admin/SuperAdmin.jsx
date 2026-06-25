@@ -52,12 +52,7 @@ const SuperAdmin = () => {
       </div>
 
       {/* Global metrics grid */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(4, 1fr)',
-        gap: '1.25rem',
-        marginBottom: '2rem'
-      }}>
+      <div className="grid-4-cols" style={{ marginBottom: '2rem' }}>
         <div className="glass-card">
           <p style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>TOTAL TENANT SALONS</p>
           <h3 style={{ fontSize: '1.5rem', color: 'var(--gold-primary)', fontWeight: 'bold', marginTop: '0.25rem' }}>{totalSalons} Salons</h3>

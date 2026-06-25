@@ -146,7 +146,7 @@ const Analytics = () => {
           <DollarSign size={18} /> Profit & Loss Statement (P&L Ledger)
         </h3>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.5rem' }}>
+        <div className="grid-4-cols">
           <div style={{ padding: '1rem', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-light)', borderRadius: '6px' }}>
             <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>GROSS SERVICE REVENUE</span>
             <h4 style={{ fontSize: '1.3rem', fontWeight: 'bold', color: 'var(--text-primary)', marginTop: '0.25rem' }}>
@@ -174,8 +174,7 @@ const Analytics = () => {
         </div>
       </div>
 
-      {/* BI Analytics Metrics grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1.5rem', marginBottom: '2rem' }}>
+      <div className="grid-2-cols-split" style={{ marginBottom: '2rem' }}>
         
         {/* Core Stats */}
         <div className="glass-card">

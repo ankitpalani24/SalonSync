@@ -27,7 +27,7 @@ const LandingPage = ({ onStartTrial, onLogin }) => {
   return (
     <div style={{ background: '#080808', color: '#fff', minHeight: '100vh', fontFamily: 'var(--font-sans)' }}>
       {/* Header Nav */}
-      <nav style={{
+      <nav className="landing-nav" style={{
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
@@ -55,7 +55,7 @@ const LandingPage = ({ onStartTrial, onLogin }) => {
             SalonSync
           </span>
         </div>
-        <div style={{ display: 'flex', gap: '2rem' }}>
+        <div className="hide-mobile" style={{ display: 'flex', gap: '2rem' }}>
           <a href="#features" style={{ color: '#aaa', fontSize: '0.9rem' }}>Features</a>
           <a href="#pricing" style={{ color: '#aaa', fontSize: '0.9rem' }}>Pricing</a>
           <a href="#testimonials" style={{ color: '#aaa', fontSize: '0.9rem' }}>Reviews</a>
@@ -116,7 +116,7 @@ const LandingPage = ({ onStartTrial, onLogin }) => {
             Customer CRM, Smart Booking Calendars, Billing Terminal, Automatic Inventory, Staff Commission Trackers, Profit Engines, and Comprehensive Analytics—all in one gorgeous, luxury dashboard.
           </p>
 
-          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', marginBottom: '4rem' }}>
+          <div className="hero-buttons" style={{ display: 'flex', gap: '1rem', justifyContent: 'center', marginBottom: '4rem' }}>
             <button onClick={onStartTrial} className="gold-btn" style={{ padding: '0.9rem 2.25rem', fontSize: '1rem' }}>
               Start Free Trial
             </button>
@@ -146,9 +146,9 @@ const LandingPage = ({ onStartTrial, onLogin }) => {
               <div style={{ width: '40px' }}></div>
             </div>
             
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 3fr', gap: '1rem', height: '320px', textAlign: 'left' }}>
+            <div className="landing-mock-grid">
               {/* Mock Sidebar */}
-              <div style={{ background: '#0c0c0c', padding: '0.75rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.03)' }}>
+              <div className="landing-mock-sidebar" style={{ background: '#0c0c0c', padding: '0.75rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.03)' }}>
                 <div style={{ height: '8px', background: 'rgba(212,175,55,0.3)', width: '60%', borderRadius: '4px', marginBottom: '1.25rem' }}></div>
                 {[1, 2, 3, 4, 5].map(i => (
                   <div key={i} style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem', alignItems: 'center' }}>
@@ -241,7 +241,7 @@ const LandingPage = ({ onStartTrial, onLogin }) => {
             <p style={{ color: '#888' }}>Select the package tailored for your salon scale. Cancel or switch anytime.</p>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '2rem' }}>
+          <div className="grid-3-cols">
             {[
               { name: 'Starter', price: '₹1,999', target: 'Single Salon / Spa', features: ['Customer CRM Directory', '1 Branch Included', 'Appointment Roster Calendar', 'Basic Invoicing & Billing', 'Email Activity Alerts'] },
               { name: 'Professional', price: '₹4,999', target: 'Growing Businesses', features: ['Advanced CRM Profiles', 'Up to 3 Branches Supported', 'Loyalty Program Modules', 'Full Inventory Management', 'Staff Commissions System', 'AI Assistant (50 prompts/mo)'] },
@@ -305,7 +305,7 @@ const LandingPage = ({ onStartTrial, onLogin }) => {
             <p style={{ color: '#888' }}>Here is what elite beauty franchises say about SalonSync.</p>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
+          <div className="grid-2-cols-split">
             {[
               { quote: "SalonSync replaced three different systems for us. Our bookings, checkout and staff commissions are now completely automated. The design matches our luxury brand identity.", author: "Monica Geller", role: "Owner, Velvet Spa Salon" },
               { quote: "The profit and loss engine and the multi-branch comparisons are game changers for franchise chains. I can see live reports for both Mumbai locations instantly.", author: "David Beckham", role: "Director, Groom & Co Barber franchise" }

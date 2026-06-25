@@ -59,7 +59,7 @@ const Marketing = () => {
   return (
     <div className="page-container animated-fade-in">
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+      <div className="page-header">
         <div>
           <h1 style={{ fontSize: '1.85rem', color: 'var(--text-primary)' }}>Marketing Automations</h1>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Launch WhatsApp broadcast campaigns and configure automated triggers.</p>
@@ -77,7 +77,7 @@ const Marketing = () => {
 
       {/* 1. TRIGGERS PANEL */}
       {activeTab === 'triggers' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1.5rem', alignItems: 'start' }}>
+        <div className="grid-split-2-1">
           
           {/* List of Triggers */}
           <div className="glass-card">
@@ -220,7 +220,7 @@ const Marketing = () => {
                 <input type="text" required placeholder="Monsoon Spa Promo" className="form-control" value={campaignTitle} onChange={(e) => setCampaignTitle(e.target.value)} />
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+              <div className="grid-2-cols">
                 <div className="form-group">
                   <label>Marketing Channel</label>
                   <select className="form-control" value={campaignChannel} onChange={(e) => setCampaignChannel(e.target.value)}>

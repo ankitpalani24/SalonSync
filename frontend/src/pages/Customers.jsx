@@ -82,7 +82,7 @@ const Customers = () => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `SalonSync_CRM_Export_${new Date().toISOString().split('T')[0]}.csv`;
+    link.download = `SalonSync_CRM_Export_${new Date().toLocaleDateString('en-CA')}.csv`;
     link.click();
   };
 
@@ -114,7 +114,7 @@ const Customers = () => {
   return (
     <div className="page-container animated-fade-in">
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+      <div className="page-header">
         <div>
           <h1 style={{ fontSize: '1.85rem', color: 'var(--text-primary)' }}>Customer CRM</h1>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Manage client portfolios, visit logs, and reward points.</p>
@@ -130,7 +130,7 @@ const Customers = () => {
       </div>
 
       {/* CRM Main Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1.5rem', alignItems: 'start' }}>
+      <div className="grid-split-2-1">
         
         {/* Left Side: Directory */}
         <div className="glass-card">
@@ -259,7 +259,7 @@ const Customers = () => {
                 return (
                   <div>
                     <h4 style={{ fontSize: '0.9rem', color: 'var(--gold-primary)', marginBottom: '0.75rem' }}>Treatment Summary</h4>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '1.5rem' }}>
+                    <div className="grid-2-cols" style={{ marginBottom: '1.5rem' }}>
                       <div style={{ background: 'rgba(255,255,255,0.02)', padding: '0.75rem', borderRadius: '4px' }}>
                         <p style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>TOTAL VALUE SPENT</p>
                         <span style={{ fontSize: '1rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>₹{hist.totalSpent.toLocaleString()}</span>
@@ -318,7 +318,7 @@ const Customers = () => {
                 <label>Email Address</label>
                 <input type="email" className="form-control" value={email} onChange={(e) => setEmail(e.target.value)} />
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+              <div className="grid-2-cols">
                 <div className="form-group">
                   <label>Gender</label>
                   <select className="form-control" value={gender} onChange={(e) => setGender(e.target.value)}>
@@ -367,7 +367,7 @@ const Customers = () => {
                 <label>Email Address</label>
                 <input type="email" className="form-control" value={email} onChange={(e) => setEmail(e.target.value)} />
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+              <div className="grid-2-cols">
                 <div className="form-group">
                   <label>Gender</label>
                   <select className="form-control" value={gender} onChange={(e) => setGender(e.target.value)}>

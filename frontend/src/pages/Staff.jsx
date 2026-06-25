@@ -43,12 +43,12 @@ const Staff = () => {
     clockOutStaff(id);
   };
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = new Date().toLocaleDateString('en-CA');
 
   return (
     <div className="page-container animated-fade-in">
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+      <div className="page-header">
         <div>
           <h1 style={{ fontSize: '1.85rem', color: 'var(--text-primary)' }}>Staff & HR Desk</h1>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Log staff rosters, track hours, and generate commission reports.</p>
@@ -70,7 +70,7 @@ const Staff = () => {
       {/* 1. ROSTER VIEW */}
       {activePane === 'roster' && (
         <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+          <div className="page-header" style={{ marginBottom: '1.5rem' }}>
             <h3 style={{ fontSize: '1rem', color: 'var(--text-primary)' }}>Active Salon Professionals</h3>
             <button onClick={() => setShowStaffModal(true)} className="gold-btn" style={{ padding: '0.5rem 1rem' }}>
               <Plus size={16} /> Add Employee
@@ -302,7 +302,7 @@ const Staff = () => {
                 <label>Professional Role / Title</label>
                 <input type="text" placeholder="Senior Hair Stylist" className="form-control" value={staffRole} onChange={(e) => setStaffRole(e.target.value)} />
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '0.75rem' }}>
+              <div className="grid-2-cols">
                 <div className="form-group">
                   <label>Base Monthly Salary (₹) *</label>
                   <input type="number" required placeholder="25000" className="form-control" value={staffSalary} onChange={(e) => setStaffSalary(e.target.value)} />

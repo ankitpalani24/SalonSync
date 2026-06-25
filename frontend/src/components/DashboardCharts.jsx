@@ -210,7 +210,7 @@ export const ServiceShareDonut = ({ data = [] }) => {
 
   const categories = ['Haircut', 'Hair Color', 'Facial', 'Spa', 'Bridal'];
   const values = data.length > 0 ? data : [35, 25, 20, 12, 8]; // Percentages
-  const colors = ['#d4af37', '#c5a059', '#3498db', '#2ecc71', '#9b59b6'];
+  const colors = ['#708238', '#8b9b6a', '#3498db', '#2ecc71', '#9b59b6'];
 
   const cx = 100;
   const cy = 100;
@@ -221,7 +221,7 @@ export const ServiceShareDonut = ({ data = [] }) => {
   let accumulatedPercent = 0;
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', justifyContent: 'center' }}>
+    <div className="donut-chart-wrapper">
       <svg width="200" height="200" viewBox="0 0 200 200">
         <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(255,255,255,0.03)" strokeWidth={strokeWidth} />
         {values.map((pct, idx) => {

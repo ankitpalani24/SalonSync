@@ -93,7 +93,7 @@ const Services = () => {
   return (
     <div className="page-container animated-fade-in">
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+      <div className="page-header">
         <div>
           <h1 style={{ fontSize: '1.85rem', color: 'var(--text-primary)' }}>Services & Packages</h1>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Configure treatment menu lists, material costs, and service packages.</p>
@@ -109,7 +109,7 @@ const Services = () => {
       </div>
 
       {/* Services and Packages Splits */}
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.2fr', gap: '1.5rem', alignItems: 'start' }}>
+      <div className="grid-split-3-1-2">
         
         {/* Left Side: Services Roster */}
         <div className="glass-card">
@@ -244,7 +244,7 @@ const Services = () => {
                 <input type="text" required placeholder="Signature Blow Dry" className="form-control" value={srvName} onChange={(e) => setSrvName(e.target.value)} />
               </div>
               
-              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '0.75rem' }}>
+              <div className="grid-2-cols">
                 <div className="form-group">
                   <label>Category *</label>
                   <select className="form-control" value={srvCat} onChange={(e) => setSrvCat(e.target.value)}>
@@ -257,7 +257,7 @@ const Services = () => {
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+              <div className="grid-2-cols">
                 <div className="form-group">
                   <label>Price Charged (₹) *</label>
                   <input type="number" required placeholder="1200" className="form-control" value={srvPrice} onChange={(e) => setSrvPrice(e.target.value)} />
@@ -318,7 +318,7 @@ const Services = () => {
               <div style={{ border: '1px solid var(--border-light)', borderRadius: '6px', padding: '1rem', marginBottom: '1.25rem', background: 'rgba(255,255,255,0.01)' }}>
                 <h4 style={{ fontSize: '0.8rem', color: 'var(--text-primary)', marginBottom: '0.75rem' }}>Bundle Items</h4>
                 
-                <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                <div className="flex-mobile-column" style={{ marginBottom: '1rem' }}>
                   <select className="form-control" style={{ flex: 2 }} value={tempServId} onChange={(e) => setTempServId(e.target.value)}>
                     <option value="">-- Choose Service --</option>
                     {services.map(s => <option key={s._id} value={s._id}>{s.name} (₹{s.price})</option>)}
@@ -337,7 +337,7 @@ const Services = () => {
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+              <div className="grid-2-cols">
                 <div className="form-group">
                   <label>Bundle Package Price (₹) *</label>
                   <input type="number" required placeholder="5000" className="form-control" value={pkgPrice} onChange={(e) => setPkgPrice(e.target.value)} />

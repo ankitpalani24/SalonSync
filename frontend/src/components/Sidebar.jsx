@@ -4,6 +4,7 @@ import {
   Package, UserCheck, BarChart3, MessageSquare, Bot, 
   Settings, LogOut, ChevronLeft, ChevronRight, Crown 
 } from 'lucide-react';
+import { useApp } from '../context/AppContext';
 
 const Sidebar = ({ activePage, setActivePage, collapsed, setCollapsed, user, logout }) => {
   // Navigation mapping according to role
@@ -19,6 +20,24 @@ const Sidebar = ({ activePage, setActivePage, collapsed, setCollapsed, user, log
     { id: 'marketing', label: 'Marketing Auto', icon: MessageSquare, roles: ['Salon Owner'] },
     { id: 'super-admin', label: 'Super Admin', icon: Crown, roles: ['Super Admin'] }
   ];
+
+  const {
+    currentBranch, switchBranch,
+    demoMode, setDemoMode,
+    setCurrentUser,
+    db
+  } = useApp();
+
+  const branches = db.branches.filter(b => b.salonId === user?.salonId);
+
+  const handleRoleChange = (e) => {
+    const selectedRole = e.target.value;
+    const matchedUser = db.users.find(u => u.role === selectedRole);
+    if (matchedUser) {
+      setCurrentUser(matchedUser);
+      localStorage.setItem('user', JSON.stringify(matchedUser));
+    }
+  };
 
   const filteredMenu = menuItems.filter(item => {
     if (user.role === 'Super Admin') return item.id === 'super-admin';
@@ -128,6 +147,70 @@ const Sidebar = ({ activePage, setActivePage, collapsed, setCollapsed, user, log
         flexDirection: 'column',
         gap: '0.5rem'
       }}>
+        {/* Mobile-only Quick Controls */}
+        <div className="sidebar-mobile-controls" style={{
+          padding: '0.75rem',
+          borderBottom: '1px solid var(--border-light)',
+          display: 'none',
+          flexDirection: 'column',
+          gap: '0.75rem',
+          marginBottom: '0.5rem'
+        }}>
+          {/* Branch Selector */}
+          {['Salon Owner', 'Manager'].includes(user?.role) && branches.length > 1 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+              <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Branch:</span>
+              <select
+                value={currentBranch?._id || ''}
+                onChange={(e) => switchBranch(e.target.value)}
+                style={{
+                  background: 'rgba(255,255,255,0.03)',
+                  border: '1px solid var(--gold-border)',
+                  color: 'var(--gold-primary)',
+                  borderRadius: '4px',
+                  padding: '0.35rem 0.5rem',
+                  fontSize: '0.75rem',
+                  outline: 'none',
+                  width: '100%'
+                }}
+              >
+                {branches.map(b => (
+                  <option key={b._id} value={b._id}>
+                    {b.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+
+
+          {/* Role Selector */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+            <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>View Role:</span>
+            <select
+              value={user?.role || ''}
+              onChange={handleRoleChange}
+              style={{
+                background: 'var(--bg-primary)',
+                border: '1px solid var(--border-light)',
+                color: 'var(--text-primary)',
+                borderRadius: '4px',
+                padding: '0.35rem 0.5rem',
+                fontSize: '0.75rem',
+                outline: 'none',
+                width: '100%'
+              }}
+            >
+              <option value="Super Admin">Super Admin</option>
+              <option value="Salon Owner">Salon Owner</option>
+              <option value="Manager">Manager</option>
+              <option value="Receptionist">Receptionist</option>
+              <option value="Staff">Staff</option>
+            </select>
+          </div>
+        </div>
+
         <button
           onClick={logout}
           style={{
@@ -151,6 +234,7 @@ const Sidebar = ({ activePage, setActivePage, collapsed, setCollapsed, user, log
 
         <button
           onClick={() => setCollapsed(!collapsed)}
+          className="sidebar-collapse-btn"
           style={{
             display: 'flex',
             alignItems: 'center',

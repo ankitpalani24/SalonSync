@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { Sun, Moon, Bell, MapPin, ShieldAlert, Award } from 'lucide-react';
+import { Sun, Moon, Bell, MapPin, ShieldAlert, Award, Menu } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
-const Header = () => {
+const Header = ({ toggleMobileSidebar }) => {
   const {
     darkMode, setDarkMode,
     demoMode, setDemoMode,
@@ -42,7 +42,24 @@ const Header = () => {
       zIndex: 90
     }}>
       {/* Brand/Salon Info */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+        {/* Hamburger Menu Toggle for Mobile */}
+        <button
+          onClick={toggleMobileSidebar}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            color: 'var(--text-primary)',
+            cursor: 'pointer',
+            marginRight: '0.5rem',
+            display: 'none',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}
+          className="hamburger-btn"
+        >
+          <Menu size={22} />
+        </button>
         <div>
           <h2 style={{ fontSize: '1.2rem', color: 'var(--text-primary)' }}>
             {currentUser?.role === 'Super Admin' ? 'Platform Command Center' : currentSalon?.name}
@@ -60,6 +77,7 @@ const Header = () => {
           <select
             value={currentBranch?._id || ''}
             onChange={(e) => switchBranch(e.target.value)}
+            className="hide-mobile"
             style={{
               background: 'rgba(255,255,255,0.03)',
               border: '1px solid var(--gold-border)',
@@ -71,7 +89,7 @@ const Header = () => {
             }}
           >
             {branches.map(b => (
-              <option key={b._id} value={b._id} style={{ background: '#111', color: 'var(--text-primary)' }}>
+              <option key={b._id} value={b._id}>
                 {b.name}
               </option>
             ))}
@@ -82,45 +100,10 @@ const Header = () => {
       {/* Control Actions */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
         
-        {/* Sandbox Indicator */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.5rem',
-          padding: '0.35rem 0.75rem',
-          background: 'rgba(212,175,55,0.05)',
-          border: '1px solid var(--border-gold)',
-          borderRadius: '20px',
-          fontSize: '0.75rem'
-        }}>
-          <span style={{
-            width: '8px',
-            height: '8px',
-            borderRadius: '50%',
-            background: 'var(--gold-primary)',
-            display: 'inline-block'
-          }} className="pulse-gold"></span>
-          <span style={{ color: 'var(--gold-primary)', fontWeight: '600' }}>Demo Sandbox</span>
-          
-          <button 
-            onClick={() => setDemoMode(!demoMode)}
-            style={{
-              background: 'var(--gold-primary)',
-              color: '#000',
-              border: 'none',
-              borderRadius: '10px',
-              padding: '0.1rem 0.4rem',
-              fontSize: '0.65rem',
-              marginLeft: '0.5rem',
-              fontWeight: 'bold'
-            }}
-          >
-            {demoMode ? 'Go Live' : 'Go Demo'}
-          </button>
-        </div>
+
 
         {/* Quick Role Tester (Crucial for evaluation) */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <div className="hide-mobile" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>View as:</span>
           <select
             value={currentUser?.role || ''}
@@ -249,7 +232,7 @@ const Header = () => {
           }}>
             {currentUser?.name[0]}
           </div>
-          <div style={{ display: 'none', md: 'block' }}>
+          <div className="header-user-details">
             <p style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-primary)' }}>{currentUser?.name}</p>
             <p style={{ fontSize: '0.7rem', color: 'var(--gold-primary)', fontWeight: '500' }}>{currentUser?.role}</p>
           </div>

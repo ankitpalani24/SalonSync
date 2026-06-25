@@ -99,7 +99,7 @@ const Inventory = () => {
   return (
     <div className="page-container animated-fade-in">
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+      <div className="page-header">
         <div>
           <h1 style={{ fontSize: '1.85rem', color: 'var(--text-primary)' }}>Inventory Control</h1>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Track retail stocks, log item thresholds, and organize vendor list databases.</p>
@@ -118,7 +118,7 @@ const Inventory = () => {
       {/* 1. STOCK MANAGER PANEL */}
       {activePane === 'stock' && (
         <div className="glass-card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+          <div className="page-header" style={{ marginBottom: '1.5rem' }}>
             <div style={{ position: 'relative', width: '300px' }}>
               <Search size={16} style={{ position: 'absolute', left: '10px', top: '10px', color: 'var(--text-muted)' }} />
               <input
@@ -242,7 +242,7 @@ const Inventory = () => {
                 <label>Product Name *</label>
                 <input type="text" required placeholder="Damage Care Hair Oil" className="form-control" value={prodName} onChange={(e) => setProdName(e.target.value)} />
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+              <div className="grid-2-cols">
                 <div className="form-group">
                   <label>SKU Code *</label>
                   <input type="text" required placeholder="OIL-DMG-250" className="form-control" value={prodSku} onChange={(e) => setProdSku(e.target.value)} />
@@ -258,7 +258,7 @@ const Inventory = () => {
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem' }}>
+              <div className="grid-3-cols">
                 <div className="form-group">
                   <label>Buy Price (₹) *</label>
                   <input type="number" required placeholder="400" className="form-control" value={prodBuyPrice} onChange={(e) => setProdBuyPrice(e.target.value)} />
@@ -273,7 +273,7 @@ const Inventory = () => {
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '0.75rem' }}>
+              <div className="grid-2-cols">
                 <div className="form-group">
                   <label>Supplier Vendor</label>
                   <select className="form-control" value={prodSuppId} onChange={(e) => setProdSuppId(e.target.value)}>
@@ -340,7 +340,7 @@ const Inventory = () => {
             <form onSubmit={handleStockAdjustSubmit}>
               <div className="form-group">
                 <label>Adjustment Action</label>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                <div className="grid-2-cols">
                   <button
                     type="button"
                     onClick={() => setAdjustAction('in')}

@@ -129,7 +129,7 @@ const Billing = ({ apptForCheckout, clearApptCheckout }) => {
   return (
     <div className="page-container animated-fade-in">
       {/* Header Tabs */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+      <div className="page-header">
         <div>
           <h1 style={{ fontSize: '1.85rem', color: 'var(--text-primary)' }}>POS Billing Desk</h1>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Checkout walk-in clients, sell retail products, and check invoice histories.</p>
@@ -155,7 +155,7 @@ const Billing = ({ apptForCheckout, clearApptCheckout }) => {
             </h3>
 
             {/* Dropdown service selector */}
-            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>
+            <div className="flex-mobile-column" style={{ marginBottom: '1.5rem' }}>
               <select className="form-control" style={{ flex: 2 }} value={tempSrvId} onChange={(e) => setTempSrvId(e.target.value)}>
                 <option value="">-- Click to Add Treatment Service --</option>
                 {services.map(s => <option key={s._id} value={s._id}>{s.name} (₹{s.price})</option>)}
@@ -164,7 +164,7 @@ const Billing = ({ apptForCheckout, clearApptCheckout }) => {
             </div>
 
             {/* Dropdown product selector */}
-            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>
+            <div className="flex-mobile-column" style={{ marginBottom: '1.5rem' }}>
               <select className="form-control" style={{ flex: 2 }} value={tempProdId} onChange={(e) => setTempProdId(e.target.value)}>
                 <option value="">-- Click to Add Hair Care Retail Product --</option>
                 {products.map(p => <option key={p._id} value={p._id}>{p.name} (₹{p.sellingPrice} - Stock: {p.quantity})</option>)}
@@ -302,7 +302,7 @@ const Billing = ({ apptForCheckout, clearApptCheckout }) => {
             {/* Pay methods and button */}
             <div className="form-group">
               <label>Select Payment Method</label>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.4rem' }}>
+              <div className="grid-3-cols">
                 {['UPI', 'Cash', 'Card'].map(method => (
                   <button
                     key={method}

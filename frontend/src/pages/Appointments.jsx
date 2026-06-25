@@ -63,7 +63,7 @@ const Appointments = ({ setActivePage, setSelectedApptForCheckout }) => {
     setWalkinName('');
     setSelectedServId(services[0]?._id || '');
     setSelectedStaffId(staffMembers[0]?._id || '');
-    setBookingDate(currentDate.toISOString().split('T')[0]);
+    setBookingDate(currentDate.toLocaleDateString('en-CA'));
     setBookingTime('11:00');
     setShowBookModal(true);
   };
@@ -134,7 +134,7 @@ const Appointments = ({ setActivePage, setSelectedApptForCheckout }) => {
   return (
     <div className="page-container animated-fade-in">
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+      <div className="page-header">
         <div>
           <h1 style={{ fontSize: '1.85rem', color: 'var(--text-primary)' }}>Calendar Bookings</h1>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Schedule treatments, manage staff slots, and run notifications.</p>
@@ -148,7 +148,7 @@ const Appointments = ({ setActivePage, setSelectedApptForCheckout }) => {
       <div className="glass-card" style={{ padding: '1.5rem 2rem' }}>
         
         {/* Navigation Toolbar */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+        <div className="page-header" style={{ marginBottom: '1.5rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
             <button onClick={handlePrev} style={{ background: 'transparent', border: '1px solid var(--border-light)', color: 'var(--text-primary)', borderRadius: '4px', padding: '0.35rem' }}>
               <ChevronLeft size={16} />
@@ -187,7 +187,8 @@ const Appointments = ({ setActivePage, setSelectedApptForCheckout }) => {
 
         {/* 1. MONTH VIEW */}
         {viewType === 'month' && (
-          <div>
+          <div className="calendar-view-container">
+            <div style={{ minWidth: '700px' }}>
             {/* Weekdays Row */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '0.5rem', textAlign: 'center', marginBottom: '0.5rem' }}>
               {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
@@ -200,7 +201,7 @@ const Appointments = ({ setActivePage, setSelectedApptForCheckout }) => {
               {getDaysInMonth(currentDate).map((day, idx) => {
                 if (!day) return <div key={`empty-${idx}`} style={{ minHeight: '90px', background: 'rgba(255,255,255,0.01)', borderRadius: '4px', opacity: 0.3 }}></div>;
                 
-                const dayStr = day.toISOString().split('T')[0];
+                const dayStr = day.toLocaleDateString('en-CA');
                 const dayAppts = appointments.filter(a => a.date === dayStr);
                 const isToday = dayStr === '2026-06-24'; // Seeded today coordinate
 
@@ -255,7 +256,8 @@ const Appointments = ({ setActivePage, setSelectedApptForCheckout }) => {
               })}
             </div>
           </div>
-        )}
+        </div>
+      )}
 
         {/* 2. WEEK VIEW / 3. DAY VIEW (Hourly listing) */}
         {(viewType === 'week' || viewType === 'day') && (
@@ -269,7 +271,7 @@ const Appointments = ({ setActivePage, setSelectedApptForCheckout }) => {
               </thead>
               <tbody>
                 {['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00'].map((hrSlot) => {
-                  const activeDateStr = currentDate.toISOString().split('T')[0];
+                  const activeDateStr = currentDate.toLocaleDateString('en-CA');
                   // matches slot hour prefix
                   const slotAppts = appointments.filter(a => a.date === activeDateStr && a.time.startsWith(hrSlot.substring(0,2)));
 
@@ -359,7 +361,7 @@ const Appointments = ({ setActivePage, setSelectedApptForCheckout }) => {
                 </select>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+              <div className="grid-2-cols">
                 <div className="form-group">
                   <label>Booking Date</label>
                   <input type="date" required className="form-control" value={bookingDate} onChange={(e) => setBookingDate(e.target.value)} />
@@ -440,7 +442,7 @@ const Appointments = ({ setActivePage, setSelectedApptForCheckout }) => {
               <h4 style={{ fontSize: '0.8rem', color: 'var(--text-primary)', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                 <AlertCircle size={14} style={{ color: 'var(--gold-primary)' }} /> WhatsApp Automation Triggers
               </h4>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem' }}>
+              <div className="grid-3-cols">
                 <button onClick={() => handleSendReminder('confirmation')} style={{ background: 'transparent', border: '1px solid var(--gold-border)', color: 'var(--gold-primary)', fontSize: '0.65rem', padding: '0.4rem', borderRadius: '4px' }}>
                   Send Confirm
                 </button>

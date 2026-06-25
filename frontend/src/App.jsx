@@ -23,6 +23,7 @@ function App() {
   const { currentUser, logout } = useApp();
   const [activePage, setActivePage] = useState('landing');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   // Transfer state for checking out appointments
   const [selectedApptForCheckout, setSelectedApptForCheckout] = useState(null);
@@ -109,19 +110,29 @@ function App() {
   // 2. INNER WORKSPACE WORKFLOW LAYOUT
   return (
     <div className="app-container">
-      {/* Sidebar navigation */}
-      <Sidebar 
-        activePage={activePage} 
-        setActivePage={setActivePage} 
-        collapsed={sidebarCollapsed} 
-        setCollapsed={setSidebarCollapsed} 
-        user={currentUser}
-        logout={logout}
-      />
+      {/* Backdrop for mobile drawer */}
+      {mobileSidebarOpen && (
+        <div className="sidebar-backdrop" onClick={() => setMobileSidebarOpen(false)}></div>
+      )}
+
+      {/* Sidebar navigation wrapper */}
+      <div className={`sidebar-container ${mobileSidebarOpen ? 'open' : ''}`}>
+        <Sidebar 
+          activePage={activePage} 
+          setActivePage={(page) => {
+            setActivePage(page);
+            setMobileSidebarOpen(false); // Close drawer on menu click
+          }} 
+          collapsed={sidebarCollapsed} 
+          setCollapsed={setSidebarCollapsed} 
+          user={currentUser}
+          logout={logout}
+        />
+      </div>
 
       {/* Main workplace pane */}
       <div className="main-content">
-        <Header />
+        <Header toggleMobileSidebar={() => setMobileSidebarOpen(!mobileSidebarOpen)} />
         
         {/* Render page */}
         <div style={{ flex: 1 }}>
