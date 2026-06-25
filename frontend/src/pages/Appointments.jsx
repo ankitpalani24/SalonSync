@@ -145,7 +145,7 @@ const Appointments = ({ setActivePage, setSelectedApptForCheckout }) => {
       </div>
 
       {/* Roster Calendar Grid Wrap */}
-      <div className="glass-card" style={{ padding: '1.5rem 2rem' }}>
+      <div className="glass-card">
         
         {/* Navigation Toolbar */}
         <div className="page-header" style={{ marginBottom: '1.5rem' }}>

@@ -191,6 +191,7 @@ button {
   flex-direction: column;
   height: 100vh;
   overflow-y: auto;
+  overflow-x: hidden;
   position: relative;
 }
 
@@ -344,7 +345,7 @@ select option:active {
 /* POS checkout and POS Grid styling */
 .pos-grid {
   display: grid;
-  grid-template-columns: 2fr 1fr;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
   gap: 1.5rem;
   align-items: start;
 }
@@ -352,46 +353,46 @@ select option:active {
 /* Responsive Grid Helper Classes */
 .grid-split-2-1 {
   display: grid;
-  grid-template-columns: 2fr 1fr;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
   gap: 1.5rem;
   align-items: start;
 }
 
 .grid-split-1-5-1 {
   display: grid;
-  grid-template-columns: 1.5fr 1fr;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
   gap: 1.5rem;
   align-items: start;
 }
 
 .grid-split-3-1-2 {
   display: grid;
-  grid-template-columns: 3fr 1.2fr;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 1.2fr);
   gap: 1.5rem;
   align-items: start;
 }
 
 .grid-4-cols {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 1.25rem;
 }
 
 .grid-2-cols {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.75rem;
 }
 
 .grid-2-cols-split {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 1.5rem;
 }
 
 .grid-3-cols {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 1.5rem;
 }
 
@@ -436,7 +437,7 @@ select option:active {
   .grid-split-1-5-1,
   .grid-split-3-1-2,
   .grid-2-cols-split {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr) !important;
     gap: 1.25rem;
   }
   
@@ -520,7 +521,7 @@ select option:active {
 
 @media (max-width: 480px) {
   .grid-2-cols {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr) !important;
   }
   
   .donut-chart-wrapper {
@@ -537,6 +538,28 @@ select option:active {
     width: 100% !important;
     justify-content: center;
   }
+
+  .glass-card {
+    padding: 1rem !important;
+  }
+
+  .page-header {
+    flex-direction: column;
+    align-items: stretch !important;
+    gap: 0.75rem;
+    width: 100%;
+  }
+  
+  .page-header div {
+    width: 100%;
+  }
+  
+  .page-header button,
+  .page-header .gold-btn,
+  .page-header .outline-btn {
+    width: 100% !important;
+    justify-content: center;
+  }
 }
 
 .flex-mobile-column {
@@ -547,5 +570,26 @@ select option:active {
   .flex-mobile-column {
     flex-direction: column !important;
     align-items: stretch !important;
+    width: 100% !important;
+  }
+  .flex-mobile-column select,
+  .flex-mobile-column input,
+  .flex-mobile-column button {
+    width: 100% !important;
+    flex: none !important;
+  }
+}
+
+.flex-between-responsive {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+@media (max-width: 768px) {
+  .flex-between-responsive {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 0.75rem;
+    width: 100%;
   }
 }

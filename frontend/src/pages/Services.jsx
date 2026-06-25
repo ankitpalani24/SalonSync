@@ -98,7 +98,7 @@ const Services = () => {
           <h1 style={{ fontSize: '1.85rem', color: 'var(--text-primary)' }}>Services & Packages</h1>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Configure treatment menu lists, material costs, and service packages.</p>
         </div>
-        <div style={{ display: 'flex', gap: '0.75rem' }}>
+        <div className="flex-mobile-column" style={{ gap: '0.75rem' }}>
           <button onClick={() => setShowPkgModal(true)} className="outline-btn">
             <Sparkles size={16} /> Bundle Package
           </button>
@@ -113,11 +113,11 @@ const Services = () => {
         
         {/* Left Side: Services Roster */}
         <div className="glass-card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+          <div className="flex-between-responsive" style={{ marginBottom: '1.5rem' }}>
             <h3 style={{ fontSize: '1.1rem', color: 'var(--text-primary)' }}>Treatment Menu Catalog</h3>
             
             {/* Category Tabs Dropdown/List */}
-            <div style={{ display: 'flex', gap: '0.35rem', overflowX: 'auto', maxWidth: '400px', paddingBottom: '0.25rem' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', maxWidth: '100%', paddingBottom: '0.25rem' }}>
               {categories.slice(0, 5).map(cat => (
                 <button
                   key={cat}
