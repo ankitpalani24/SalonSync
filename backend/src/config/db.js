@@ -2,16 +2,47 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
 const connectDB = async () => {
+  // Set bufferCommands to false so Mongoose fails quickly instead of buffering and timing out
+  mongoose.set('bufferCommands', false);
+
+  const primaryURI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/salonsync';
+  const fallbackURI = 'mongodb://127.0.0.1:27017/salonsync';
+
   try {
-    const conn = await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/salonsync');
-    console.log(`MongoDB Connected: ${conn.connection.host}`);
+    console.log('Connecting to Primary MongoDB Database...');
+    const conn = await mongoose.connect(primaryURI, {
+      serverSelectionTimeoutMS: 5000 // 5s timeout
+    });
+    console.log(`MongoDB Connected (Primary): ${conn.connection.host}`);
     
     // Auto-seed default users and multi-tenant structures if User database is empty
     await seedDatabase();
-  } catch (error) {
-    console.error(`Database connection error: ${error.message}`);
-    // Do not crash the server in dev mode if MongoDB is not running; fall back gracefully
-    console.log('Server running in standalone mode (no live database connection).');
+  } catch (primaryError) {
+    console.error(`Primary Database connection error: ${primaryError.message}`);
+    
+    if (primaryURI !== fallbackURI) {
+      console.log('Attempting connection to local fallback MongoDB database...');
+      try {
+        const conn = await mongoose.connect(fallbackURI, {
+          serverSelectionTimeoutMS: 3000 // 3s timeout
+        });
+        console.log(`MongoDB Connected (Local Fallback): ${conn.connection.host}`);
+        await seedDatabase();
+      } catch (fallbackError) {
+        console.error(`Local fallback Database connection also failed: ${fallbackError.message}`);
+        console.log('===================================================');
+        console.log('  WARNING: NO ACTIVE DATABASE CONNECTION.');
+        console.log('  Mongoose queries will fail immediately.');
+        console.log('  Enable Demo (Offline Mock) Mode on the client.');
+        console.log('===================================================');
+      }
+    } else {
+      console.log('===================================================');
+      console.log('  WARNING: NO ACTIVE DATABASE CONNECTION.');
+      console.log('  Mongoose queries will fail immediately.');
+      console.log('  Enable Demo (Offline Mock) Mode on the client.');
+      console.log('===================================================');
+    }
   }
 };
 

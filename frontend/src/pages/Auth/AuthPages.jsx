@@ -3,7 +3,7 @@ import { Mail, Lock, Phone, User, Home, MapPin, Building, Key } from 'lucide-rea
 import { useApp } from '../../context/AppContext';
 
 const AuthPages = ({ defaultView = 'login', onAuthSuccess, onBackToLanding }) => {
-  const { login, signup } = useApp();
+  const { login, signup, demoMode, setDemoMode } = useApp();
   const [view, setView] = useState(defaultView); // 'login', 'signup', 'forgot', 'otp', 'reset'
 
   // Input states
@@ -133,6 +133,30 @@ const AuthPages = ({ defaultView = 'login', onAuthSuccess, onBackToLanding }) =>
             {view === 'otp' && 'Input the verification code'}
             {view === 'reset' && 'Create your new master passcode'}
           </p>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'center',
+            gap: '0.5rem',
+            marginTop: '0.75rem'
+          }}>
+            <button
+              type="button"
+              onClick={() => setDemoMode(!demoMode)}
+              style={{
+                background: demoMode ? 'var(--gold-bg)' : 'rgba(255,255,255,0.02)',
+                border: demoMode ? '1px solid var(--gold-border)' : '1px solid var(--border-light)',
+                color: demoMode ? 'var(--gold-primary)' : 'var(--text-muted)',
+                borderRadius: '20px',
+                padding: '0.25rem 0.75rem',
+                fontSize: '0.7rem',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                fontWeight: '600'
+              }}
+            >
+              Mode: {demoMode ? 'Demo Mode (Offline Mock)' : 'Live Mode (REST API Database)'}
+            </button>
+          </div>
         </div>
 
         {/* Notices */}
