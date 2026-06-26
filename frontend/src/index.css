@@ -696,13 +696,10 @@ select option:active {
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   display: flex;
-  flex-direction: column;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: center;
   z-index: 99999 !important;
-  padding: 2.5rem 1.5rem;
-  overflow-y: auto !important;
-  -webkit-overflow-scrolling: touch !important;
+  padding: 1.5rem;
   box-sizing: border-box;
 }
 
@@ -715,7 +712,6 @@ select option:active {
   max-width: 500px;
   max-height: 85vh;
   overflow-y: auto;
-  margin: auto; /* Vertically and horizontally centers when space permits, aligns to top on overflow */
   position: relative;
   box-shadow: var(--shadow-premium);
   box-sizing: border-box;
@@ -902,7 +898,7 @@ body:has(.sidebar-container.open) .main-content {
   
   .modal-scrollable-content {
     padding: 1.5rem !important;
-    max-height: none !important;
+    max-height: 85vh !important;
   }
 }
 
