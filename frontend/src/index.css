@@ -504,10 +504,12 @@ select option:active {
     transform: translateX(-100%);
     transition: var(--transition-smooth);
     z-index: 1000;
+    visibility: hidden;
   }
   
   .sidebar-container.open {
     transform: translateX(0);
+    visibility: visible;
   }
   
   .sidebar-backdrop {
