@@ -349,8 +349,8 @@ select option:active {
 
 /* Animation Micro-effects */
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .animated-fade-in {
@@ -924,5 +924,13 @@ body:has(.sidebar-container.open) .main-content {
     right: -40px !important;
   }
 }
+
+@media (max-width: 768px) {
+  /* Prevent iOS/Android auto-zoom on form control focus */
+  .form-control, select, textarea, input {
+    font-size: 16px !important;
+  }
+}
+
 
 
