@@ -207,7 +207,7 @@ const Sidebar = ({ activePage, setActivePage, collapsed, setCollapsed, user, log
                   width: '42px',
                   height: '22px',
                   borderRadius: '11px',
-                  background: darkMode ? 'var(--gold-primary)' : 'rgba(255,255,255,0.1)',
+                  background: darkMode ? 'var(--gold-primary)' : 'rgba(128, 128, 128, 0.35)',
                   position: 'relative',
                   cursor: 'pointer',
                   transition: 'background-color 0.3s',
@@ -218,7 +218,8 @@ const Sidebar = ({ activePage, setActivePage, collapsed, setCollapsed, user, log
                   width: '16px',
                   height: '16px',
                   borderRadius: '50%',
-                  background: darkMode ? '#000000' : '#ffffff',
+                  background: '#ffffff',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
                   position: 'absolute',
                   top: '2px',
                   left: darkMode ? '22px' : '2px',
@@ -227,7 +228,7 @@ const Sidebar = ({ activePage, setActivePage, collapsed, setCollapsed, user, log
                   alignItems: 'center',
                   justifyContent: 'center'
                 }}>
-                  {darkMode ? <Moon size={9} style={{ color: 'var(--gold-primary)' }} /> : <Sun size={9} style={{ color: '#ffb900' }} />}
+                  {darkMode ? <Moon size={9} style={{ color: '#3498db' }} /> : <Sun size={9} style={{ color: '#e67e22' }} />}
                 </div>
               </div>
             </div>

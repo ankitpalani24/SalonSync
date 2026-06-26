@@ -695,11 +695,14 @@ select option:active {
   background: rgba(0, 0, 0, 0.75);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  display: grid;
-  place-items: center;
-  z-index: 1000;
-  padding: 1.5rem;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  z-index: 99999 !important;
+  padding: 2.5rem 1.5rem;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
   box-sizing: border-box;
 }
 
@@ -899,7 +902,7 @@ body:has(.sidebar-container.open) .main-content {
   
   .modal-scrollable-content {
     padding: 1.5rem !important;
-    max-height: 80vh !important;
+    max-height: none !important;
   }
 }
 
