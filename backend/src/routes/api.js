@@ -725,4 +725,74 @@ router.put('/superadmin/salons/:id/subscription', authorize('SUPER_ADMIN'), asyn
   }
 });
 
+// @route   GET /api/salons/mine
+router.get('/salons/mine', async (req, res) => {
+  try {
+    const salon = await models.Salon.findById(req.user.salonId);
+    if (!salon) return res.status(404).json({ success: false, message: 'Salon not found' });
+    res.json({ success: true, data: salon });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// @route   PUT /api/salons/mine
+router.put('/salons/mine', async (req, res) => {
+  try {
+    const salon = await models.Salon.findByIdAndUpdate(req.user.salonId, req.body, { new: true });
+    res.json({ success: true, data: salon });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// @route   GET /api/branches
+router.get('/branches', async (req, res) => {
+  try {
+    const branches = await models.Branch.find(req.tenantFilter);
+    res.json({ success: true, data: branches });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// @route   POST /api/auth/create-user
+router.post('/auth/create-user', authorize('SUPER_ADMIN', 'SALON_OWNER', 'SALON_MANAGER', 'FRANCHISE_OWNER'), async (req, res) => {
+  try {
+    const { name, email, phone, role, password } = req.body;
+
+    const userExists = await models.User.findOne({ email });
+    if (userExists) {
+      return res.status(400).json({ success: false, message: 'User already exists with this email' });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password || 'password123', salt);
+
+    const user = await models.User.create({
+      name,
+      email,
+      phone,
+      password: hashedPassword,
+      role: role || 'STAFF',
+      salonId: req.user.salonId,
+      branchId: req.user.branchId
+    });
+
+    res.status(201).json({
+      success: true,
+      data: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        salonId: user.salonId,
+        branchId: user.branchId
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 module.exports = router;

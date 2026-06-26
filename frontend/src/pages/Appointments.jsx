@@ -14,7 +14,7 @@ const Appointments = ({ setActivePage, setSelectedApptForCheckout }) => {
 
   // Calendar views: 'month', 'week', 'day'
   const [viewType, setViewType] = useState('month');
-  const [currentDate, setCurrentDate] = useState(new Date('2026-06-24')); // Seeded date coordinate
+  const [currentDate, setCurrentDate] = useState(new Date()); // Dynamic current system date coordinate
 
   const [showBookModal, setShowBookModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
@@ -25,7 +25,7 @@ const Appointments = ({ setActivePage, setSelectedApptForCheckout }) => {
   const [walkinName, setWalkinName] = useState('');
   const [selectedServId, setSelectedServId] = useState('');
   const [selectedStaffId, setSelectedStaffId] = useState('');
-  const [bookingDate, setBookingDate] = useState('2026-06-24');
+  const [bookingDate, setBookingDate] = useState(new Date().toLocaleDateString('en-CA'));
   const [bookingTime, setBookingTime] = useState('11:00');
 
   // Month navigation helpers
@@ -190,35 +190,30 @@ const Appointments = ({ setActivePage, setSelectedApptForCheckout }) => {
         {/* 1. MONTH VIEW */}
         {viewType === 'month' && (
           <div className="calendar-view-container">
-            <div style={{ minWidth: '700px' }}>
+            <div className="calendar-month-grid-wrapper">
             {/* Weekdays Row */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '0.5rem', textAlign: 'center', marginBottom: '0.5rem' }}>
+            <div className="calendar-weekdays-row">
               {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
-                <div key={d} style={{ color: 'var(--gold-primary)', fontSize: '0.8rem', fontWeight: '600', padding: '0.5rem' }}>{d}</div>
+                <div key={d} className="calendar-weekday-cell">{d}</div>
               ))}
             </div>
 
             {/* Days Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '0.5rem' }}>
+            <div className="calendar-month-grid">
               {getDaysInMonth(currentDate).map((day, idx) => {
-                if (!day) return <div key={`empty-${idx}`} style={{ minHeight: '90px', background: 'rgba(255,255,255,0.01)', borderRadius: '4px', opacity: 0.3 }}></div>;
+                if (!day) return <div key={`empty-${idx}`} className="calendar-day-cell empty"></div>;
                 
                 const dayStr = day.toLocaleDateString('en-CA');
-                const dayAppts = appointments.filter(a => a.date === dayStr);
-                const isToday = dayStr === '2026-06-24'; // Seeded today coordinate
+                const dayAppts = appointments.filter(a => {
+                  if (!a.date) return false;
+                  const apptDateStr = a.date.includes('T') ? a.date.split('T')[0] : a.date;
+                  return apptDateStr === dayStr;
+                });
+                const isToday = dayStr === new Date().toLocaleDateString('en-CA'); // Dynamic today's date
 
                 return (
-                  <div key={dayStr} style={{
-                    minHeight: '95px',
-                    background: isToday ? 'var(--gold-bg)' : 'rgba(255,255,255,0.01)',
-                    border: isToday ? '1px solid var(--gold-primary)' : '1px solid var(--border-light)',
-                    borderRadius: '4px',
-                    padding: '0.35rem',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'space-between'
-                  }}>
-                    <span style={{ fontSize: '0.75rem', color: isToday ? 'var(--gold-primary)' : '#bbb', fontWeight: isToday ? 'bold' : 'normal' }}>
+                  <div key={dayStr} className={`calendar-day-cell ${isToday ? 'today' : ''}`}>
+                    <span style={{ color: isToday ? 'var(--gold-primary)' : 'inherit', fontWeight: isToday ? 'bold' : 'normal' }}>
                       {day.getDate()}
                     </span>
 
@@ -235,15 +230,10 @@ const Appointments = ({ setActivePage, setSelectedApptForCheckout }) => {
                               if (currentUser.role === 'CLIENT' && !isMine) return;
                               handleApptClick(appt);
                             }}
+                            className="calendar-appt-badge"
                             style={{
-                              fontSize: '0.65rem',
-                              padding: '0.15rem 0.35rem',
-                              borderRadius: '2px',
                               background: appt.status === 'Completed' ? 'rgba(46,204,113,0.15)' : 'rgba(212,175,55,0.15)',
                               color: appt.status === 'Completed' ? 'var(--accent-green)' : 'var(--gold-primary)',
-                              whiteSpace: 'nowrap',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
                               cursor: (currentUser.role === 'CLIENT' && !isMine) ? 'default' : 'pointer',
                               borderLeft: `2px solid ${appt.status === 'Completed' ? 'var(--accent-green)' : 'var(--gold-primary)'}`
                             }}
@@ -280,7 +270,11 @@ const Appointments = ({ setActivePage, setSelectedApptForCheckout }) => {
                 {['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00'].map((hrSlot) => {
                   const activeDateStr = currentDate.toLocaleDateString('en-CA');
                   // matches slot hour prefix
-                  const slotAppts = appointments.filter(a => a.date === activeDateStr && a.time.startsWith(hrSlot.substring(0,2)));
+                  const slotAppts = appointments.filter(a => {
+                    if (!a.date) return false;
+                    const apptDateStr = a.date.includes('T') ? a.date.split('T')[0] : a.date;
+                    return apptDateStr === activeDateStr && a.time.startsWith(hrSlot.substring(0,2));
+                  });
 
                   return (
                     <tr key={hrSlot} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
@@ -360,8 +354,8 @@ const Appointments = ({ setActivePage, setSelectedApptForCheckout }) => {
 
       {/* Book Appointment Modal */}
       {showBookModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200 }}>
-          <div className="glass-card gold-border" style={{ width: '450px', padding: '2rem' }}>
+        <div onClick={(e) => { if (e.target === e.currentTarget) setShowBookModal(false); }} className="modal-backdrop-overlay">
+          <div className="modal-scrollable-content" style={{ maxWidth: '450px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
               <h3 style={{ color: 'var(--text-primary)' }}>New Treatment Booking</h3>
               <button onClick={() => setShowBookModal(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)' }}><X size={18} /></button>
@@ -424,8 +418,8 @@ const Appointments = ({ setActivePage, setSelectedApptForCheckout }) => {
 
       {/* Appointment Detail & Automation Panel Modal */}
       {showDetailModal && selectedAppt && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200 }}>
-          <div className="glass-card gold-border" style={{ width: '480px', padding: '2rem' }}>
+        <div onClick={(e) => { if (e.target === e.currentTarget) setShowDetailModal(false); }} className="modal-backdrop-overlay">
+          <div className="modal-scrollable-content" style={{ maxWidth: '480px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
               <h3 style={{ color: 'var(--text-primary)' }}>Appointment Desk</h3>
               <button onClick={() => setShowDetailModal(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)' }}><X size={18} /></button>

@@ -13,6 +13,23 @@ const Billing = ({ apptForCheckout, clearApptCheckout }) => {
 
   const [activePane, setActivePane] = useState('pos'); // 'pos', 'history'
   const [selectedInvoice, setSelectedInvoice] = useState(null); // printable invoice modal
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const getModalClient = () => {
+    if (!selectedInvoice || !selectedInvoice.customerId) return null;
+    const cId = typeof selectedInvoice.customerId === 'object' ? selectedInvoice.customerId._id : selectedInvoice.customerId;
+    return db.customers.find(c => c._id === cId) || (typeof selectedInvoice.customerId === 'object' ? selectedInvoice.customerId : null);
+  };
+  const modalClient = getModalClient();
+
+  const getInvoiceCustomerName = (inv) => {
+    if (!inv || !inv.customerId) return 'Guest walk-in';
+    const cId = typeof inv.customerId === 'object' ? inv.customerId._id : inv.customerId;
+    const client = db.customers.find(c => c._id === cId);
+    if (client) return client.name;
+    if (typeof inv.customerId === 'object' && inv.customerId.name) return inv.customerId.name;
+    return 'Guest walk-in';
+  };
 
   // POS State
   const [selectedCustId, setSelectedCustId] = useState('');
@@ -95,35 +112,47 @@ const Billing = ({ apptForCheckout, clearApptCheckout }) => {
     }
   };
 
-  const handleCheckoutSubmit = (e) => {
+  const handleCheckoutSubmit = async (e) => {
     e.preventDefault();
     if (checkoutServices.length === 0 && checkoutProducts.length === 0) {
       alert('Please add at least one treatment service or product to invoice.');
       return;
     }
 
-    const payload = {
-      customerId: selectedCustId || null,
-      services: checkoutServices,
-      products: checkoutProducts,
-      tax: Number(taxPercent),
-      discount: Number(discountAmt),
-      paymentMethod: payMethod,
-      staffId: selectedStaffId || null
-    };
+    setIsProcessing(true);
+    try {
+      const payload = {
+        customerId: selectedCustId || null,
+        services: checkoutServices,
+        products: checkoutProducts,
+        tax: Number(taxPercent),
+        discount: Number(discountAmt),
+        paymentMethod: payMethod,
+        staffId: selectedStaffId || null
+      };
 
-    const newInvoice = createInvoice(payload);
-    
-    // Clear Form
-    setSelectedCustId('');
-    setWalkinName('');
-    setSelectedStaffId('');
-    setCheckoutServices([]);
-    setCheckoutProducts([]);
-    setDiscountAmt(0);
+      const newInvoice = await createInvoice(payload);
+      
+      if (newInvoice) {
+        // Clear Form
+        setSelectedCustId('');
+        setWalkinName('');
+        setSelectedStaffId('');
+        setCheckoutServices([]);
+        setCheckoutProducts([]);
+        setDiscountAmt(0);
 
-    // Open print preview modal immediately
-    setSelectedInvoice(newInvoice);
+        // Open print preview modal immediately
+        setSelectedInvoice(newInvoice);
+      } else {
+        alert('Failed to generate invoice. Please verify backend connection.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('An error occurred during checkout.');
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (
@@ -158,7 +187,11 @@ const Billing = ({ apptForCheckout, clearApptCheckout }) => {
             <div className="flex-mobile-column" style={{ marginBottom: '1.5rem' }}>
               <select className="form-control" style={{ flex: 2 }} value={tempSrvId} onChange={(e) => setTempSrvId(e.target.value)}>
                 <option value="">-- Click to Add Treatment Service --</option>
-                {services.map(s => <option key={s._id} value={s._id}>{s.name} (₹{s.price})</option>)}
+                {services.map(s => (
+                  <option key={s._id} value={s._id}>
+                    {s.category ? `[${s.category}] - ` : ''}{s.name} (₹{s.price})
+                  </option>
+                ))}
               </select>
               <button type="button" onClick={handleAddService} className="outline-btn" style={{ padding: '0.5rem 1rem' }}>Add Service</button>
             </div>
@@ -167,7 +200,11 @@ const Billing = ({ apptForCheckout, clearApptCheckout }) => {
             <div className="flex-mobile-column" style={{ marginBottom: '1.5rem' }}>
               <select className="form-control" style={{ flex: 2 }} value={tempProdId} onChange={(e) => setTempProdId(e.target.value)}>
                 <option value="">-- Click to Add Hair Care Retail Product --</option>
-                {products.map(p => <option key={p._id} value={p._id}>{p.name} (₹{p.sellingPrice} - Stock: {p.quantity})</option>)}
+                {products.map(p => (
+                  <option key={p._id} value={p._id}>
+                    {p.category ? `[${p.category}] - ` : ''}{p.name} (₹{p.sellingPrice} - Stock: {p.quantity})
+                  </option>
+                ))}
               </select>
               <button type="button" onClick={handleAddProduct} className="outline-btn" style={{ padding: '0.5rem 1rem' }}>Add Product</button>
             </div>
@@ -355,7 +392,7 @@ const Billing = ({ apptForCheckout, clearApptCheckout }) => {
                         <span style={{ color: 'var(--gold-primary)', fontWeight: 'bold' }}>{inv.invoiceNumber}</span>
                         <p style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{new Date(inv.createdAt).toLocaleDateString()}</p>
                       </td>
-                      <td>{client ? client.name : 'Walk-in'}</td>
+                      <td>{getInvoiceCustomerName(inv)}</td>
                       <td>
                         <span style={{ fontSize: '0.8rem' }}>
                           {inv.services.map(s => s.name).concat(inv.products.map(p => p.name)).join(', ')}
@@ -381,9 +418,10 @@ const Billing = ({ apptForCheckout, clearApptCheckout }) => {
 
       {/* Printable Receipt Modal */}
       {selectedInvoice && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 300 }}>
-          <div className="glass-card gold-border" style={{
-            width: '450px',
+        <div onClick={(e) => { if (e.target === e.currentTarget) setSelectedInvoice(null); }} className="modal-backdrop-overlay">
+          <div className="modal-scrollable-content print-receipt-modal" style={{
+            width: '100%',
+            maxWidth: '450px',
             background: '#ffffff',
             color: '#000000',
             padding: '2rem',
@@ -422,7 +460,7 @@ const Billing = ({ apptForCheckout, clearApptCheckout }) => {
                 <p><strong>Date:</strong> {new Date(selectedInvoice.createdAt).toLocaleString()}</p>
               </div>
               <div>
-                <p><strong>Client Name:</strong> {db.customers.find(c => c._id === selectedInvoice.customerId)?.name || 'Guest walk-in'}</p>
+                <p><strong>Client Name:</strong> {getInvoiceCustomerName(selectedInvoice)}</p>
                 <p><strong>Stylist:</strong> {db.staff.find(s => s._id === selectedInvoice.staffId)?.name || 'House Stylist'}</p>
               </div>
             </div>
@@ -495,12 +533,86 @@ const Billing = ({ apptForCheckout, clearApptCheckout }) => {
               <p>Simulated Digital bill sent to client WhatsApp successfully.</p>
               <button 
                 onClick={() => { window.print(); }} 
-                className="gold-btn" 
+                className="gold-btn print-btn" 
                 style={{ width: '100%', justifyContent: 'center', padding: '0.5rem', fontSize: '0.75rem', marginTop: '1rem' }}
               >
                 Print Receipt
               </button>
+              {modalClient && modalClient.phone && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    let formattedPhone = modalClient.phone.replace(/\D/g, '');
+                    if (formattedPhone.length === 10) {
+                      formattedPhone = '91' + formattedPhone;
+                    }
+                    const servicesText = selectedInvoice.services.map(s => `- ${s.name}: ₹${s.price}`).join('\n');
+                    const productsText = selectedInvoice.products.length > 0 
+                      ? '\nProducts:\n' + selectedInvoice.products.map(p => `- ${p.name} (x${p.quantity}): ₹${p.price}`).join('\n') 
+                      : '';
+                    const msg = `Hello ${modalClient.name},\n\nThank you for visiting SalonSync! Here is your bill summary (Invoice No: ${selectedInvoice.invoiceNumber}):\n\nServices:\n${servicesText}${productsText}\n\nDiscount: ₹${selectedInvoice.discount}\nTax GST: ${selectedInvoice.tax}%\nGrand Total Paid: *₹${selectedInvoice.finalAmount}*\n\nHope to see you again!`;
+                    window.open(`https://wa.me/${formattedPhone}?text=${encodeURIComponent(msg)}`, '_blank');
+                  }}
+                  className="outline-btn"
+                  style={{
+                    width: '100%',
+                    justifyContent: 'center',
+                    padding: '0.5rem',
+                    fontSize: '0.75rem',
+                    marginTop: '0.5rem',
+                    borderColor: '#25D366',
+                    color: '#25D366',
+                    background: 'rgba(37, 211, 102, 0.05)'
+                  }}
+                >
+                  Send via WhatsApp
+                </button>
+              )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Glassmorphic Processing Overlay */}
+      {isProcessing && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          backgroundColor: 'rgba(0, 0, 0, 0.7)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 99999,
+          transition: 'all 0.3s ease-in-out'
+        }}>
+          <div style={{
+            background: 'rgba(30, 35, 25, 0.9)',
+            border: '1px solid var(--gold-primary)',
+            borderRadius: '12px',
+            padding: '2.5rem',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            boxShadow: '0 20px 50px rgba(0, 0, 0, 0.6)',
+            maxWidth: '400px',
+            textAlign: 'center',
+          }}>
+            <svg className="animate-spin" style={{
+              width: '50px',
+              height: '50px',
+              marginBottom: '1.5rem',
+              color: 'var(--gold-primary)'
+            }} viewBox="0 0 24 24" fill="none">
+              <circle style={{ opacity: 0.25 }} cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path style={{ opacity: 0.75 }} fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+            </svg>
+            <h3 style={{ color: 'var(--gold-primary)', fontSize: '1.25rem', marginBottom: '0.5rem', fontWeight: '600' }}>Processing Payment</h3>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', lineHeight: '1.4' }}>Generating transaction invoice and updating ledgers. Please wait...</p>
           </div>
         </div>
       )}

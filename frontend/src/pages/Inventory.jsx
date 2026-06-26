@@ -231,8 +231,8 @@ const Inventory = () => {
 
       {/* Add Product Modal */}
       {showProdModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200 }}>
-          <div className="glass-card gold-border" style={{ width: '420px', padding: '2rem' }}>
+        <div onClick={(e) => { if (e.target === e.currentTarget) setShowProdModal(false); }} className="modal-backdrop-overlay">
+          <div className="modal-scrollable-content" style={{ maxWidth: '420px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
               <h3 style={{ color: 'var(--text-primary)' }}>Register Catalog Product</h3>
               <button onClick={() => setShowProdModal(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)' }}><X size={18} /></button>
@@ -295,8 +295,8 @@ const Inventory = () => {
 
       {/* Add Supplier Modal */}
       {showSuppModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200 }}>
-          <div className="glass-card gold-border" style={{ width: '400px', padding: '2rem' }}>
+        <div onClick={(e) => { if (e.target === e.currentTarget) setShowSuppModal(false); }} className="modal-backdrop-overlay">
+          <div className="modal-scrollable-content" style={{ maxWidth: '400px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
               <h3 style={{ color: 'var(--text-primary)' }}>Add New Supplier</h3>
               <button onClick={() => setShowSuppModal(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)' }}><X size={18} /></button>
@@ -326,8 +326,8 @@ const Inventory = () => {
 
       {/* Stock Adjust Modal */}
       {showStockAdjustModal && selectedProd && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200 }}>
-          <div className="glass-card gold-border" style={{ width: '380px', padding: '2rem' }}>
+        <div onClick={(e) => { if (e.target === e.currentTarget) setShowStockAdjustModal(false); }} className="modal-backdrop-overlay">
+          <div className="modal-scrollable-content" style={{ maxWidth: '380px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
               <h3 style={{ color: 'var(--text-primary)' }}>Stock Roster Adjustment</h3>
               <button onClick={() => setShowStockAdjustModal(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)' }}><X size={18} /></button>

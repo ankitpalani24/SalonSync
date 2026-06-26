@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from './context/AppContext';
+import { Bell } from 'lucide-react';
 
 // Import components
 import Sidebar from './components/Sidebar';
@@ -20,13 +21,44 @@ import Marketing from './pages/Marketing';
 import SuperAdmin from './pages/Admin/SuperAdmin';
 
 function App() {
-  const { currentUser, logout } = useApp();
+  const { currentUser, logout, db } = useApp();
   const [activePage, setActivePage] = useState('landing');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [showAlerts, setShowAlerts] = useState(false);
 
   // Transfer state for checking out appointments
   const [selectedApptForCheckout, setSelectedApptForCheckout] = useState(null);
+
+  // Prevent main screen scroll when mobile sidebar is open or modal is active
+  useEffect(() => {
+    const checkScrollLock = () => {
+      const hasModal = document.querySelector('.modal-backdrop-overlay');
+      const appContainer = document.querySelector('.app-container');
+      if (mobileSidebarOpen || hasModal) {
+        document.body.classList.add('scroll-locked');
+        document.documentElement.classList.add('scroll-locked');
+        if (appContainer) appContainer.classList.add('scroll-locked');
+      } else {
+        document.body.classList.remove('scroll-locked');
+        document.documentElement.classList.remove('scroll-locked');
+        if (appContainer) appContainer.classList.remove('scroll-locked');
+      }
+    };
+
+    checkScrollLock();
+
+    const observer = new MutationObserver(checkScrollLock);
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    return () => {
+      observer.disconnect();
+      document.body.classList.remove('scroll-locked');
+      document.documentElement.classList.remove('scroll-locked');
+      const appContainer = document.querySelector('.app-container');
+      if (appContainer) appContainer.classList.remove('scroll-locked');
+    };
+  }, [mobileSidebarOpen]);
 
   // Sync active page with login status and check role permissions
   useEffect(() => {
@@ -125,6 +157,10 @@ function App() {
     );
   }
 
+  const notifications = db?.notifications && currentUser
+    ? db.notifications.filter(n => n.salonId === currentUser.salonId).slice(0, 5)
+    : [];
+
   // 2. INNER WORKSPACE WORKFLOW LAYOUT
   return (
     <div className="app-container">
@@ -145,17 +181,97 @@ function App() {
           setCollapsed={setSidebarCollapsed} 
           user={currentUser}
           logout={logout}
+          closeMobileSidebar={() => setMobileSidebarOpen(false)}
         />
       </div>
 
       {/* Main workplace pane */}
-      <div className="main-content">
+      <div className="main-content" style={{ position: 'relative' }}>
         <Header toggleMobileSidebar={() => setMobileSidebarOpen(!mobileSidebarOpen)} />
         
         {/* Render page */}
         <div style={{ flex: 1 }}>
           {renderActivePage()}
         </div>
+
+        {/* Floating Notification Button & Dropdown Drawer */}
+        {currentUser && (
+          <div style={{ position: 'fixed', bottom: '24px', right: '24px', zIndex: 9999 }}>
+            <button
+              onClick={() => setShowAlerts(!showAlerts)}
+              style={{
+                width: '50px',
+                height: '50px',
+                borderRadius: '50%',
+                background: 'var(--gold-primary)',
+                color: '#000000',
+                border: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                boxShadow: '0 4px 20px rgba(112, 130, 56, 0.4)',
+                position: 'relative'
+              }}
+            >
+              <Bell size={22} />
+              {notifications.length > 0 && (
+                <span style={{
+                  position: 'absolute',
+                  top: '-2px',
+                  right: '-2px',
+                  background: 'var(--accent-red)',
+                  color: '#ffffff',
+                  fontSize: '0.65rem',
+                  fontWeight: 'bold',
+                  borderRadius: '50%',
+                  width: '18px',
+                  height: '18px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  {notifications.length}
+                </span>
+              )}
+            </button>
+
+            {showAlerts && (
+              <div style={{
+                position: 'absolute',
+                bottom: '65px',
+                right: 0,
+                width: 'calc(100vw - 48px)',
+                maxWidth: '320px',
+                background: 'var(--bg-secondary)',
+                border: '1px solid var(--border-light)',
+                borderRadius: '8px',
+                boxShadow: 'var(--shadow-premium)',
+                padding: '1.25rem',
+                zIndex: 10000
+              }}>
+                <h4 style={{ fontSize: '0.9rem', marginBottom: '0.75rem', color: 'var(--gold-primary)', borderBottom: '1px solid var(--border-light)', paddingBottom: '0.5rem' }}>
+                  WhatsApp Activity Log
+                </h4>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxHeight: '250px', overflowY: 'auto' }}>
+                  {notifications.length === 0 ? (
+                    <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>No messages sent recently.</p>
+                  ) : (
+                    notifications.map(n => (
+                      <div key={n._id} style={{ borderBottom: '1px dashed rgba(255,255,255,0.05)', paddingBottom: '0.5rem' }}>
+                        <p style={{ fontSize: '0.75rem', color: 'var(--text-primary)', fontWeight: '500' }}>
+                          {n.type === 'WhatsApp' ? '💬 WhatsApp Automation' : '✉️ SMS Outbox'}
+                        </p>
+                        <p style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{n.message}</p>
+                        <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>{new Date(n.sentAt).toLocaleTimeString()}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

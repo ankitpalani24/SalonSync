@@ -11,22 +11,23 @@ export const AppProvider = ({ children }) => {
   });
 
   // Demo Mode state
-  const [demoMode, setDemoMode] = useState(false);
+  const demoMode = false;
+  const setDemoMode = () => {};
 
   // Active tenant states
   const [currentUser, setCurrentUser] = useState(() => {
     const local = localStorage.getItem('user');
-    return local ? JSON.parse(local) : mockData.mockUsers[1]; // Logged in as Alexander (Salon Owner) by default
+    return local ? JSON.parse(local) : null;
   });
 
   const [currentSalon, setCurrentSalon] = useState(() => {
     const local = localStorage.getItem('salon');
-    return local ? JSON.parse(local) : mockData.mockSalons[0]; // Luxe & Gold
+    return local ? JSON.parse(local) : null;
   });
 
   const [currentBranch, setCurrentBranch] = useState(() => {
     const local = localStorage.getItem('branch');
-    return local ? JSON.parse(local) : mockData.mockBranches[0]; // Bandra Flagship
+    return local ? JSON.parse(local) : null;
   });
 
   // DB collections state
@@ -55,15 +56,6 @@ export const AppProvider = ({ children }) => {
     };
   });
 
-  // Persist collections in localStorage whenever they change
-  useEffect(() => {
-    if (demoMode) {
-      Object.keys(db).forEach((key) => {
-        localStorage.setItem(`sf_${key}`, JSON.stringify(db[key]));
-      });
-    }
-  }, [db, demoMode]);
-
   // Apply dark mode CSS classes
   useEffect(() => {
     if (darkMode) {
@@ -75,151 +67,178 @@ export const AppProvider = ({ children }) => {
     }
   }, [darkMode]);
 
-  // API Backend sync base url
-  const API_URL = 'http://localhost:5000/api';
+  // API Backend sync base url (dynamic host to support local network/mobile testing)
+  const API_URL = `http://${window.location.hostname}:5000/api`;
+
+  // Sync all collection data from backend DB
+  const syncBackendData = async (token = localStorage.getItem('token')) => {
+    if (!token) return;
+    try {
+      const headers = { 'Authorization': `Bearer ${token}` };
+      
+      // Fetch active salon
+      const salonRes = await fetch(`${API_URL}/salons/mine`, { headers });
+      const salonData = await salonRes.json();
+      if (salonData.success) {
+        setCurrentSalon(salonData.data);
+        localStorage.setItem('salon', JSON.stringify(salonData.data));
+      }
+
+      // Fetch branches
+      const branchRes = await fetch(`${API_URL}/branches`, { headers });
+      const branchData = await branchRes.json();
+      let activeBranches = [];
+      if (branchData.success) {
+        activeBranches = branchData.data;
+        const local = localStorage.getItem('branch');
+        if (local) {
+          setCurrentBranch(JSON.parse(local));
+        } else if (currentUser && currentUser.branchId) {
+          const userB = activeBranches.find(b => b._id === currentUser.branchId);
+          if (userB) {
+            setCurrentBranch(userB);
+            localStorage.setItem('branch', JSON.stringify(userB));
+          } else if (activeBranches.length > 0) {
+            setCurrentBranch(activeBranches[0]);
+            localStorage.setItem('branch', JSON.stringify(activeBranches[0]));
+          }
+        } else if (activeBranches.length > 0) {
+          setCurrentBranch(activeBranches[0]);
+          localStorage.setItem('branch', JSON.stringify(activeBranches[0]));
+        }
+      }
+
+      // Fetch other collections
+      const [
+        customersRes,
+        appointmentsRes,
+        servicesRes,
+        packagesRes,
+        expensesRes,
+        invoicesRes,
+        productsRes,
+        suppliersRes,
+        staffRes,
+        attendanceRes,
+        commissionsRes
+      ] = await Promise.all([
+        fetch(`${API_URL}/customers`, { headers }),
+        fetch(`${API_URL}/appointments`, { headers }),
+        fetch(`${API_URL}/services`, { headers }),
+        fetch(`${API_URL}/packages`, { headers }),
+        fetch(`${API_URL}/expenses`, { headers }),
+        fetch(`${API_URL}/invoices`, { headers }),
+        fetch(`${API_URL}/products`, { headers }),
+        fetch(`${API_URL}/suppliers`, { headers }),
+        fetch(`${API_URL}/staff`, { headers }),
+        fetch(`${API_URL}/attendance`, { headers }),
+        fetch(`${API_URL}/commissions`, { headers })
+      ]);
+
+      const [
+        customers,
+        appointments,
+        services,
+        packages,
+        expenses,
+        invoices,
+        products,
+        suppliers,
+        staff,
+        attendance,
+        commissions
+      ] = await Promise.all([
+        customersRes.json(),
+        appointmentsRes.json(),
+        servicesRes.json(),
+        packagesRes.json(),
+        expensesRes.json(),
+        invoicesRes.json(),
+        productsRes.json(),
+        suppliersRes.json(),
+        staffRes.json(),
+        attendanceRes.json(),
+        commissionsRes.json()
+      ]);
+
+      setDb(prev => ({
+        ...prev,
+        branches: activeBranches.length > 0 ? activeBranches : prev.branches,
+        customers: customers.success ? customers.data : prev.customers,
+        appointments: appointments.success ? appointments.data : prev.appointments,
+        services: services.success ? services.data : prev.services,
+        packages: packages.success ? packages.data : prev.packages,
+        expenses: expenses.success ? expenses.data : prev.expenses,
+        invoices: invoices.success ? invoices.data : prev.invoices,
+        products: products.success ? products.data : prev.products,
+        suppliers: suppliers.success ? suppliers.data : prev.suppliers,
+        staff: staff.success ? staff.data : prev.staff,
+        attendance: attendance.success ? attendance.data : prev.attendance,
+        commissions: commissions.success ? commissions.data : prev.commissions,
+      }));
+    } catch (err) {
+      console.error('Failed to sync backend data:', err);
+    }
+  };
+
+  // Sync on startup / mount
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token && currentUser) {
+      syncBackendData(token);
+    }
+  }, [currentUser]);
 
   // Auth Operations
   const login = async (email, password) => {
-    if (demoMode) {
-      const user = db.users.find(u => u.email === email);
-      if (user) {
-        setCurrentUser(user);
-        localStorage.setItem('user', JSON.stringify(user));
-        
-        if (user.salonId) {
-          const salon = db.salons.find(s => s._id === user.salonId);
-          if (salon) {
-            setCurrentSalon(salon);
-            localStorage.setItem('salon', JSON.stringify(salon));
-          }
-          const branch = db.branches.find(b => b.salonId === user.salonId);
-          if (branch) {
-            setCurrentBranch(branch);
-            localStorage.setItem('branch', JSON.stringify(branch));
-          }
-        }
-        return { success: true, user };
+    try {
+      const res = await fetch(`${API_URL}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      const data = await res.json();
+      if (data.success) {
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        setCurrentUser(data.user);
+        await syncBackendData(data.token);
+        return { success: true, user: data.user };
       }
-      return { success: false, message: 'Invalid credentials in Demo Database.' };
-    } else {
-      try {
-        const res = await fetch(`${API_URL}/auth/login`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password })
-        });
-        const data = await res.json();
-        if (data.success) {
-          localStorage.setItem('token', data.token);
-          localStorage.setItem('user', JSON.stringify(data.user));
-          setCurrentUser(data.user);
-          // Load Salon details
-          const salonRes = await fetch(`${API_URL}/dashboard/stats`, {
-            headers: { 'Authorization': `Bearer ${data.token}` }
-          });
-          // Synchronize core data sets after login
-          return { success: true, user: data.user };
-        }
-        return { success: false, message: data.message };
-      } catch (err) {
-        return { success: false, message: 'Failed to connect to API backend.' };
-      }
+      return { success: false, message: data.message };
+    } catch (err) {
+      return { success: false, message: 'Failed to connect to API backend.' };
     }
   };
 
   const signup = async (payload) => {
-    if (demoMode) {
-      const newSalonId = `salon_${Date.now()}`;
-      const newBranchId = `branch_${Date.now()}`;
-      const newUserId = `user_${Date.now()}`;
-
-      const newSalon = {
-        _id: newSalonId,
-        name: payload.salonName,
-        ownerName: payload.ownerName,
-        email: payload.email,
-        phone: payload.phone,
-        address: payload.salonAddress,
-        city: payload.city,
-        state: payload.state,
-        gstNumber: payload.gstNumber,
-        businessType: payload.businessType,
-        subscriptionPlan: 'Starter Salon',
-        subscriptionStatus: 'Trial'
-      };
-
-      const newBranch = {
-        _id: newBranchId,
-        salonId: newSalonId,
-        name: 'Main Branch',
-        address: payload.salonAddress,
-        city: payload.city,
-        state: payload.state,
-        phone: payload.phone,
-        status: 'Active'
-      };
-
-      const newUser = {
-        _id: newUserId,
-        name: payload.ownerName,
-        email: payload.email,
-        phone: payload.phone,
-        role: 'Salon Owner',
-        salonId: newSalonId,
-        branchId: newBranchId
-      };
-
-      setDb(prev => ({
-        ...prev,
-        salons: [...prev.salons, newSalon],
-        branches: [...prev.branches, newBranch],
-        users: [...prev.users, newUser],
-        services: [
-          ...prev.services,
-          { _id: `serv_${Date.now()}_1`, salonId: newSalonId, name: 'Standard Haircut', category: 'Haircut', duration: 30, price: 400, materialCost: 30, profitMargin: 370 },
-          { _id: `serv_${Date.now()}_2`, salonId: newSalonId, name: 'Facial Cleanse', category: 'Facial', duration: 45, price: 1000, materialCost: 100, profitMargin: 900 }
-        ],
-        staff: [
-          ...prev.staff,
-          { _id: `staff_${Date.now()}_1`, salonId: newSalonId, branchId: newBranchId, name: 'Standard Stylist', phone: payload.phone, role: 'Stylist', salary: 15000, commissionPercentage: 10, rating: 5 }
-        ],
-        products: [
-          ...prev.products,
-          { _id: `prod_${Date.now()}_1`, salonId: newSalonId, name: 'Sample Shampoo', sku: 'SMP-SH', category: 'Hair Care', quantity: 10, purchasePrice: 200, sellingPrice: 400, lowStockThreshold: 2 }
-        ]
-      }));
-
-      setCurrentUser(newUser);
-      setCurrentSalon(newSalon);
-      setCurrentBranch(newBranch);
-      localStorage.setItem('user', JSON.stringify(newUser));
-      localStorage.setItem('salon', JSON.stringify(newSalon));
-      localStorage.setItem('branch', JSON.stringify(newBranch));
-      return { success: true };
-    } else {
-      try {
-        const res = await fetch(`${API_URL}/auth/signup`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-        const data = await res.json();
-        if (data.success) {
-          localStorage.setItem('token', data.token);
-          localStorage.setItem('user', JSON.stringify(data.user));
-          setCurrentUser(data.user);
-          return { success: true };
-        }
-        return { success: false, message: data.message };
-      } catch (err) {
-        return { success: false, message: 'Signup failed. API is offline.' };
+    try {
+      const res = await fetch(`${API_URL}/auth/signup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (data.success) {
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        setCurrentUser(data.user);
+        await syncBackendData(data.token);
+        return { success: true };
       }
+      return { success: false, message: data.message };
+    } catch (err) {
+      return { success: false, message: 'Signup failed. API is offline.' };
     }
   };
 
   const logout = () => {
     setCurrentUser(null);
+    setCurrentSalon(null);
+    setCurrentBranch(null);
     localStorage.removeItem('user');
+    localStorage.removeItem('salon');
+    localStorage.removeItem('branch');
     localStorage.removeItem('token');
   };
 
@@ -234,211 +253,350 @@ export const AppProvider = ({ children }) => {
   };
 
   // ----------------------------------------------------
-  // ENTITY OPERATIONS (LOCAL DB WRITING)
+  // ENTITY OPERATIONS (LIVE DATABASE INTEGRATION)
   // ----------------------------------------------------
 
-  const addCustomer = (customer) => {
-    const newCust = {
-      _id: `cust_${Date.now()}`,
-      salonId: currentUser.salonId,
-      branchId: currentBranch ? currentBranch._id : null,
-      loyaltyPoints: 0,
-      membershipLevel: 'None',
-      ...customer
-    };
-    setDb(prev => ({
-      ...prev,
-      customers: [...prev.customers, newCust]
-    }));
-    return newCust;
-  };
-
-  const updateCustomer = (id, updatedFields) => {
-    setDb(prev => ({
-      ...prev,
-      customers: prev.customers.map(c => c._id === id ? { ...c, ...updatedFields } : c)
-    }));
-  };
-
-  const deleteCustomer = (id) => {
-    setDb(prev => ({
-      ...prev,
-      customers: prev.customers.filter(c => c._id !== id)
-    }));
-  };
-
-  const addAppointment = (appt) => {
-    const newAppt = {
-      _id: `appt_${Date.now()}`,
-      salonId: currentUser.salonId,
-      branchId: currentBranch ? currentBranch._id : null,
-      status: 'Scheduled',
-      ...appt
-    };
-    setDb(prev => ({
-      ...prev,
-      appointments: [...prev.appointments, newAppt]
-    }));
-
-    // Trigger WhatsApp notification simulator log
-    addNotification({
-      customerId: appt.customerId,
-      type: 'WhatsApp',
-      message: `Your booking for date ${appt.date} at ${appt.time} has been scheduled successfully.`
-    });
-  };
-
-  const updateAppointmentStatus = (id, status) => {
-    setDb(prev => ({
-      ...prev,
-      appointments: prev.appointments.map(a => a._id === id ? { ...a, status } : a)
-    }));
-
-    // If completed, trigger mock loyalty/commissions alert if checkout not manually run.
-    const appt = db.appointments.find(a => a._id === id);
-    if (appt && status === 'Completed') {
-      addNotification({
-        customerId: appt.customerId,
-        type: 'WhatsApp',
-        message: `Thank you for visiting us! Your treatment was marked completed.`
+  const addCustomer = async (customer) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/customers`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          ...customer,
+          branchId: currentBranch ? currentBranch._id : null
+        })
       });
+      const data = await res.json();
+      if (data.success) {
+        if (customer.email) {
+          try {
+            await fetch(`${API_URL}/auth/create-user`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify({
+                name: customer.name,
+                email: customer.email,
+                phone: customer.phone,
+                password: 'password123',
+                role: 'CLIENT'
+              })
+            });
+          } catch (err) {
+            console.error('Failed to create customer user credentials:', err);
+          }
+        }
+        await syncBackendData(token);
+        return data.data;
+      }
+    } catch (err) {
+      console.error('Error adding customer:', err);
     }
   };
 
-  const addService = (srv) => {
-    const profitMargin = srv.price - (srv.materialCost || 0);
-    const newSrv = {
-      _id: `serv_${Date.now()}`,
-      salonId: currentUser.salonId,
-      profitMargin,
-      ...srv
-    };
-    setDb(prev => ({
-      ...prev,
-      services: [...prev.services, newSrv]
-    }));
-  };
-
-  const addPackage = (pkg) => {
-    const newPkg = {
-      _id: `pkg_${Date.now()}`,
-      salonId: currentUser.salonId,
-      ...pkg
-    };
-    setDb(prev => ({
-      ...prev,
-      packages: [...prev.packages, newPkg]
-    }));
-  };
-
-  const addExpense = (exp) => {
-    const newExp = {
-      _id: `exp_${Date.now()}`,
-      salonId: currentUser.salonId,
-      branchId: currentBranch ? currentBranch._id : null,
-      date: new Date().toLocaleDateString('en-CA'),
-      ...exp
-    };
-    setDb(prev => ({
-      ...prev,
-      expenses: [...prev.expenses, newExp]
-    }));
-  };
-
-  const addProduct = (prod) => {
-    const newProd = {
-      _id: `prod_${Date.now()}`,
-      salonId: currentUser.salonId,
-      ...prod
-    };
-    setDb(prev => ({
-      ...prev,
-      products: [...prev.products, newProd]
-    }));
-  };
-
-  const updateProductQuantity = (productId, delta) => {
-    setDb(prev => ({
-      ...prev,
-      products: prev.products.map(p => p._id === productId ? { ...p, quantity: Math.max(0, p.quantity + delta) } : p)
-    }));
-  };
-
-  const addSupplier = (supp) => {
-    const newSupp = {
-      _id: `supp_${Date.now()}`,
-      salonId: currentUser.salonId,
-      outstandingDues: 0,
-      ...supp
-    };
-    setDb(prev => ({
-      ...prev,
-      suppliers: [...prev.suppliers, newSupp]
-    }));
-  };
-
-  const addStaff = (member) => {
-    const newStaff = {
-      _id: `staff_${Date.now()}`,
-      salonId: currentUser.salonId,
-      branchId: currentBranch ? currentBranch._id : null,
-      rating: 5.0,
-      ...member
-    };
-    setDb(prev => ({
-      ...prev,
-      staff: [...prev.staff, newStaff]
-    }));
-  };
-
-  const clockInStaff = (staffId) => {
-    const today = new Date().toLocaleDateString('en-CA');
-    const nowTime = new Date().toTimeString().split(' ')[0].substring(0, 5); // "HH:MM"
-    
-    // Check if already clocked in
-    const exists = db.attendance.some(att => att.staffId === staffId && att.date === today);
-    if (exists) return;
-
-    const newAtt = {
-      _id: `att_${Date.now()}`,
-      salonId: currentUser.salonId,
-      branchId: currentBranch ? currentBranch._id : null,
-      staffId,
-      date: today,
-      checkIn: nowTime,
-      checkOut: '',
-      workingHours: 0,
-      overtime: 0
-    };
-
-    setDb(prev => ({
-      ...prev,
-      attendance: [...prev.attendance, newAtt]
-    }));
-  };
-
-  const clockOutStaff = (staffId) => {
-    const today = new Date().toLocaleDateString('en-CA');
-    const nowTime = new Date().toTimeString().split(' ')[0].substring(0, 5);
-
-    setDb(prev => {
-      const updatedAtt = prev.attendance.map(att => {
-        if (att.staffId === staffId && att.date === today && !att.checkOut) {
-          const [inH, inM] = att.checkIn.split(':').map(Number);
-          const [outH, outM] = nowTime.split(':').map(Number);
-          const diffHrs = (outH + outM / 60) - (inH + inM / 60);
-          const workingHours = Math.round(diffHrs * 10) / 10;
-          const overtime = Math.max(0, workingHours - 8);
-
-          return { ...att, checkOut: nowTime, workingHours, overtime };
-        }
-        return att;
+  const updateCustomer = async (id, updatedFields) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/customers/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(updatedFields)
       });
-      return { ...prev, attendance: updatedAtt };
-    });
+      const data = await res.json();
+      if (data.success) {
+        await syncBackendData(token);
+      }
+    } catch (err) {
+      console.error('Error updating customer:', err);
+    }
+  };
+
+  const deleteCustomer = async (id) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/customers/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const data = await res.json();
+      if (data.success) {
+        await syncBackendData(token);
+      }
+    } catch (err) {
+      console.error('Error deleting customer:', err);
+    }
+  };
+
+  const addAppointment = async (appt) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/appointments`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          ...appt,
+          branchId: currentBranch ? currentBranch._id : appt.branchId
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        await syncBackendData(token);
+      }
+    } catch (err) {
+      console.error('Error adding appointment:', err);
+    }
+  };
+
+  const updateAppointmentStatus = async (id, status) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/appointments/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ status })
+      });
+      const data = await res.json();
+      if (data.success) {
+        await syncBackendData(token);
+      }
+    } catch (err) {
+      console.error('Error updating appointment status:', err);
+    }
+  };
+
+  const addService = async (srv) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/services`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(srv)
+      });
+      const data = await res.json();
+      if (data.success) {
+        await syncBackendData(token);
+      }
+    } catch (err) {
+      console.error('Error adding service:', err);
+    }
+  };
+
+  const addPackage = async (pkg) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/packages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(pkg)
+      });
+      const data = await res.json();
+      if (data.success) {
+        await syncBackendData(token);
+      }
+    } catch (err) {
+      console.error('Error adding package:', err);
+    }
+  };
+
+  const addExpense = async (exp) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/expenses`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          ...exp,
+          branchId: currentBranch ? currentBranch._id : null
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        await syncBackendData(token);
+      }
+    } catch (err) {
+      console.error('Error adding expense:', err);
+    }
+  };
+
+  const addProduct = async (prod) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/products`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(prod)
+      });
+      const data = await res.json();
+      if (data.success) {
+        await syncBackendData(token);
+      }
+    } catch (err) {
+      console.error('Error adding product:', err);
+    }
+  };
+
+  const updateProductQuantity = async (productId, delta) => {
+    try {
+      const token = localStorage.getItem('token');
+      const matched = db.products.find(p => p._id === productId);
+      if (!matched) return;
+      const res = await fetch(`${API_URL}/products/${productId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          quantity: Math.max(0, matched.quantity + delta)
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        await syncBackendData(token);
+      }
+    } catch (err) {
+      console.error('Error updating product stock:', err);
+    }
+  };
+
+  const addSupplier = async (supp) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/suppliers`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(supp)
+      });
+      const data = await res.json();
+      if (data.success) {
+        await syncBackendData(token);
+      }
+    } catch (err) {
+      console.error('Error adding supplier:', err);
+    }
+  };
+
+  const addStaff = async (member) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/staff`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          ...member,
+          branchId: currentBranch ? currentBranch._id : null
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        try {
+          await fetch(`${API_URL}/auth/create-user`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              name: member.name,
+              email: `${member.phone}@salonsync.com`,
+              phone: member.phone,
+              password: 'password123',
+              role: 'STAFF'
+            })
+          });
+        } catch (userErr) {
+          console.error('Failed to create staff user credentials:', userErr);
+        }
+        await syncBackendData(token);
+      }
+    } catch (err) {
+      console.error('Error adding staff:', err);
+    }
+  };
+
+  const clockInStaff = async (staffId) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/attendance`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          staffId,
+          action: 'clockin'
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        await syncBackendData(token);
+      }
+    } catch (err) {
+      console.error('Error clocking in:', err);
+    }
+  };
+
+  const clockOutStaff = async (staffId) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/attendance`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          staffId,
+          action: 'clockout'
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        await syncBackendData(token);
+      }
+    } catch (err) {
+      console.error('Error clocking out:', err);
+    }
   };
 
   const addNotification = (notif) => {
+    // Left as client side logger simulator for SMS notification outbox
     const newNotif = {
       _id: `nt_${Date.now()}`,
       salonId: currentUser ? currentUser.salonId : null,
@@ -453,130 +611,46 @@ export const AppProvider = ({ children }) => {
   };
 
   // POS Checkout Billing Generator
-  const createInvoice = (invoiceData) => {
-    const count = tenantFilter(db.invoices).length;
-    const invoiceNumber = `INV-${new Date().getFullYear()}-${String(count + 1).padStart(4, '0')}`;
-
-    let subTotal = 0;
-
-    // Calculate services cost
-    invoiceData.services.forEach(item => {
-      const s = db.services.find(serv => serv._id === item.serviceId);
-      if (s) subTotal += s.price * (item.quantity || 1);
-    });
-
-    // Calculate products cost & deduct inventory
-    invoiceData.products.forEach(item => {
-      const p = db.products.find(prod => prod._id === item.productId);
-      if (p) {
-        subTotal += p.sellingPrice * (item.quantity || 1);
-        updateProductQuantity(item.productId, -(item.quantity || 1));
+  const createInvoice = async (invoiceData) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/invoices`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(invoiceData)
+      });
+      const data = await res.json();
+      if (data.success) {
+        await syncBackendData(token);
+        return data.data;
       }
-    });
-
-    const taxVal = subTotal * (invoiceData.tax || 0) / 100;
-    const finalAmount = Math.round(subTotal + taxVal - (invoiceData.discount || 0));
-
-    const newInvoice = {
-      _id: `inv_${Date.now()}`,
-      invoiceNumber,
-      salonId: currentUser.salonId,
-      branchId: currentBranch ? currentBranch._id : null,
-      customerId: invoiceData.customerId,
-      services: invoiceData.services.map(i => {
-        const s = db.services.find(serv => serv._id === i.serviceId);
-        return { serviceId: i.serviceId, name: s ? s.name : 'Service', price: s ? s.price : 0, quantity: i.quantity || 1 };
-      }),
-      products: invoiceData.products.map(i => {
-        const p = db.products.find(prod => prod._id === i.productId);
-        return { productId: i.productId, name: p ? p.name : 'Product', price: p ? p.sellingPrice : 0, quantity: i.quantity || 1 };
-      }),
-      tax: invoiceData.tax || 0,
-      discount: invoiceData.discount || 0,
-      finalAmount,
-      paymentMethod: invoiceData.paymentMethod || 'Cash',
-      paymentStatus: 'Paid',
-      staffId: invoiceData.staffId,
-      createdAt: new Date().toISOString()
-    };
-
-    // Loyalty point awarding: ₹100 = 1 point
-    if (invoiceData.customerId) {
-      const pointsEarned = Math.floor(finalAmount / 100);
-      if (pointsEarned > 0) {
-        setDb(prev => ({
-          ...prev,
-          customers: prev.customers.map(c => c._id === invoiceData.customerId ? { ...c, loyaltyPoints: c.loyaltyPoints + pointsEarned } : c),
-          loyaltyPoints: [...prev.loyaltyPoints, {
-            _id: `lp_${Date.now()}`,
-            salonId: currentUser.salonId,
-            customerId: invoiceData.customerId,
-            pointsEarned,
-            transactionAmount: finalAmount,
-            date: new Date().toISOString()
-          }]
-        }));
-      }
+    } catch (err) {
+      console.error('Error creating invoice:', err);
     }
-
-    // Staff Commission
-    if (invoiceData.staffId) {
-      const employee = db.staff.find(st => st._id === invoiceData.staffId);
-      if (employee) {
-        // service revenue only
-        const serviceRev = invoiceData.services.reduce((acc, curr) => {
-          const s = db.services.find(serv => serv._id === curr.serviceId);
-          return acc + (s ? s.price * (curr.quantity || 1) : 0);
-        }, 0);
-        
-        const commissionEarned = Math.round(serviceRev * (employee.commissionPercentage / 100));
-
-        setDb(prev => ({
-          ...prev,
-          commissions: [...prev.commissions, {
-            _id: `comm_${Date.now()}`,
-            salonId: currentUser.salonId,
-            branchId: currentBranch ? currentBranch._id : null,
-            staffId: invoiceData.staffId,
-            invoiceId: newInvoice._id,
-            revenueGenerated: serviceRev,
-            commissionRate: employee.commissionPercentage,
-            commissionEarned,
-            date: new Date().toLocaleDateString('en-CA')
-          }]
-        }));
-      }
-    }
-
-    setDb(prev => ({
-      ...prev,
-      invoices: [...prev.invoices, newInvoice]
-    }));
-
-    // Trigger WhatsApp invoice text
-    if (invoiceData.customerId) {
-      const customer = db.customers.find(c => c._id === invoiceData.customerId);
-      if (customer) {
-        addNotification({
-          customerId: invoiceData.customerId,
-          type: 'WhatsApp',
-          message: `Dear ${customer.name}, your invoice ${invoiceNumber} of ₹${finalAmount} was generated. Thanks for choosing SalonSync!`
-        });
-      }
-    }
-
-    return newInvoice;
   };
 
   // Change Salon details (Owner Profile settings)
-  const updateSalonDetails = (updatedFields) => {
-    const updated = { ...currentSalon, ...updatedFields };
-    setCurrentSalon(updated);
-    localStorage.setItem('salon', JSON.stringify(updated));
-    setDb(prev => ({
-      ...prev,
-      salons: prev.salons.map(s => s._id === currentSalon._id ? updated : s)
-    }));
+  const updateSalonDetails = async (updatedFields) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/salons/mine`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(updatedFields)
+      });
+      const data = await res.json();
+      if (data.success) {
+        await syncBackendData(token);
+      }
+    } catch (err) {
+      console.error('Error updating salon details:', err);
+    }
   };
 
   // Change active branch
@@ -589,17 +663,30 @@ export const AppProvider = ({ children }) => {
   };
 
   // Super Admin: Update subscription
-  const updateSalonSubscription = (salonId, plan, status) => {
-    setDb(prev => ({
-      ...prev,
-      salons: prev.salons.map(s => s._id === salonId ? { ...s, subscriptionPlan: plan, subscriptionStatus: status } : s)
-    }));
+  const updateSalonSubscription = async (salonId, plan, status) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/superadmin/salons/${salonId}/subscription`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ plan, status })
+      });
+      const data = await res.json();
+      if (data.success) {
+        await syncBackendData(token);
+      }
+    } catch (err) {
+      console.error('Error updating subscription:', err);
+    }
   };
 
   return (
     <AppContext.Provider value={{
       darkMode, setDarkMode,
-      demoMode, setDarkMode, setDemoMode,
+      demoMode, setDemoMode,
       currentUser, setCurrentUser,
       currentSalon, setCurrentSalon,
       currentBranch, setCurrentBranch,

@@ -47,17 +47,42 @@
 
 /* Light Mode Variables Override */
 .light-mode {
-  --bg-primary: #f9f9f9;
+  --bg-primary: #f1f3f6;
   --bg-secondary: #ffffff;
-  --bg-card: rgba(255, 255, 255, 0.85);
-  --bg-card-hover: rgba(245, 245, 245, 0.95);
-  --text-primary: #111111;
-  --text-secondary: #555555;
-  --text-muted: #888888;
-  --border-light: rgba(0, 0, 0, 0.08);
-  --shadow-premium: 0 8px 24px 0 rgba(0, 0, 0, 0.06);
-  --olive-bg: rgba(112, 130, 56, 0.12);
-  --gold-bg: rgba(112, 130, 56, 0.12);
+  --bg-card: #ffffff;
+  --bg-card-hover: #fafafa;
+  --text-primary: #1a1a1a;
+  --text-secondary: #4a4a4a;
+  --text-muted: #717171;
+  --border-light: rgba(0, 0, 0, 0.12);
+  --shadow-premium: 0 4px 16px 0 rgba(0, 0, 0, 0.08);
+  --olive-primary: #5c6e2b;
+  --olive-hover: #4a5921;
+  --olive-glow: rgba(92, 110, 43, 0.25);
+  --olive-bg: rgba(92, 110, 43, 0.12);
+  --olive-border: rgba(92, 110, 43, 0.3);
+  --gold-primary: var(--olive-primary);
+  --gold-hover: var(--olive-hover);
+  --gold-glow: var(--olive-glow);
+  --gold-bg: var(--olive-bg);
+  --gold-border: var(--olive-border);
+}
+
+.light-mode .form-control {
+  background: #ffffff !important;
+  border: 1px solid rgba(0, 0, 0, 0.18) !important;
+  color: #1a1a1a !important;
+}
+
+.light-mode .form-control:focus {
+  border-color: var(--gold-primary) !important;
+  box-shadow: 0 0 0 3px rgba(92, 110, 43, 0.15) !important;
+}
+
+.light-mode select,
+.light-mode select option {
+  background-color: #ffffff !important;
+  color: #1a1a1a !important;
 }
 
 /* Base resets */
@@ -593,3 +618,310 @@ select option:active {
     width: 100%;
   }
 }
+
+/* Print Media Styles to resolve black screen and ensure clean thermal/page outputs */
+@media print {
+  body > div:not(.modal-backdrop-overlay),
+  .app-container > *:not(.main-content),
+  .main-content > *:not(.page-container),
+  .page-container > *:not(.modal-backdrop-overlay),
+  .modal-backdrop-overlay > *:not(.print-receipt-modal) {
+    display: none !important;
+  }
+  
+  body, html {
+    background: #ffffff !important;
+    color: #000000 !important;
+    height: auto !important;
+    overflow: visible !important;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: flex-start !important;
+  }
+  
+  .app-container,
+  .main-content,
+  .page-container,
+  .modal-backdrop-overlay {
+    position: static !important;
+    display: block !important;
+    background: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    height: auto !important;
+    min-height: auto !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+  
+  .print-receipt-modal {
+    position: static !important;
+    display: block !important;
+    width: 80mm !important;
+    max-width: 100% !important;
+    margin: 0 auto !important;
+    padding: 1cm !important;
+    box-shadow: none !important;
+    border: none !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    overflow: visible !important;
+    max-height: none !important;
+  }
+  
+  .print-receipt-modal button,
+  .print-receipt-modal .print-btn,
+  .print-receipt-modal .outline-btn,
+  .print-receipt-modal .close-btn {
+    display: none !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .main-header {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 90 !important;
+  }
+}
+
+
+/* Modal responsive & backdrop styles to ensure overlays are visible and scrollable */
+.modal-backdrop-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: grid;
+  place-items: center;
+  z-index: 1000;
+  padding: 1.5rem;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+.modal-scrollable-content {
+  background: var(--bg-secondary);
+  border: 1px solid var(--gold-border);
+  border-radius: var(--border-radius);
+  padding: 2.5rem;
+  width: 100%;
+  max-width: 500px;
+  max-height: 85vh;
+  overflow-y: auto;
+  margin: auto; /* Vertically and horizontally centers when space permits, aligns to top on overflow */
+  position: relative;
+  box-shadow: var(--shadow-premium);
+  box-sizing: border-box;
+  animation: modalFadeIn 0.25s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
+}
+
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.modal-scrollable-content::-webkit-scrollbar {
+  width: 6px;
+}
+.modal-scrollable-content::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.02);
+}
+.modal-scrollable-content::-webkit-scrollbar-thumb {
+  background: var(--gold-border);
+  border-radius: 3px;
+}
+
+/* Prevent horizontal scrollbars and overflow-x strips */
+html, body, #root, .app-container {
+  max-width: 100% !important;
+  overflow-x: hidden !important;
+}
+
+/* Header responsive brand formatting */
+@media (max-width: 768px) {
+  .header-brand-title {
+    font-size: 0.95rem !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 160px;
+  }
+  .header-brand-location {
+    font-size: 0.65rem !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 150px;
+  }
+}
+
+@media (max-width: 480px) {
+  .header-brand-title {
+    max-width: 120px;
+  }
+  .header-brand-location {
+    max-width: 110px;
+  }
+}
+
+/* Scroll lock overlays and background containers */
+body.scroll-locked,
+html.scroll-locked,
+.app-container.scroll-locked,
+body.scroll-locked .main-content,
+body.scroll-locked .app-container {
+  overflow: hidden !important;
+  height: 100vh !important;
+  overscroll-behavior: none !important;
+}
+
+/* Fallback/Future-proof parent has selectors */
+body:has(.modal-backdrop-overlay),
+html:has(.modal-backdrop-overlay),
+body:has(.sidebar-container.open),
+html:has(.sidebar-container.open),
+body:has(.modal-backdrop-overlay) .main-content,
+body:has(.sidebar-container.open) .main-content {
+  overflow: hidden !important;
+  height: 100vh !important;
+  overscroll-behavior: none !important;
+}
+
+/* Scroll containment for overlays to prevent bubbling up */
+.modal-backdrop-overlay,
+.modal-scrollable-content,
+.sidebar-container,
+.sidebar-backdrop {
+  overscroll-behavior: contain !important;
+}
+
+/* touch-action: none on backdrop overlays to prevent mobile touch dragging scroll propagation */
+.sidebar-backdrop {
+  touch-action: none !important;
+}
+
+/* Calendar Month Grid and Sizing classes */
+.calendar-month-grid-wrapper {
+  width: 100%;
+}
+
+.calendar-month-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.5rem;
+}
+
+.calendar-day-cell {
+  min-height: 95px;
+  background: rgba(255, 255, 255, 0.01);
+  border: 1px solid var(--border-light);
+  border-radius: 4px;
+  padding: 0.35rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: var(--transition-smooth);
+}
+
+.calendar-day-cell.today {
+  background: var(--gold-bg);
+  border: 1px solid var(--gold-primary);
+}
+
+.calendar-day-cell.empty {
+  min-height: 90px;
+  background: rgba(255, 255, 255, 0.01);
+  border-radius: 4px;
+  opacity: 0.3;
+}
+
+/* Weekday header list styling */
+.calendar-weekdays-row {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.5rem;
+  text-align: center;
+  margin-bottom: 0.5rem;
+}
+
+.calendar-weekday-cell {
+  color: var(--gold-primary);
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.5rem;
+}
+
+/* Appointment cell badge */
+.calendar-appt-badge {
+  font-size: 0.65rem;
+  padding: 0.15rem 0.35rem;
+  border-radius: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: left;
+}
+
+/* Mobile responsive calendar overrides */
+@media (max-width: 768px) {
+  .calendar-day-cell {
+    min-height: 55px !important;
+    padding: 0.2rem !important;
+  }
+  
+  .calendar-day-cell.empty {
+    min-height: 50px !important;
+  }
+  
+  .calendar-day-cell span {
+    font-size: 0.65rem !important;
+  }
+  
+  .calendar-weekday-cell {
+    font-size: 0.7rem !important;
+    padding: 0.25rem 0.1rem !important;
+  }
+  
+  .calendar-appt-badge {
+    font-size: 0.55rem !important;
+    padding: 0.05rem 0.15rem !important;
+  }
+  
+  .modal-scrollable-content {
+    padding: 1.5rem !important;
+    max-height: 80vh !important;
+  }
+}
+
+/* Spinner & Notification Dropdown styling */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+@media (max-width: 480px) {
+  .header-alerts-dropdown {
+    width: 280px !important;
+    right: -40px !important;
+  }
+}
+
+

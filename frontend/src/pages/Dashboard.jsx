@@ -223,6 +223,166 @@ const Dashboard = ({ setActivePage }) => {
     );
   }
 
+  if (currentUser.role === 'STAFF') {
+    const myStaff = db.staff.find(s => s.name === currentUser.name || s.phone === currentUser.phone)
+      || db.staff.find(s => s.name === "Aarav Sharma")
+      || db.staff[0];
+
+    const getCommissionForInvoice = (inv, staffMember) => {
+      if (!inv || !staffMember || inv.staffId !== staffMember._id) return 0;
+      let servicesTotal = 0;
+      inv.services.forEach(item => {
+        servicesTotal += (item.price || 0) * (item.quantity || 1);
+      });
+      const commissionPercentage = staffMember.commissionPercentage || 15;
+      return Math.round(servicesTotal * (commissionPercentage / 100));
+    };
+
+    const myAppointmentsToday = db.appointments.filter(a => a.staffId === myStaff?._id && a.date === today);
+    const completedToday = myAppointmentsToday.filter(a => a.status === 'Completed').length;
+    const totalToday = myAppointmentsToday.length;
+
+    const myAppointmentsMonth = db.appointments.filter(a => a.staffId === myStaff?._id && a.date >= startOfMonthStr && a.status === 'Completed');
+    const monthlyCompletedCount = myAppointmentsMonth.length;
+
+    const myInvoices = db.invoices.filter(i => i.staffId === myStaff?._id);
+    const myInvoicesToday = myInvoices.filter(i => i.createdAt.startsWith(today));
+    const myInvoicesMonth = myInvoices.filter(i => i.createdAt >= startOfMonthStr);
+
+    const todayCommission = myInvoicesToday.reduce((sum, inv) => sum + getCommissionForInvoice(inv, myStaff), 0);
+    const monthlyCommission = myInvoicesMonth.reduce((sum, inv) => sum + getCommissionForInvoice(inv, myStaff), 0);
+
+    return (
+      <div className="page-container animated-fade-in">
+        {/* Header */}
+        <div className="page-header">
+          <div>
+            <h1 style={{ fontSize: '1.85rem', color: 'var(--text-primary)' }}>Welcome back, {currentUser.name}!</h1>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+              Track your daily tasks, scheduled client treatments, and commissions earned.
+            </p>
+          </div>
+          <div style={{ background: 'var(--gold-bg)', border: '1px solid var(--gold-border)', padding: '0.4rem 0.8rem', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Sparkles size={16} style={{ color: 'var(--gold-primary)' }} />
+            <span style={{ fontSize: '0.8rem', color: 'var(--gold-primary)', fontWeight: '600' }}>Stylist Commission Rate: {myStaff?.commissionPercentage || 15}%</span>
+          </div>
+        </div>
+
+        {/* Staff KPI Grid */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
+          gap: '1.25rem',
+          marginBottom: '2rem'
+        }}>
+          <div className="glass-card">
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Today's Appointments</span>
+            <h3 style={{ fontSize: '1.65rem', color: 'var(--gold-primary)', marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Calendar size={20} /> {completedToday} / {totalToday} Done
+            </h3>
+            <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>Completed vs scheduled today</p>
+          </div>
+
+          <div className="glass-card gold-border" style={{ background: 'var(--gold-bg)' }}>
+            <span style={{ fontSize: '0.8rem', color: 'var(--gold-primary)' }}>Today's Commission</span>
+            <h3 style={{ fontSize: '1.65rem', color: 'var(--gold-primary)', marginTop: '0.5rem' }}>
+              ₹{todayCommission.toLocaleString()}
+            </h3>
+            <p style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>Earned from today's service checkouts</p>
+          </div>
+
+          <div className="glass-card">
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Monthly Treatments</span>
+            <h3 style={{ fontSize: '1.65rem', color: 'var(--text-primary)', marginTop: '0.5rem' }}>
+              {monthlyCompletedCount} Completed
+            </h3>
+            <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>Total checked-out treatments in June</p>
+          </div>
+
+          <div className="glass-card">
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Monthly Commissions</span>
+            <h3 style={{ fontSize: '1.65rem', color: 'var(--text-primary)', marginTop: '0.5rem' }}>
+              ₹{monthlyCommission.toLocaleString()}
+            </h3>
+            <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>Accumulated commission earnings</p>
+          </div>
+        </div>
+
+        {/* Staff Lists: Schedule & Commission Ledgers */}
+        <div className="grid-split-2-1" style={{ marginBottom: '2rem' }}>
+          {/* Left panel: My Schedule */}
+          <div className="glass-card">
+            <h3 style={{ fontSize: '1rem', color: 'var(--text-primary)', marginBottom: '1.25rem' }}>My Schedule Today</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {myAppointmentsToday.length === 0 ? (
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textAlign: 'center', padding: '2rem' }}>
+                  No appointments assigned to you today.
+                </p>
+              ) : (
+                myAppointmentsToday.map(appt => {
+                  const client = db.customers.find(c => c._id === appt.customerId);
+                  return (
+                    <div key={appt._id} style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      padding: '1rem',
+                      background: 'rgba(255,255,255,0.02)',
+                      border: '1px solid var(--border-light)',
+                      borderRadius: '6px'
+                    }}>
+                      <div>
+                        <strong>{appt.services.map(s => s.name).join(', ')}</strong>
+                        <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
+                          Client: {client ? client.name : 'Walk-in'} • Time: {appt.time}
+                        </p>
+                      </div>
+                      <span className={`badge ${appt.status.toLowerCase().replace(' ', '')}`}>{appt.status}</span>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+
+          {/* Right panel: Commission Ledgers */}
+          <div className="glass-card">
+            <h3 style={{ fontSize: '1rem', color: 'var(--text-primary)', marginBottom: '1.25rem' }}>Recent Commission Ledgers</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              {myInvoicesMonth.length === 0 ? (
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textAlign: 'center', padding: '1rem' }}>
+                  No invoice checkouts registered this month.
+                </p>
+              ) : (
+                myInvoicesMonth.slice(0, 5).map((inv) => {
+                  const client = db.customers.find(c => c._id === inv.customerId);
+                  const comm = getCommissionForInvoice(inv, myStaff);
+                  return (
+                    <div key={inv._id} style={{
+                      padding: '0.75rem',
+                      border: '1px solid var(--border-light)',
+                      borderRadius: '6px',
+                      background: 'rgba(255,255,255,0.01)'
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '600', fontSize: '0.8rem', color: 'var(--text-primary)' }}>
+                        <span>{inv.invoiceNumber}</span>
+                        <span style={{ color: 'var(--gold-primary)' }}>+₹{comm.toLocaleString()}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
+                        <span>Client: {client ? client.name : 'Walk-in'}</span>
+                        <span>Total: ₹{inv.finalAmount}</span>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="page-container animated-fade-in">
       {/* Header Info */}

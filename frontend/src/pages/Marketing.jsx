@@ -207,8 +207,8 @@ const Marketing = () => {
 
       {/* Create Broadcast Campaign Modal */}
       {showCampaignModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200 }}>
-          <div className="glass-card gold-border" style={{ width: '450px', padding: '2rem' }}>
+        <div onClick={(e) => { if (e.target === e.currentTarget) setShowCampaignModal(false); }} className="modal-backdrop-overlay">
+          <div className="modal-scrollable-content" style={{ maxWidth: '450px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
               <h3 style={{ color: 'var(--text-primary)' }}>New Message Broadcast</h3>
               <button onClick={() => setShowCampaignModal(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)' }}><X size={18} /></button>

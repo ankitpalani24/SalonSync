@@ -120,8 +120,8 @@ const LandingPage = ({ onStartTrial, onLogin }) => {
             <button onClick={onStartTrial} className="gold-btn" style={{ padding: '0.9rem 2.25rem', fontSize: '1rem' }}>
               Start Free Trial
             </button>
-            <button onClick={onStartTrial} className="outline-btn" style={{ padding: '0.9rem 2.25rem', fontSize: '1rem' }}>
-              <Play size={16} fill="var(--gold-primary)" /> Book Demo
+            <button onClick={onLogin} className="outline-btn" style={{ padding: '0.9rem 2.25rem', fontSize: '1rem' }}>
+              <Play size={16} fill="var(--gold-primary)" /> Login
             </button>
           </div>
 

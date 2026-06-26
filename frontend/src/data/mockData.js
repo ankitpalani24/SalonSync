@@ -69,7 +69,7 @@ export const mockUsers = [
   // Super Admin
   {
     _id: "user_super_admin",
-    name: "SalonSync Administrator",
+    name: "Ankit Palani",
     email: "admin@salonsync.com",
     phone: "+91 99999 88888",
     role: "SUPER_ADMIN",
@@ -122,6 +122,26 @@ export const mockUsers = [
     name: "Priyanka Chopra",
     email: "priyanka@chopra.com",
     phone: "9819999999",
+    role: "CLIENT",
+    salonId: "salon_luxe_123",
+    branchId: "branch_mumbai_1"
+  },
+  // Staff (Aarav Sharma)
+  {
+    _id: "user_aarav_staff",
+    name: "Aarav Sharma",
+    email: "aarav@luxegold.com",
+    phone: "+91 98765 00003",
+    role: "STAFF",
+    salonId: "salon_luxe_123",
+    branchId: "branch_mumbai_1"
+  },
+  // Client (Isha Patel)
+  {
+    _id: "user_isha_client",
+    name: "Isha Patel",
+    email: "isha@luxegold.com",
+    phone: "9812222222",
     role: "CLIENT",
     salonId: "salon_luxe_123",
     branchId: "branch_mumbai_1"
@@ -188,6 +208,21 @@ export const mockCustomers = [
     photo: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150",
     loyaltyPoints: 85,
     membershipLevel: "Silver"
+  },
+  {
+    _id: "cust_isha",
+    salonId: "salon_luxe_123",
+    branchId: "branch_mumbai_1",
+    name: "Isha Patel",
+    phone: "9812222222",
+    email: "isha@luxegold.com",
+    gender: "Female",
+    birthday: "1996-04-12",
+    address: "Juhu Heights, Mumbai",
+    notes: "Enjoys organic hair spas.",
+    photo: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150",
+    loyaltyPoints: 150,
+    membershipLevel: "Gold"
   }
 ];
 
@@ -313,6 +348,17 @@ export const mockStaff = [
     salary: 40000,
     commissionPercentage: 20,
     rating: 5.0
+  },
+  {
+    _id: "staff_aarav",
+    salonId: "salon_luxe_123",
+    branchId: "branch_mumbai_1",
+    name: "Aarav Sharma",
+    phone: "+91 98765 00003",
+    role: "Stylist & Grooming Expert",
+    salary: 25000,
+    commissionPercentage: 15,
+    rating: 4.7
   }
 ];
 

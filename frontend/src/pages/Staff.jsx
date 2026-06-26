@@ -297,8 +297,8 @@ const Staff = () => {
 
       {/* Add Staff Modal */}
       {showStaffModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200 }}>
-          <div className="glass-card gold-border" style={{ width: '400px', padding: '2rem' }}>
+        <div onClick={(e) => { if (e.target === e.currentTarget) setShowStaffModal(false); }} className="modal-backdrop-overlay">
+          <div className="modal-scrollable-content">
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
               <h3 style={{ color: 'var(--text-primary)' }}>Register Professional Stylist</h3>
               <button onClick={() => setShowStaffModal(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)' }}><X size={18} /></button>

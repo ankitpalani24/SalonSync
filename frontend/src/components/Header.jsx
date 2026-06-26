@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Sun, Moon, Bell, MapPin, ShieldAlert, Award, Menu } from 'lucide-react';
+import { Sun, Moon, MapPin, ShieldAlert, Award, Menu, LogOut } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
 const Header = ({ toggleMobileSidebar }) => {
@@ -9,17 +9,18 @@ const Header = ({ toggleMobileSidebar }) => {
     currentUser, setCurrentUser,
     currentSalon,
     currentBranch, switchBranch,
-    db
+    db,
+    logout
   } = useApp();
 
-  const [showAlerts, setShowAlerts] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const customerProfile = currentUser?.role === 'CLIENT' ? db.customers.find(c => c.email === currentUser.email) : null;
 
   // Get active branch options for active salon
   const branches = db.branches.filter(b => b.salonId === currentUser?.salonId);
-  const notifications = db.notifications.filter(n => n.salonId === currentUser?.salonId).slice(0, 5);
 
   return (
-    <header style={{
+    <header className="main-header" style={{
       height: '75px',
       background: 'var(--bg-secondary)',
       borderBottom: '1px solid var(--border-light)',
@@ -51,13 +52,13 @@ const Header = ({ toggleMobileSidebar }) => {
           <Menu size={22} />
         </button>
         <div>
-          <h2 style={{ fontSize: '1.2rem', color: 'var(--text-primary)' }}>
-            {currentUser?.role === 'SUPER_ADMIN' ? 'Platform Command Center' : currentSalon?.name}
+          <h2 style={{ fontSize: '1.2rem', color: 'var(--text-primary)' }} className="header-brand-title">
+            {currentUser?.role === 'SUPER_ADMIN' ? 'SalonSync SuperAdmin' : (currentSalon?.name || 'SalonSync Platform')}
           </h2>
-          {currentUser?.role !== 'SUPER_ADMIN' && (
-            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+          {currentUser?.role !== 'SUPER_ADMIN' && currentBranch && (
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.25rem' }} className="header-brand-location">
               <MapPin size={12} style={{ color: 'var(--gold-primary)' }} />
-              {currentBranch?.name} ({currentBranch?.city})
+              {`${currentBranch.name} (${currentBranch.city})`}
             </p>
           )}
         </div>
@@ -93,6 +94,7 @@ const Header = ({ toggleMobileSidebar }) => {
         {/* Theme Switcher */}
         <button
           onClick={() => setDarkMode(!darkMode)}
+          className="hide-mobile"
           style={{
             background: 'transparent',
             border: 'none',
@@ -106,80 +108,10 @@ const Header = ({ toggleMobileSidebar }) => {
           {darkMode ? <Sun size={20} /> : <Moon size={20} />}
         </button>
 
-        {/* Alerts Notification Dropper */}
-        <div style={{ position: 'relative' }}>
-          <button
-            onClick={() => setShowAlerts(!showAlerts)}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              color: 'var(--text-secondary)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              position: 'relative'
-            }}
-          >
-            <Bell size={20} />
-            {notifications.length > 0 && (
-              <span style={{
-                position: 'absolute',
-                top: '-4px',
-                right: '-4px',
-                background: 'var(--gold-primary)',
-                color: '#000',
-                fontSize: '0.65rem',
-                fontWeight: 'bold',
-                borderRadius: '50%',
-                width: '14px',
-                height: '14px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}>
-                {notifications.length}
-              </span>
-            )}
-          </button>
 
-          {showAlerts && (
-            <div style={{
-              position: 'absolute',
-              top: '35px',
-              right: 0,
-              width: '320px',
-              background: 'var(--bg-secondary)',
-              border: '1px solid var(--border-light)',
-              borderRadius: 'var(--border-radius)',
-              boxShadow: 'var(--shadow-premium)',
-              padding: '1rem',
-              zIndex: 120
-            }}>
-              <h4 style={{ fontSize: '0.9rem', marginBottom: '0.75rem', color: 'var(--gold-primary)', borderBottom: '1px solid var(--border-light)', paddingBottom: '0.5rem' }}>
-                WhatsApp Activity Log
-              </h4>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxHeight: '250px', overflowY: 'auto' }}>
-                {notifications.length === 0 ? (
-                  <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>No messages sent recently.</p>
-                ) : (
-                  notifications.map(n => (
-                    <div key={n._id} style={{ borderBottom: '1px dashed rgba(255,255,255,0.05)', paddingBottom: '0.5rem' }}>
-                      <p style={{ fontSize: '0.75rem', color: 'var(--text-primary)', fontWeight: '500' }}>
-                        {n.type === 'WhatsApp' ? '💬 WhatsApp Automation' : '✉️ SMS Outbox'}
-                      </p>
-                      <p style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{n.message}</p>
-                      <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>{new Date(n.sentAt).toLocaleTimeString()}</span>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          )}
-        </div>
 
         {/* User Card */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', borderLeft: '1px solid var(--border-light)', paddingLeft: '1.25rem' }}>
+        <div onClick={() => setShowProfileModal(true)} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', borderLeft: '1px solid var(--border-light)', paddingLeft: '1.25rem', cursor: 'pointer' }}>
           <div style={{
             width: '36px',
             height: '36px',
@@ -214,6 +146,96 @@ const Header = ({ toggleMobileSidebar }) => {
         </div>
 
       </div>
+      {/* Profile Modal */}
+      {showProfileModal && (
+        <div onClick={(e) => { if (e.target === e.currentTarget) setShowProfileModal(false); }} className="modal-backdrop-overlay">
+          <div className="modal-scrollable-content" style={{ textAlign: 'center' }}>
+            <button 
+              onClick={() => setShowProfileModal(false)} 
+              className="outline-btn"
+              style={{ position: 'absolute', top: '15px', right: '15px', padding: '0.25rem 0.5rem', fontSize: '0.7rem' }}
+            >
+              Close
+            </button>
+            <div style={{
+              width: '80px',
+              height: '80px',
+              borderRadius: '50%',
+              background: 'var(--gold-bg)',
+              border: '2px solid var(--gold-primary)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'var(--gold-primary)',
+              fontSize: '2.2rem',
+              fontWeight: 'bold',
+              margin: '0.5rem auto 1.5rem auto'
+            }}>
+              {currentUser?.name ? currentUser.name[0] : 'U'}
+            </div>
+            
+            <h3 style={{ fontSize: '1.4rem', color: 'var(--text-primary)', marginBottom: '0.25rem' }}>{currentUser?.name}</h3>
+            <span className="badge completed" style={{ marginBottom: '1.5rem', fontSize: '0.7rem', display: 'inline-block' }}>
+              {(() => {
+                const rolesMap = {
+                  SUPER_ADMIN: 'Super Admin',
+                  SALON_OWNER: 'Salon Owner',
+                  SALON_MANAGER: 'Salon Manager',
+                  FRANCHISE_OWNER: 'Franchise Owner',
+                  STAFF: 'Staff Member',
+                  CLIENT: 'Client'
+                };
+                return rolesMap[currentUser?.role] || currentUser?.role;
+              })()}
+            </span>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', textAlign: 'left', fontSize: '0.85rem', color: 'var(--text-secondary)', borderTop: '1px solid var(--border-light)', paddingTop: '1.25rem', marginTop: '0.5rem' }}>
+              <p><strong>Email Address:</strong> {currentUser?.email}</p>
+              <p><strong>Phone Number:</strong> {currentUser?.phone || 'Not Provided'}</p>
+              
+              {currentUser?.role !== 'SUPER_ADMIN' && currentSalon && (
+                <>
+                  <p><strong>Associated Salon:</strong> {currentSalon.name}</p>
+                  {currentBranch && <p><strong>Assigned Branch:</strong> {currentBranch.name} ({currentBranch.city})</p>}
+                </>
+              )}
+
+              {currentUser?.role === 'CLIENT' && customerProfile && (
+                <div style={{ background: 'var(--gold-bg)', border: '1px solid var(--gold-border)', padding: '0.75rem', borderRadius: '4px', marginTop: '0.5rem' }}>
+                  <p style={{ color: 'var(--gold-primary)', fontWeight: 'bold', fontSize: '0.9rem', marginBottom: '0.25rem' }}>Loyalty & Rewards</p>
+                  <p><strong>Membership Tier:</strong> <span className={`badge ${customerProfile.membershipLevel?.toLowerCase()}`} style={{ fontSize: '0.65rem', padding: '0.15rem 0.4rem' }}>{customerProfile.membershipLevel}</span></p>
+                  <p style={{ marginTop: '0.25rem' }}><strong>Accumulated Points:</strong> {customerProfile.loyaltyPoints} Points</p>
+                </div>
+              )}
+              
+              <button
+                onClick={() => {
+                  setShowProfileModal(false);
+                  logout();
+                }}
+                className="outline-btn"
+                style={{
+                  width: '100%',
+                  justifyContent: 'center',
+                  padding: '0.65rem',
+                  fontSize: '0.85rem',
+                  marginTop: '1.25rem',
+                  borderColor: 'var(--accent-red)',
+                  color: 'var(--accent-red)',
+                  background: 'var(--accent-red-bg)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.5rem'
+                }}
+              >
+                <LogOut size={16} /> Sign Out
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </header>
   );
 };

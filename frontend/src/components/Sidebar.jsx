@@ -2,11 +2,12 @@ import React from 'react';
 import { 
   LayoutDashboard, Users, Calendar, Scissors, CreditCard, 
   Package, UserCheck, BarChart3, MessageSquare, Bot, 
-  Settings, LogOut, ChevronLeft, ChevronRight, Crown 
+  Settings, LogOut, ChevronLeft, ChevronRight, Crown,
+  Sun, Moon
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
-const Sidebar = ({ activePage, setActivePage, collapsed, setCollapsed, user, logout }) => {
+const Sidebar = ({ activePage, setActivePage, collapsed, setCollapsed, user, logout, closeMobileSidebar }) => {
   // Navigation mapping according to role
   const menuItems = [
     { id: 'dashboard', label: 'Overview', icon: LayoutDashboard, roles: ['SALON_OWNER', 'SALON_MANAGER', 'FRANCHISE_OWNER', 'STAFF', 'CLIENT'] },
@@ -25,7 +26,8 @@ const Sidebar = ({ activePage, setActivePage, collapsed, setCollapsed, user, log
     currentBranch, switchBranch,
     demoMode, setDemoMode,
     setCurrentUser,
-    db
+    db,
+    darkMode, setDarkMode
   } = useApp();
 
   const branches = db.branches.filter(b => b.salonId === user?.salonId);
@@ -35,9 +37,27 @@ const Sidebar = ({ activePage, setActivePage, collapsed, setCollapsed, user, log
     return item.roles.includes(user.role);
   });
 
+  const touchRef = React.useRef({ startX: 0 });
+
+  const handleTouchStart = (e) => {
+    touchRef.current.startX = e.touches[0].clientX;
+  };
+
+  const handleTouchMove = (e) => {
+    if (!closeMobileSidebar) return;
+    const touchEndX = e.touches[0].clientX;
+    const diffX = touchRef.current.startX - touchEndX;
+    if (diffX > 60) { // Swiped left by 60px or more
+      closeMobileSidebar();
+    }
+  };
+
   return (
-    <div style={{
-      width: collapsed ? '70px' : '260px',
+    <div 
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      style={{
+        width: collapsed ? '70px' : '260px',
       background: 'var(--bg-secondary)',
       borderRight: '1px solid var(--border-light)',
       display: 'flex',
@@ -45,7 +65,9 @@ const Sidebar = ({ activePage, setActivePage, collapsed, setCollapsed, user, log
       height: '100vh',
       transition: 'var(--transition-smooth)',
       position: 'relative',
-      zIndex: 100
+      zIndex: 100,
+      overflowY: 'auto',
+      overflowX: 'hidden'
     }}>
       {/* Brand Logo */}
       <div style={{
@@ -174,30 +196,45 @@ const Sidebar = ({ activePage, setActivePage, collapsed, setCollapsed, user, log
             </div>
           )}
 
-
-
+          {/* App Theme Selector */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+            <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>App Theme:</span>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.2rem 0' }}>
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-primary)' }}>{darkMode ? 'Dark Mode' : 'Light Mode'}</span>
+              <div 
+                onClick={() => setDarkMode(!darkMode)}
+                style={{
+                  width: '42px',
+                  height: '22px',
+                  borderRadius: '11px',
+                  background: darkMode ? 'var(--gold-primary)' : 'rgba(255,255,255,0.1)',
+                  position: 'relative',
+                  cursor: 'pointer',
+                  transition: 'background-color 0.3s',
+                  border: '1px solid var(--border-light)'
+                }}
+              >
+                <div style={{
+                  width: '16px',
+                  height: '16px',
+                  borderRadius: '50%',
+                  background: darkMode ? '#000000' : '#ffffff',
+                  position: 'absolute',
+                  top: '2px',
+                  left: darkMode ? '22px' : '2px',
+                  transition: 'left 0.2s ease-in-out',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  {darkMode ? <Moon size={9} style={{ color: 'var(--gold-primary)' }} /> : <Sun size={9} style={{ color: '#ffb900' }} />}
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <button
-          onClick={logout}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '1rem',
-            padding: '0.85rem 1rem',
-            width: '100%',
-            background: 'transparent',
-            color: 'var(--text-secondary)',
-            border: 'none',
-            borderRadius: '4px',
-            textAlign: 'left',
-            fontSize: '0.9rem',
-            transition: 'var(--transition-smooth)'
-          }}
-        >
-          <LogOut size={18} style={{ flexShrink: 0 }} />
-          {!collapsed && <span>Sign Out</span>}
-        </button>
+
 
         <button
           onClick={() => setCollapsed(!collapsed)}
