@@ -5,6 +5,7 @@ import { useApp } from '../../context/AppContext';
 const AuthPages = ({ defaultView = 'login', onAuthSuccess, onBackToLanding }) => {
   const { login, signup } = useApp();
   const [view, setView] = useState(defaultView); // 'login', 'signup', 'forgot', 'otp', 'reset'
+  const [signupRole, setSignupRole] = useState('SALON_OWNER'); // 'SALON_OWNER', 'CLIENT'
 
   // Input states
   const [email, setEmail] = useState('');
@@ -46,8 +47,13 @@ const AuthPages = ({ defaultView = 'login', onAuthSuccess, onBackToLanding }) =>
 
     const payload = {
       ownerName, email, phone, password,
-      salonName, salonAddress, city, state,
-      gstNumber, businessType
+      role: signupRole,
+      salonName: signupRole === 'CLIENT' ? '' : salonName,
+      salonAddress: signupRole === 'CLIENT' ? '' : salonAddress,
+      city: signupRole === 'CLIENT' ? '' : city,
+      state: signupRole === 'CLIENT' ? '' : state,
+      gstNumber: signupRole === 'CLIENT' ? '' : gstNumber,
+      businessType: signupRole === 'CLIENT' ? '' : businessType
     };
 
     const result = await signup(payload);
@@ -103,7 +109,7 @@ const AuthPages = ({ defaultView = 'login', onAuthSuccess, onBackToLanding }) =>
     }}>
       <div className="glass-card gold-border" style={{
         width: '100%',
-        maxWidth: view === 'signup' ? '800px' : '450px',
+        maxWidth: (view === 'signup' && signupRole === 'SALON_OWNER') ? '800px' : '450px',
         padding: '2.5rem',
         borderRadius: '12px'
       }}>
@@ -231,18 +237,56 @@ const AuthPages = ({ defaultView = 'login', onAuthSuccess, onBackToLanding }) =>
         {/* 2. SIGNUP VIEW */}
         {view === 'signup' && (
           <form onSubmit={handleSignupSubmit}>
-            <div className="grid-2-cols-split">
+            {/* Role Tab Toggle Selector */}
+            <div style={{ display: 'flex', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', padding: '0.25rem', marginBottom: '1.5rem', border: '1px solid var(--border-light)' }}>
+              <button
+                type="button"
+                onClick={() => setSignupRole('SALON_OWNER')}
+                style={{
+                  flex: 1,
+                  background: signupRole === 'SALON_OWNER' ? 'var(--gold-primary)' : 'transparent',
+                  color: signupRole === 'SALON_OWNER' ? '#000000' : 'var(--text-secondary)',
+                  border: 'none',
+                  borderRadius: '6px',
+                  padding: '0.6rem',
+                  fontSize: '0.85rem',
+                  fontWeight: '600',
+                  transition: 'var(--transition-smooth)'
+                }}
+              >
+                Salon Enterprise
+              </button>
+              <button
+                type="button"
+                onClick={() => setSignupRole('CLIENT')}
+                style={{
+                  flex: 1,
+                  background: signupRole === 'CLIENT' ? 'var(--gold-primary)' : 'transparent',
+                  color: signupRole === 'CLIENT' ? '#000000' : 'var(--text-secondary)',
+                  border: 'none',
+                  borderRadius: '6px',
+                  padding: '0.6rem',
+                  fontSize: '0.85rem',
+                  fontWeight: '600',
+                  transition: 'var(--transition-smooth)'
+                }}
+              >
+                Join as Client
+              </button>
+            </div>
+
+            <div className={signupRole === 'SALON_OWNER' ? 'grid-2-cols-split' : ''} style={{ maxWidth: signupRole === 'CLIENT' ? '450px' : 'none', margin: '0 auto' }}>
               
-              {/* Owner Info Column */}
+              {/* Owner/Client Info Column */}
               <div>
                 <h4 style={{ fontSize: '0.9rem', color: 'var(--gold-primary)', borderBottom: '1px solid var(--border-light)', paddingBottom: '0.25rem', marginBottom: '1rem' }}>
-                  Owner Profile
+                  {signupRole === 'CLIENT' ? 'Client Profile' : 'Owner Profile'}
                 </h4>
                 <div className="form-group">
-                  <label>Owner Full Name</label>
+                  <label>{signupRole === 'CLIENT' ? 'Client Full Name' : 'Owner Full Name'}</label>
                   <div style={{ position: 'relative' }}>
                     <User size={16} style={{ position: 'absolute', left: '12px', top: '12px', color: 'var(--text-muted)' }} />
-                    <input type="text" required placeholder="Alexander Wright" className="form-control" style={{ paddingLeft: '2.5rem' }} value={ownerName} onChange={(e) => setOwnerName(e.target.value)} />
+                    <input type="text" required placeholder={signupRole === 'CLIENT' ? 'Priyanka Chopra' : 'Alexander Wright'} className="form-control" style={{ paddingLeft: '2.5rem' }} value={ownerName} onChange={(e) => setOwnerName(e.target.value)} />
                   </div>
                 </div>
 
@@ -272,58 +316,60 @@ const AuthPages = ({ defaultView = 'login', onAuthSuccess, onBackToLanding }) =>
               </div>
 
               {/* Salon Info Column */}
-              <div>
-                <h4 style={{ fontSize: '0.9rem', color: 'var(--gold-primary)', borderBottom: '1px solid var(--border-light)', paddingBottom: '0.25rem', marginBottom: '1rem' }}>
-                  Salon Enterprise
-                </h4>
-                <div className="form-group">
-                  <label>Salon / Parlor Name</label>
-                  <div style={{ position: 'relative' }}>
-                    <Building size={16} style={{ position: 'absolute', left: '12px', top: '12px', color: 'var(--text-muted)' }} />
-                    <input type="text" required placeholder="Luxe & Gold Salon" className="form-control" style={{ paddingLeft: '2.5rem' }} value={salonName} onChange={(e) => setSalonName(e.target.value)} />
+              {signupRole === 'SALON_OWNER' && (
+                <div>
+                  <h4 style={{ fontSize: '0.9rem', color: 'var(--gold-primary)', borderBottom: '1px solid var(--border-light)', paddingBottom: '0.25rem', marginBottom: '1rem' }}>
+                    Salon Enterprise
+                  </h4>
+                  <div className="form-group">
+                    <label>Salon / Parlor Name</label>
+                    <div style={{ position: 'relative' }}>
+                      <Building size={16} style={{ position: 'absolute', left: '12px', top: '12px', color: 'var(--text-muted)' }} />
+                      <input type="text" required placeholder="Luxe & Gold Salon" className="form-control" style={{ paddingLeft: '2.5rem' }} value={salonName} onChange={(e) => setSalonName(e.target.value)} />
+                    </div>
                   </div>
-                </div>
 
-                <div className="form-group">
-                  <label>Salon Address</label>
-                  <div style={{ position: 'relative' }}>
-                    <Home size={16} style={{ position: 'absolute', left: '12px', top: '12px', color: 'var(--text-muted)' }} />
-                    <input type="text" required placeholder="Signature Towers, 7th Ave" className="form-control" style={{ paddingLeft: '2.5rem' }} value={salonAddress} onChange={(e) => setSalonAddress(e.target.value)} />
+                  <div className="form-group">
+                    <label>Salon Address</label>
+                    <div style={{ position: 'relative' }}>
+                      <Home size={16} style={{ position: 'absolute', left: '12px', top: '12px', color: 'var(--text-muted)' }} />
+                      <input type="text" required placeholder="Signature Towers, 7th Ave" className="form-control" style={{ paddingLeft: '2.5rem' }} value={salonAddress} onChange={(e) => setSalonAddress(e.target.value)} />
+                    </div>
                   </div>
-                </div>
 
-                <div className="grid-2-cols">
-                  <div className="form-group">
-                    <label>City</label>
-                    <input type="text" required placeholder="Mumbai" className="form-control" value={city} onChange={(e) => setCity(e.target.value)} />
+                  <div className="grid-2-cols">
+                    <div className="form-group">
+                      <label>City</label>
+                      <input type="text" required placeholder="Mumbai" className="form-control" value={city} onChange={(e) => setCity(e.target.value)} />
+                    </div>
+                    <div className="form-group">
+                      <label>State</label>
+                      <input type="text" required placeholder="Maharashtra" className="form-control" value={state} onChange={(e) => setState(e.target.value)} />
+                    </div>
                   </div>
-                  <div className="form-group">
-                    <label>State</label>
-                    <input type="text" required placeholder="Maharashtra" className="form-control" value={state} onChange={(e) => setState(e.target.value)} />
-                  </div>
-                </div>
 
-                <div className="grid-2-cols">
-                  <div className="form-group">
-                    <label>GST Number</label>
-                    <input type="text" placeholder="27AAAAA1111A1Z1" className="form-control" value={gstNumber} onChange={(e) => setGstNumber(e.target.value)} />
-                  </div>
-                  <div className="form-group">
-                    <label>Business Type</label>
-                    <select className="form-control" value={businessType} onChange={(e) => setBusinessType(e.target.value)}>
-                      <option>Premium Unisex Salon</option>
-                      <option>Hair Salon / Barber Shop</option>
-                      <option>Beauty Parlor & Bridal Studio</option>
-                      <option>Luxury Wellness Spa</option>
-                    </select>
+                  <div className="grid-2-cols">
+                    <div className="form-group">
+                      <label>GST Number</label>
+                      <input type="text" placeholder="27AAAAA1111A1Z1" className="form-control" value={gstNumber} onChange={(e) => setGstNumber(e.target.value)} />
+                    </div>
+                    <div className="form-group">
+                      <label>Business Type</label>
+                      <select className="form-control" value={businessType} onChange={(e) => setBusinessType(e.target.value)}>
+                        <option>Premium Unisex Salon</option>
+                        <option>Hair Salon / Barber Shop</option>
+                        <option>Beauty Parlor & Bridal Studio</option>
+                        <option>Luxury Wellness Spa</option>
+                      </select>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
 
             </div>
 
             <button type="submit" disabled={loading} className="gold-btn" style={{ width: '100%', justifyContent: 'center', marginTop: '1rem' }}>
-              {loading ? 'Creating Salon Workspace...' : 'Register Enterprise & Start Free Trial'}
+              {loading ? 'Creating Account Workspace...' : (signupRole === 'CLIENT' ? 'Register Client Portal Account' : 'Register Enterprise & Start Free Trial')}
             </button>
 
             <div style={{ textAlign: 'center', marginTop: '1.5rem', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>

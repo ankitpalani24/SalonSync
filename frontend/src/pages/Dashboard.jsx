@@ -1,13 +1,29 @@
 import React from 'react';
 import { 
   TrendingUp, Users, Calendar, AlertTriangle, 
-  CreditCard, Sparkles, UserPlus, FileText, ArrowUpRight 
+  CreditCard, Sparkles, UserPlus, FileText, ArrowUpRight,
+  MapPin, Phone, Star, X, Clock, ChevronLeft
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { RevenueLineChart, ProfitBarChart, ServiceShareDonut } from '../components/DashboardCharts';
 
 const Dashboard = ({ setActivePage }) => {
-  const { currentUser, currentBranch, tenantFilter, db, updateAppointmentStatus } = useApp();
+  const { currentUser, currentBranch, tenantFilter, db, updateAppointmentStatus, addAppointment } = useApp();
+
+  // Exploration / Client States
+  const [activeTab, setActiveTab] = React.useState('my-desk'); // 'my-desk' or 'explore'
+  const [selectedSalon, setSelectedSalon] = React.useState(null);
+  const [selectedService, setSelectedService] = React.useState(null);
+  const [searchQuery, setSearchQuery] = React.useState('');
+  const [showBookingModal, setShowBookingModal] = React.useState(false);
+  
+  // Booking Form States
+  const [bookingBranchId, setBookingBranchId] = React.useState('');
+  const [bookingStaffId, setBookingStaffId] = React.useState('');
+  const [bookingDate, setBookingDate] = React.useState('');
+  const [bookingTime, setBookingTime] = React.useState('10:00');
+  const [bookingLoading, setBookingLoading] = React.useState(false);
+  const [bookingSuccess, setBookingSuccess] = React.useState('');
 
   // Filter entities by tenant (salonId) and active branch
   const salonInvoices = tenantFilter(db.invoices);
@@ -100,6 +116,86 @@ const Dashboard = ({ setActivePage }) => {
     ).pop();
     const favStaff = db.staff.find(s => s._id === favStaffId) || db.staff[0];
 
+    // Exploration variables
+    const salonsList = db.salons || [];
+    const filteredSalons = salonsList.filter(s => 
+      s.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      (s.city && s.city.toLowerCase().includes(searchQuery.toLowerCase()))
+    );
+
+    const handleSelectSalon = (salon) => {
+      setSelectedSalon(salon);
+      setSelectedService(null);
+      setShowBookingModal(false);
+      // Auto select first branch of that salon if available
+      const salonBranches = db.branches.filter(b => b.salonId === salon._id);
+      if (salonBranches.length > 0) {
+        setBookingBranchId(salonBranches[0]._id);
+      } else {
+        setBookingBranchId('');
+      }
+      // Auto select first staff of that salon if available
+      const salonStaff = db.staff.filter(st => st.salonId === salon._id);
+      if (salonStaff.length > 0) {
+        setBookingStaffId(salonStaff[0]._id);
+      } else {
+        setBookingStaffId('');
+      }
+      setBookingDate(new Date().toLocaleDateString('en-CA'));
+      setBookingTime('10:00');
+      setBookingSuccess('');
+    };
+
+    const handleOpenBookingModal = (srv) => {
+      setSelectedService(srv);
+      setBookingSuccess('');
+      setShowBookingModal(true);
+    };
+
+    const handleCloseBookingModal = () => {
+      setShowBookingModal(false);
+      setSelectedService(null);
+      setBookingSuccess('');
+    };
+
+    const handleBookingSubmit = async (e) => {
+      e.preventDefault();
+      if (!selectedSalon || !selectedService || !bookingBranchId || !bookingStaffId || !bookingDate || !bookingTime) {
+        alert('Please fill out all booking fields');
+        return;
+      }
+
+      setBookingLoading(true);
+      try {
+        const payload = {
+          salonId: selectedSalon._id,
+          branchId: bookingBranchId,
+          staffId: bookingStaffId,
+          date: bookingDate,
+          time: bookingTime,
+          services: [{
+            serviceId: selectedService._id,
+            name: selectedService.name,
+            price: selectedService.price
+          }],
+          status: 'Scheduled'
+        };
+
+        await addAppointment(payload);
+        setBookingSuccess('Session booked successfully! You can view it in My Desk.');
+        setTimeout(() => {
+          handleCloseBookingModal();
+          setSelectedSalon(null);
+          setActiveTab('my-desk');
+        }, 2500);
+      } catch (err) {
+        console.error(err);
+        alert('Booking failed. Please try again.');
+      } finally {
+        setBookingLoading(false);
+      }
+    };
+
     return (
       <div className="page-container animated-fade-in">
         {/* Header */}
@@ -110,115 +206,604 @@ const Dashboard = ({ setActivePage }) => {
               Track your beauty loyalty status, check-in history, and book upcoming slots.
             </p>
           </div>
-          <button onClick={() => setActivePage('appointments')} className="gold-btn">
-            <Calendar size={16} /> Book New Session
-          </button>
-        </div>
-
-        {/* Client KPI Grid */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
-          gap: '1.25rem',
-          marginBottom: '2rem'
-        }}>
-          <div className="glass-card">
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Loyalty Balance</span>
-            <h3 style={{ fontSize: '1.65rem', color: 'var(--gold-primary)', marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <Sparkles size={20} /> {customerProfile.loyaltyPoints} Points
-            </h3>
-            <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>1 point per ₹100 spent</p>
-          </div>
-
-          <div className="glass-card gold-border" style={{ background: 'var(--gold-bg)' }}>
-            <span style={{ fontSize: '0.8rem', color: 'var(--gold-primary)' }}>Membership Status</span>
-            <h3 style={{ fontSize: '1.65rem', color: 'var(--gold-primary)', marginTop: '0.5rem' }}>
-              {customerProfile.membershipLevel} Club
-            </h3>
-            <p style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>Exclusive treatment tier benefits</p>
-          </div>
-
-          <div className="glass-card">
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Total Spending</span>
-            <h3 style={{ fontSize: '1.65rem', color: 'var(--text-primary)', marginTop: '0.5rem' }}>
-              ₹{myTotalSpending.toLocaleString()}
-            </h3>
-            <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>Accumulated checkouts</p>
-          </div>
-
-          <div className="glass-card">
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Preferred Expert</span>
-            <h3 style={{ fontSize: '1.45rem', color: 'var(--text-primary)', marginTop: '0.5rem' }}>
-              {favStaff ? favStaff.name : 'Emma Watson'}
-            </h3>
-            <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>Top stylist visited</p>
+          
+          {/* Dashboard Tab Switcher */}
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <button
+              onClick={() => { setActiveTab('my-desk'); setSelectedSalon(null); }}
+              className={activeTab === 'my-desk' ? 'gold-btn' : 'outline-btn'}
+              style={{ padding: '0.5rem 1rem', fontSize: '0.8rem' }}
+            >
+              My Desk & Bookings
+            </button>
+            <button
+              onClick={() => setActiveTab('explore')}
+              className={activeTab === 'explore' ? 'gold-btn' : 'outline-btn'}
+              style={{ padding: '0.5rem 1rem', fontSize: '0.8rem' }}
+            >
+              Explore Salons
+            </button>
           </div>
         </div>
 
-        {/* Client Roster and Recommendations Split */}
-        <div className="grid-split-2-1" style={{ marginBottom: '2rem' }}>
-          {/* Left panel: Bookings */}
-          <div className="glass-card">
-            <h3 style={{ fontSize: '1rem', color: 'var(--text-primary)', marginBottom: '1.25rem' }}>Upcoming Reserved Slots</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              {upcomingMyAppts.length === 0 ? (
-                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textAlign: 'center', padding: '2rem' }}>
-                  No upcoming reservations. Click "Book New Session" to schedule a slot.
-                </p>
-              ) : (
-                upcomingMyAppts.map(appt => {
-                  const staff = db.staff.find(s => s._id === appt.staffId);
-                  return (
-                    <div key={appt._id} style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      padding: '1rem',
-                      background: 'rgba(255,255,255,0.02)',
+        {/* VIEW 1: MY DESK */}
+        {activeTab === 'my-desk' && (
+          <>
+            {/* Client KPI Grid */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
+              gap: '1.25rem',
+              marginBottom: '2rem'
+            }}>
+              <div className="glass-card">
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Loyalty Balance</span>
+                <h3 style={{ fontSize: '1.65rem', color: 'var(--gold-primary)', marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Sparkles size={20} /> {customerProfile.loyaltyPoints} Points
+                </h3>
+                <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>1 point per ₹100 spent</p>
+              </div>
+
+              <div className="glass-card gold-border" style={{ background: 'var(--gold-bg)' }}>
+                <span style={{ fontSize: '0.8rem', color: 'var(--gold-primary)' }}>Membership Status</span>
+                <h3 style={{ fontSize: '1.65rem', color: 'var(--gold-primary)', marginTop: '0.5rem' }}>
+                  {customerProfile.membershipLevel} Club
+                </h3>
+                <p style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>Exclusive treatment tier benefits</p>
+              </div>
+
+              <div className="glass-card">
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Total Spending</span>
+                <h3 style={{ fontSize: '1.65rem', color: 'var(--text-primary)', marginTop: '0.5rem' }}>
+                  ₹{myTotalSpending.toLocaleString()}
+                </h3>
+                <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>Accumulated checkouts</p>
+              </div>
+
+              <div className="glass-card">
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Preferred Expert</span>
+                <h3 style={{ fontSize: '1.45rem', color: 'var(--text-primary)', marginTop: '0.5rem' }}>
+                  {favStaff ? favStaff.name : 'Emma Watson'}
+                </h3>
+                <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>Top stylist visited</p>
+              </div>
+            </div>
+
+            {/* Client Roster and Recommendations Split */}
+            <div className="grid-split-2-1" style={{ marginBottom: '2rem' }}>
+              {/* Left panel: Bookings */}
+              <div className="glass-card">
+                <h3 style={{ fontSize: '1rem', color: 'var(--text-primary)', marginBottom: '1.25rem' }}>Upcoming Reserved Slots</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  {upcomingMyAppts.length === 0 ? (
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textAlign: 'center', padding: '2rem' }}>
+                      No upcoming reservations. Click "Explore Salons" to book a session.
+                    </p>
+                  ) : (
+                    upcomingMyAppts.map(appt => {
+                      const staff = db.staff.find(s => s._id === appt.staffId);
+                      const salon = db.salons.find(s => s._id === appt.salonId);
+                      return (
+                        <div key={appt._id} style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          padding: '1rem',
+                          background: 'rgba(255,255,255,0.02)',
+                          border: '1px solid var(--border-light)',
+                          borderRadius: '6px'
+                        }}>
+                          <div>
+                            <strong>{appt.services.map(s => s.name).join(', ')}</strong>
+                            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
+                              Salon: {salon ? salon.name : 'SalonSync'} • Stylist: {staff ? staff.name : 'Any'} • Date: {new Date(appt.date).toLocaleDateString()} at {appt.time}
+                            </p>
+                          </div>
+                          <span className={`badge ${appt.status.toLowerCase().replace(' ', '')}`}>{appt.status}</span>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
+              {/* Right panel: Recommendations */}
+              <div className="glass-card">
+                <h3 style={{ fontSize: '1rem', color: 'var(--text-primary)', marginBottom: '1.25rem' }}>Recommended Services</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  {[
+                    { name: 'Gold Facial Cleanse', price: '₹1,500', time: '60 mins', benefit: 'Skin rejuvenation' },
+                    { name: 'Bridal/Party Makeover', price: '₹15,000', time: '180 mins', benefit: 'Luxury grooming' },
+                    { name: 'Deep Conditioning Treatment', price: '₹1,200', time: '45 mins', benefit: 'Hair health' }
+                  ].map((rec, rIdx) => (
+                    <div key={rIdx} style={{
+                      padding: '0.75rem',
                       border: '1px solid var(--border-light)',
-                      borderRadius: '6px'
+                      borderRadius: '6px',
+                      background: 'rgba(255,255,255,0.01)'
                     }}>
-                      <div>
-                        <strong>{appt.services.map(s => s.name).join(', ')}</strong>
-                        <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
-                          Stylist: {staff ? staff.name : 'Any'} • Date: {new Date(appt.date).toLocaleDateString()} at {appt.time}
-                        </p>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '600', fontSize: '0.8rem', color: 'var(--gold-primary)' }}>
+                        <span>{rec.name}</span>
+                        <span>{rec.price}</span>
                       </div>
-                      <span className={`badge ${appt.status.toLowerCase().replace(' ', '')}`}>{appt.status}</span>
+                      <p style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
+                        {rec.time} • {rec.benefit}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* VIEW 2: EXPLORE SALONS LIST */}
+        {activeTab === 'explore' && !selectedSalon && (
+          <div style={{ marginBottom: '2rem' }}>
+            {/* Search bar */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+              <h2 style={{ fontSize: '1.2rem', color: 'var(--text-primary)' }}>Partner Salons & Spas</h2>
+              <input
+                type="text"
+                className="form-control"
+                placeholder="🔍 Search by salon name or city..."
+                style={{ maxWidth: '320px' }}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+
+            {filteredSalons.length === 0 ? (
+              <div className="glass-card" style={{ textAlign: 'center', padding: '4rem 2rem' }}>
+                <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>No salons found matching your search.</p>
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.5rem' }}>
+                {filteredSalons.map(salon => {
+                  const salonServices = db.services.filter(s => s.salonId === salon._id);
+                  const salonStaffList = db.staff.filter(st => st.salonId === salon._id);
+                  const salonBranchesList = db.branches.filter(b => b.salonId === salon._id);
+                  return (
+                    <div
+                      key={salon._id}
+                      onClick={() => handleSelectSalon(salon)}
+                      style={{
+                        background: 'var(--bg-secondary)',
+                        border: '1px solid var(--border-light)',
+                        borderRadius: '12px',
+                        overflow: 'hidden',
+                        cursor: 'pointer',
+                        transition: 'var(--transition-smooth)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                      }}
+                      onMouseEnter={e => {
+                        e.currentTarget.style.borderColor = 'var(--gold-primary)';
+                        e.currentTarget.style.transform = 'translateY(-3px)';
+                        e.currentTarget.style.boxShadow = 'var(--shadow-premium)';
+                      }}
+                      onMouseLeave={e => {
+                        e.currentTarget.style.borderColor = 'var(--border-light)';
+                        e.currentTarget.style.transform = 'none';
+                        e.currentTarget.style.boxShadow = 'none';
+                      }}
+                    >
+                      {/* Salon colour band */}
+                      <div style={{ height: '6px', background: 'linear-gradient(90deg, var(--gold-primary) 0%, #b38f20 100%)' }} />
+
+                      <div style={{ padding: '1.25rem', flex: 1, display: 'flex', flexDirection: 'column' }}>
+                        {/* Name & type */}
+                        <div style={{ marginBottom: '0.75rem' }}>
+                          <h4 style={{ color: 'var(--gold-primary)', fontSize: '1.1rem', marginBottom: '0.25rem' }}>{salon.name}</h4>
+                          <span style={{
+                            display: 'inline-block',
+                            fontSize: '0.65rem',
+                            padding: '0.2rem 0.6rem',
+                            borderRadius: '20px',
+                            background: 'var(--gold-bg)',
+                            color: 'var(--gold-primary)',
+                            fontWeight: '600',
+                            letterSpacing: '0.3px',
+                            textTransform: 'uppercase'
+                          }}>
+                            {salon.businessType || 'Beauty Salon'}
+                          </span>
+                        </div>
+
+                        {/* Location & phone */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', marginBottom: '1rem' }}>
+                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.4rem', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                            <MapPin size={13} style={{ marginTop: '2px', flexShrink: 0, color: 'var(--gold-primary)' }} />
+                            <span>{[salon.address, salon.city, salon.state].filter(Boolean).join(', ')}</span>
+                          </div>
+                          {salon.phone && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                              <Phone size={12} style={{ flexShrink: 0, color: 'var(--gold-primary)' }} />
+                              <span>{salon.phone}</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Quick stats */}
+                        <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
+                          <div style={{ textAlign: 'center', flex: 1, minWidth: '60px', padding: '0.5rem', background: 'rgba(255,255,255,0.03)', borderRadius: '6px', border: '1px solid var(--border-light)' }}>
+                            <div style={{ fontSize: '1.1rem', fontWeight: '700', color: 'var(--gold-primary)' }}>{salonServices.length}</div>
+                            <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: '0.1rem' }}>Services</div>
+                          </div>
+                          <div style={{ textAlign: 'center', flex: 1, minWidth: '60px', padding: '0.5rem', background: 'rgba(255,255,255,0.03)', borderRadius: '6px', border: '1px solid var(--border-light)' }}>
+                            <div style={{ fontSize: '1.1rem', fontWeight: '700', color: 'var(--gold-primary)' }}>{salonStaffList.length}</div>
+                            <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: '0.1rem' }}>Stylists</div>
+                          </div>
+                          <div style={{ textAlign: 'center', flex: 1, minWidth: '60px', padding: '0.5rem', background: 'rgba(255,255,255,0.03)', borderRadius: '6px', border: '1px solid var(--border-light)' }}>
+                            <div style={{ fontSize: '1.1rem', fontWeight: '700', color: 'var(--gold-primary)' }}>{salonBranchesList.length}</div>
+                            <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: '0.1rem' }}>Branches</div>
+                          </div>
+                        </div>
+
+                        {/* CTA */}
+                        <div
+                          style={{
+                            marginTop: 'auto',
+                            padding: '0.6rem 1rem',
+                            background: 'linear-gradient(135deg, var(--gold-primary) 0%, #b38f20 100%)',
+                            borderRadius: '8px',
+                            textAlign: 'center',
+                            fontSize: '0.8rem',
+                            fontWeight: '600',
+                            color: '#000'
+                          }}
+                        >
+                          View Full Details & Book →
+                        </div>
+                      </div>
                     </div>
                   );
-                })
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* VIEW 3: SALON DETAIL — Full page, NO sidebar booking by default */}
+        {activeTab === 'explore' && selectedSalon && (() => {
+          const salonServices = db.services.filter(s => s.salonId === selectedSalon._id);
+          const salonCats = [...new Set(salonServices.map(s => s.category))];
+          const salonBranchesList = db.branches.filter(b => b.salonId === selectedSalon._id);
+          const salonStaffList = db.staff.filter(st => st.salonId === selectedSalon._id);
+
+          return (
+            <div style={{ marginBottom: '2rem' }}>
+              {/* Back nav */}
+              <button
+                onClick={() => { setSelectedSalon(null); setSelectedService(null); }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '0.4rem',
+                  background: 'none', border: 'none', color: 'var(--gold-primary)',
+                  fontSize: '0.85rem', fontWeight: '600', cursor: 'pointer',
+                  marginBottom: '1.25rem', padding: 0
+                }}
+              >
+                <ChevronLeft size={16} /> Back to All Salons
+              </button>
+
+              {/* ── SALON HERO CARD ────────────────────────────── */}
+              <div className="glass-card gold-border" style={{ marginBottom: '1.5rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
+                  <div style={{ flex: 1, minWidth: '200px' }}>
+                    <h2 style={{ fontSize: '1.5rem', color: 'var(--text-primary)', marginBottom: '0.3rem' }}>{selectedSalon.name}</h2>
+                    <span style={{
+                      display: 'inline-block', fontSize: '0.7rem', padding: '0.2rem 0.7rem',
+                      borderRadius: '20px', background: 'var(--gold-bg)', color: 'var(--gold-primary)',
+                      fontWeight: '600', letterSpacing: '0.3px', textTransform: 'uppercase', marginBottom: '0.75rem'
+                    }}>
+                      {selectedSalon.businessType || 'Beauty Salon'}
+                    </span>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                        <MapPin size={14} style={{ marginTop: '2px', flexShrink: 0, color: 'var(--gold-primary)' }} />
+                        <span>{[selectedSalon.address, selectedSalon.city, selectedSalon.state].filter(Boolean).join(', ')}</span>
+                      </div>
+                      {selectedSalon.phone && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                          <Phone size={13} style={{ color: 'var(--gold-primary)' }} />
+                          <span>{selectedSalon.phone}</span>
+                        </div>
+                      )}
+                      {selectedSalon.email && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                          <span>✉</span>
+                          <span>{selectedSalon.email}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                    {[
+                      { label: 'Services', value: salonServices.length },
+                      { label: 'Stylists', value: salonStaffList.length },
+                      { label: 'Branches', value: salonBranchesList.length },
+                    ].map(stat => (
+                      <div key={stat.label} style={{
+                        textAlign: 'center', minWidth: '70px',
+                        padding: '0.75rem 1rem',
+                        background: 'var(--gold-bg)',
+                        border: '1px solid rgba(112,130,56,0.3)',
+                        borderRadius: '10px'
+                      }}>
+                        <div style={{ fontSize: '1.4rem', fontWeight: '700', color: 'var(--gold-primary)' }}>{stat.value}</div>
+                        <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginTop: '0.15rem' }}>{stat.label}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* ── BRANCHES ───────────────────────────────────── */}
+              {salonBranchesList.length > 0 && (
+                <div className="glass-card" style={{ marginBottom: '1.5rem' }}>
+                  <h3 style={{ fontSize: '1rem', color: 'var(--gold-primary)', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <MapPin size={16} /> Branches & Locations
+                  </h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '0.85rem' }}>
+                    {salonBranchesList.map(branch => (
+                      <div key={branch._id} style={{
+                        padding: '0.85rem 1rem',
+                        background: 'rgba(255,255,255,0.02)',
+                        border: '1px solid var(--border-light)',
+                        borderRadius: '8px'
+                      }}>
+                        <div style={{ fontWeight: '600', fontSize: '0.9rem', color: 'var(--text-primary)', marginBottom: '0.25rem' }}>{branch.name}</div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{[branch.address, branch.city, branch.state].filter(Boolean).join(', ')}</div>
+                        {branch.phone && <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>📞 {branch.phone}</div>}
+                        <span style={{
+                          display: 'inline-block', marginTop: '0.4rem',
+                          fontSize: '0.65rem', padding: '0.15rem 0.5rem',
+                          borderRadius: '20px',
+                          background: branch.status === 'Active' ? 'rgba(46,204,113,0.1)' : 'rgba(231,76,60,0.1)',
+                          color: branch.status === 'Active' ? 'var(--accent-green)' : 'var(--accent-red)',
+                          fontWeight: '600'
+                        }}>{branch.status}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* ── TEAM / STAFF ────────────────────────────────── */}
+              {salonStaffList.length > 0 && (
+                <div className="glass-card" style={{ marginBottom: '1.5rem' }}>
+                  <h3 style={{ fontSize: '1rem', color: 'var(--gold-primary)', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <Users size={16} /> Our Team
+                  </h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '0.85rem' }}>
+                    {salonStaffList.map(member => (
+                      <div key={member._id} style={{
+                        padding: '1rem',
+                        background: 'rgba(255,255,255,0.02)',
+                        border: '1px solid var(--border-light)',
+                        borderRadius: '10px',
+                        textAlign: 'center'
+                      }}>
+                        <div style={{
+                          width: '48px', height: '48px', borderRadius: '50%',
+                          background: 'linear-gradient(135deg, var(--gold-primary) 0%, #b38f20 100%)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          margin: '0 auto 0.6rem auto',
+                          fontSize: '1.1rem', fontWeight: '700', color: '#000'
+                        }}>
+                          {member.name.charAt(0)}
+                        </div>
+                        <div style={{ fontWeight: '600', fontSize: '0.88rem', color: 'var(--text-primary)' }}>{member.name}</div>
+                        <div style={{ fontSize: '0.72rem', color: 'var(--gold-primary)', marginTop: '0.2rem' }}>{member.role}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* ── SERVICES CATALOGUE ──────────────────────────── */}
+              <div className="glass-card">
+                <h3 style={{ fontSize: '1rem', color: 'var(--gold-primary)', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Sparkles size={16} /> Services & Treatments
+                </h3>
+                {salonServices.length === 0 ? (
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'center', padding: '2rem' }}>No services listed yet.</p>
+                ) : (
+                  salonCats.map(cat => (
+                    <div key={cat} style={{ marginBottom: '1.5rem' }}>
+                      <h4 style={{
+                        fontSize: '0.78rem', color: 'var(--gold-primary)',
+                        textTransform: 'uppercase', letterSpacing: '0.6px',
+                        marginBottom: '0.75rem',
+                        paddingBottom: '0.4rem',
+                        borderBottom: '1px solid var(--border-light)'
+                      }}>{cat}</h4>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        {salonServices.filter(s => s.category === cat).map(srv => (
+                          <div
+                            key={srv._id}
+                            style={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              padding: '0.9rem 1rem',
+                              background: 'rgba(255,255,255,0.02)',
+                              border: '1px solid var(--border-light)',
+                              borderRadius: '8px',
+                              transition: 'var(--transition-smooth)'
+                            }}
+                          >
+                            <div style={{ flex: 1 }}>
+                              <strong style={{ fontSize: '0.88rem', color: 'var(--text-primary)' }}>{srv.name}</strong>
+                              <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.2rem' }}>
+                                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                                  <Clock size={11} /> {srv.duration || 30} mins
+                                </span>
+                              </div>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                              <span style={{ fontWeight: '700', color: 'var(--gold-primary)', fontSize: '0.95rem' }}>₹{srv.price}</span>
+                              <button
+                                onClick={() => handleOpenBookingModal(srv)}
+                                style={{
+                                  padding: '0.4rem 0.85rem',
+                                  background: 'linear-gradient(135deg, var(--gold-primary) 0%, #b38f20 100%)',
+                                  color: '#000',
+                                  border: 'none',
+                                  borderRadius: '6px',
+                                  fontSize: '0.75rem',
+                                  fontWeight: '600',
+                                  cursor: 'pointer',
+                                  whiteSpace: 'nowrap',
+                                  transition: 'var(--transition-smooth)'
+                                }}
+                              >
+                                Book Now
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* ── BOOKING MODAL ────────────────────────────────── */}
+        {showBookingModal && selectedService && selectedSalon && (
+          <div
+            className="modal-backdrop-overlay"
+            onClick={handleCloseBookingModal}
+            style={{
+              position: 'fixed', inset: 0,
+              background: 'rgba(0,0,0,0.75)',
+              zIndex: 9000,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '1rem'
+            }}
+          >
+            <div
+              onClick={e => e.stopPropagation()}
+              style={{
+                background: 'var(--bg-secondary)',
+                border: '1px solid var(--gold-primary)',
+                borderRadius: '14px',
+                padding: '2rem',
+                width: '100%',
+                maxWidth: '480px',
+                maxHeight: '90vh',
+                overflowY: 'auto',
+                position: 'relative'
+              }}
+            >
+              {/* Close button */}
+              <button
+                onClick={handleCloseBookingModal}
+                style={{
+                  position: 'absolute', top: '1rem', right: '1rem',
+                  background: 'rgba(255,255,255,0.07)', border: '1px solid var(--border-light)',
+                  borderRadius: '50%', width: '32px', height: '32px',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  cursor: 'pointer', color: 'var(--text-secondary)'
+                }}
+              >
+                <X size={16} />
+              </button>
+
+              <h3 style={{ fontSize: '1.1rem', color: 'var(--text-primary)', marginBottom: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Calendar size={18} style={{ color: 'var(--gold-primary)' }} /> Book Your Session
+              </h3>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>{selectedSalon.name}</p>
+
+              {bookingSuccess ? (
+                <div style={{
+                  textAlign: 'center', padding: '2rem 1rem',
+                  background: 'rgba(46,204,113,0.07)',
+                  border: '1px solid rgba(46,204,113,0.3)',
+                  borderRadius: '10px'
+                }}>
+                  <div style={{ fontSize: '2rem', marginBottom: '0.75rem' }}>✅</div>
+                  <p style={{ color: 'var(--accent-green)', fontWeight: '600', fontSize: '0.9rem' }}>{bookingSuccess}</p>
+                </div>
+              ) : (
+                <form onSubmit={handleBookingSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  {/* Selected service summary */}
+                  <div style={{
+                    padding: '0.85rem 1rem',
+                    background: 'var(--gold-bg)',
+                    border: '1px solid rgba(112,130,56,0.3)',
+                    borderRadius: '8px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
+                  }}>
+                    <div>
+                      <div style={{ fontWeight: '700', fontSize: '0.9rem', color: 'var(--text-primary)' }}>{selectedService.name}</div>
+                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.15rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                        <Clock size={11} /> {selectedService.duration || 30} mins
+                      </div>
+                    </div>
+                    <span style={{ fontWeight: '700', fontSize: '1.05rem', color: 'var(--gold-primary)' }}>₹{selectedService.price}</span>
+                  </div>
+
+                  <div className="form-group">
+                    <label>Select Branch</label>
+                    <select className="form-control" required value={bookingBranchId} onChange={e => setBookingBranchId(e.target.value)}>
+                      {db.branches.filter(b => b.salonId === selectedSalon._id).map(b => (
+                        <option key={b._id} value={b._id}>{b.name}{b.city ? ` — ${b.city}` : ''}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="form-group">
+                    <label>Select Stylist</label>
+                    <select className="form-control" required value={bookingStaffId} onChange={e => setBookingStaffId(e.target.value)}>
+                      {db.staff.filter(st => st.salonId === selectedSalon._id).map(st => (
+                        <option key={st._id} value={st._id}>{st.name} ({st.role})</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="form-group">
+                    <label>Appointment Date</label>
+                    <input
+                      type="date"
+                      className="form-control"
+                      required
+                      value={bookingDate}
+                      onChange={e => setBookingDate(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Preferred Time Slot</label>
+                    <select className="form-control" required value={bookingTime} onChange={e => setBookingTime(e.target.value)}>
+                      {['10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00'].map(t => {
+                        const h = parseInt(t);
+                        const label = h > 12 ? `${h - 12}:00 PM` : (h === 12 ? '12:00 PM' : `${t} AM`);
+                        return <option key={t} value={t}>{label}</option>;
+                      })}
+                    </select>
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="gold-btn"
+                    disabled={bookingLoading}
+                    style={{ width: '100%', justifyContent: 'center', padding: '0.75rem', fontSize: '0.9rem', marginTop: '0.25rem' }}
+                  >
+                    {bookingLoading ? 'Confirming...' : `✓ Confirm Appointment — ₹${selectedService.price}`}
+                  </button>
+                </form>
               )}
             </div>
           </div>
-
-          {/* Right panel: Recommendations */}
-          <div className="glass-card">
-            <h3 style={{ fontSize: '1rem', color: 'var(--text-primary)', marginBottom: '1.25rem' }}>Recommended Services</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              {[
-                { name: 'Gold Facial Cleanse', price: '₹1,500', time: '60 mins', benefit: 'Skin rejuvenation' },
-                { name: 'Bridal/Party Makeover', price: '₹15,000', time: '180 mins', benefit: 'Luxury grooming' },
-                { name: 'Deep Conditioning Treatment', price: '₹1,200', time: '45 mins', benefit: 'Hair health' }
-              ].map((rec, rIdx) => (
-                <div key={rIdx} style={{
-                  padding: '0.75rem',
-                  border: '1px solid var(--border-light)',
-                  borderRadius: '6px',
-                  background: 'rgba(255,255,255,0.01)'
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '600', fontSize: '0.8rem', color: 'var(--gold-primary)' }}>
-                    <span>{rec.name}</span>
-                    <span>{rec.price}</span>
-                  </div>
-                  <p style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
-                    {rec.time} • {rec.benefit}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
+        )}
       </div>
     );
   }

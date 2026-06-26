@@ -120,7 +120,8 @@ export const AppProvider = ({ children }) => {
         suppliersRes,
         staffRes,
         attendanceRes,
-        commissionsRes
+        commissionsRes,
+        salonsRes
       ] = await Promise.all([
         fetch(`${API_URL}/customers`, { headers }),
         fetch(`${API_URL}/appointments`, { headers }),
@@ -132,7 +133,8 @@ export const AppProvider = ({ children }) => {
         fetch(`${API_URL}/suppliers`, { headers }),
         fetch(`${API_URL}/staff`, { headers }),
         fetch(`${API_URL}/attendance`, { headers }),
-        fetch(`${API_URL}/commissions`, { headers })
+        fetch(`${API_URL}/commissions`, { headers }),
+        fetch(`${API_URL}/salons`, { headers })
       ]);
 
       const [
@@ -146,7 +148,8 @@ export const AppProvider = ({ children }) => {
         suppliers,
         staff,
         attendance,
-        commissions
+        commissions,
+        salons
       ] = await Promise.all([
         customersRes.json(),
         appointmentsRes.json(),
@@ -158,7 +161,8 @@ export const AppProvider = ({ children }) => {
         suppliersRes.json(),
         staffRes.json(),
         attendanceRes.json(),
-        commissionsRes.json()
+        commissionsRes.json(),
+        salonsRes.json()
       ]);
 
       setDb(prev => ({
@@ -175,6 +179,7 @@ export const AppProvider = ({ children }) => {
         staff: staff.success ? staff.data : prev.staff,
         attendance: attendance.success ? attendance.data : prev.attendance,
         commissions: commissions.success ? commissions.data : prev.commissions,
+        salons: salons.success ? salons.data : prev.salons
       }));
     } catch (err) {
       console.error('Failed to sync backend data:', err);
@@ -244,7 +249,7 @@ export const AppProvider = ({ children }) => {
 
   // Helper filter by tenant (salonId)
   const tenantFilter = (items) => {
-    if (!currentUser || currentUser.role === 'SUPER_ADMIN') return items;
+    if (!currentUser || currentUser.role === 'SUPER_ADMIN' || currentUser.role === 'CLIENT') return items;
     let filtered = items.filter(item => item.salonId === currentUser.salonId);
     if (['SALON_MANAGER', 'STAFF'].includes(currentUser.role) && currentUser.branchId) {
       filtered = filtered.filter(item => !item.branchId || item.branchId === currentUser.branchId);

@@ -39,8 +39,8 @@ const authorize = (...roles) => {
 
 // Middleware to enforce multi-tenant isolation
 const restrictToTenant = (req, res, next) => {
-  if (req.user && req.user.role !== 'SUPER_ADMIN') {
-    // If not a Super Admin, verify the query is filtered by the user's salonId
+  if (req.user && req.user.role !== 'SUPER_ADMIN' && req.user.role !== 'CLIENT') {
+    // If not a Super Admin or Client, verify the query is filtered by the user's salonId
     req.tenantFilter = { salonId: req.user.salonId };
     
     // For POST/PUT payloads, enforce their own salonId
@@ -48,7 +48,7 @@ const restrictToTenant = (req, res, next) => {
       req.body.salonId = req.user.salonId;
     }
   } else {
-    req.tenantFilter = {}; // Super Admin can see everything
+    req.tenantFilter = {}; // Super Admin or Client can see everything
   }
   next();
 };

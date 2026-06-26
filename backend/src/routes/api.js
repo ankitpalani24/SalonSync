@@ -31,11 +31,49 @@ const generateToken = (id) => {
 // @route   POST /api/auth/signup
 router.post('/auth/signup', async (req, res) => {
   try {
-    const { ownerName, email, phone, password, salonName, salonAddress, city, state, gstNumber, businessType } = req.body;
+    const { ownerName, email, phone, password, role, salonName, salonAddress, city, state, gstNumber, businessType } = req.body;
 
     const userExists = await models.User.findOne({ email });
     if (userExists) {
       return res.status(400).json({ success: false, message: 'User already exists with this email' });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    if (role === 'CLIENT') {
+      // Create Client User (Global)
+      const user = await models.User.create({
+        name: ownerName,
+        email,
+        phone,
+        password: hashedPassword,
+        role: 'CLIENT'
+      });
+
+      // Find first salon in database to associate client with a customer profile for loyalty tracking
+      const salons = await models.Salon.find({});
+      if (salons.length > 0) {
+        await models.Customer.create({
+          salonId: salons[0]._id,
+          name: ownerName,
+          email,
+          phone,
+          loyaltyPoints: 0,
+          membershipLevel: 'None'
+        });
+      }
+
+      return res.status(201).json({
+        success: true,
+        token: generateToken(user._id),
+        user: {
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          role: user.role
+        }
+      });
     }
 
     // Create Salon
@@ -63,10 +101,6 @@ router.post('/auth/signup', async (req, res) => {
       phone,
       status: 'Active'
     });
-
-    // Hash Password
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
 
     // Create Owner User
     const user = await models.User.create({
@@ -167,6 +201,18 @@ router.post('/auth/reset-password', (req, res) => {
 // MULTI-TENANT MIDDLEWARES ON CORE ROUTES
 // ----------------------------------------------------
 router.use(protect);
+
+// @route   GET /api/salons
+// @desc    Get all salons (accessible to all authenticated users, e.g. clients)
+router.get('/salons', async (req, res) => {
+  try {
+    const salons = await models.Salon.find({});
+    res.json({ success: true, data: salons });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 router.use(restrictToTenant);
 
 // ----------------------------------------------------
@@ -233,16 +279,42 @@ router.get('/appointments', async (req, res) => {
 
 router.post('/appointments', async (req, res) => {
   try {
+    let finalCustomerId = req.body.customerId;
+    const targetSalonId = req.user.role === 'CLIENT' ? req.body.salonId : req.user.salonId;
+    const targetBranchId = req.user.role === 'CLIENT' ? req.body.branchId : (req.user.branchId || req.body.branchId);
+
+    // If client user is booking, automatically resolve or create their customer profile for the target salon
+    if (req.user.role === 'CLIENT') {
+      let customer = await models.Customer.findOne({ 
+        salonId: targetSalonId,
+        $or: [{ email: req.user.email }, { phone: req.user.phone }]
+      });
+
+      if (!customer) {
+        customer = await models.Customer.create({
+          salonId: targetSalonId,
+          branchId: targetBranchId,
+          name: req.user.name,
+          email: req.user.email,
+          phone: req.user.phone,
+          loyaltyPoints: 0,
+          membershipLevel: 'None'
+        });
+      }
+      finalCustomerId = customer._id;
+    }
+
     const appointment = await models.Appointment.create({
       ...req.body,
-      salonId: req.user.salonId,
-      branchId: req.user.branchId || req.body.branchId
+      salonId: targetSalonId,
+      branchId: targetBranchId,
+      customerId: finalCustomerId
     });
 
     // Simulate sending WhatsApp confirmation trigger
     await models.Notification.create({
-      salonId: req.user.salonId,
-      customerId: appointment.customerId,
+      salonId: targetSalonId,
+      customerId: finalCustomerId,
       type: 'WhatsApp',
       message: `Hello! Your appointment at SalonSync is scheduled for ${appointment.date} at ${appointment.time}. See you soon!`,
       status: 'Sent'
