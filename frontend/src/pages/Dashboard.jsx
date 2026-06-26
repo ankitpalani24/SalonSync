@@ -95,15 +95,28 @@ const Dashboard = ({ setActivePage }) => {
   const lowStockProductsList = lowStockAlerts.slice(0, 4);
 
   if (currentUser.role === 'CLIENT') {
+    // Find the customer profile for this client across any salon
     const customerProfile = db.customers.find(c => c.email === currentUser.email) || {
       _id: 'guest_cust',
-      loyaltyPoints: 345,
-      membershipLevel: 'Platinum',
+      loyaltyPoints: 0,
+      membershipLevel: 'None',
       name: currentUser.name
     };
 
-    const myAppointments = db.appointments.filter(a => a.customerId === customerProfile._id);
-    const myInvoices = db.invoices.filter(i => i.customerId === customerProfile._id);
+    // The GET /appointments endpoint populates customerId into an object.
+    // We must handle both populated objects and raw ID strings robustly.
+    const matchesCustomer = (apptCustomerId) => {
+      if (!apptCustomerId || !customerProfile._id || customerProfile._id === 'guest_cust') return false;
+      // Populated object
+      if (typeof apptCustomerId === 'object' && apptCustomerId !== null) {
+        return String(apptCustomerId._id) === String(customerProfile._id);
+      }
+      // Raw string ID
+      return String(apptCustomerId) === String(customerProfile._id);
+    };
+
+    const myAppointments = db.appointments.filter(a => matchesCustomer(a.customerId));
+    const myInvoices = db.invoices.filter(i => matchesCustomer(i.customerId));
     const myTotalSpending = myInvoices.reduce((sum, inv) => sum + inv.finalAmount, 0);
 
     const upcomingMyAppts = myAppointments.filter(a => a.status !== 'Completed' && a.status !== 'Cancelled');
@@ -181,7 +194,12 @@ const Dashboard = ({ setActivePage }) => {
           status: 'Scheduled'
         };
 
-        await addAppointment(payload);
+        const result = await addAppointment(payload);
+        if (result && result.success === false) {
+          alert(`Booking failed: ${result.message}`);
+          setBookingLoading(false);
+          return;
+        }
         setBookingSuccess('Session booked successfully! You can view it in My Desk.');
         setTimeout(() => {
           handleCloseBookingModal();
@@ -281,8 +299,11 @@ const Dashboard = ({ setActivePage }) => {
                     </p>
                   ) : (
                     upcomingMyAppts.map(appt => {
-                      const staff = db.staff.find(s => s._id === appt.staffId);
-                      const salon = db.salons.find(s => s._id === appt.salonId);
+                      // staffId may be a populated object or a plain ID string
+                      const staffId = typeof appt.staffId === 'object' ? appt.staffId?._id : appt.staffId;
+                      const salonId = typeof appt.salonId === 'object' ? appt.salonId?._id : appt.salonId;
+                      const staff = db.staff.find(s => String(s._id) === String(staffId));
+                      const salon = db.salons.find(s => String(s._id) === String(salonId));
                       return (
                         <div key={appt._id} style={{
                           display: 'flex',

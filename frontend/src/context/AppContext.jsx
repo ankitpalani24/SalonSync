@@ -346,6 +346,13 @@ export const AppProvider = ({ children }) => {
   const addAppointment = async (appt) => {
     try {
       const token = localStorage.getItem('token');
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      // CLIENT users supply their own salonId/branchId from the booking form.
+      // Non-client users use currentBranch as the branchId fallback.
+      const branchIdToUse = user.role === 'CLIENT'
+        ? appt.branchId
+        : (currentBranch ? currentBranch._id : appt.branchId);
+
       const res = await fetch(`${API_URL}/appointments`, {
         method: 'POST',
         headers: {
@@ -354,17 +361,23 @@ export const AppProvider = ({ children }) => {
         },
         body: JSON.stringify({
           ...appt,
-          branchId: currentBranch ? currentBranch._id : appt.branchId
+          branchId: branchIdToUse
         })
       });
       const data = await res.json();
       if (data.success) {
         await syncBackendData(token);
+        return { success: true, data: data.data };
+      } else {
+        console.error('Appointment creation failed:', data.message);
+        return { success: false, message: data.message };
       }
     } catch (err) {
       console.error('Error adding appointment:', err);
+      return { success: false, message: 'Network error' };
     }
   };
+
 
   const updateAppointmentStatus = async (id, status) => {
     try {
