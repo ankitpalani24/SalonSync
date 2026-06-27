@@ -31,6 +31,7 @@ const Dashboard = ({ setActivePage }) => {
   const salonExpenses = tenantFilter(db.expenses);
   const salonCustomers = tenantFilter(db.customers);
   const salonProducts = tenantFilter(db.products);
+  const salonStaff = tenantFilter(db.staff);
 
   // Branch filter (if not checking all)
   const branchInvoices = salonInvoices.filter(i => i.branchId === currentBranch?._id);
