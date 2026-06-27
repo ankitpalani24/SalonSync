@@ -475,39 +475,62 @@ router.post('/invoices', async (req, res) => {
     const count = await models.Invoice.countDocuments({ salonId: req.user.salonId });
     const invoiceNumber = `INV-${new Date().getFullYear()}-${String(count + 1).padStart(4, '0')}`;
 
+    // Gracefully resolve branchId
+    let targetBranchId = req.user.branchId;
+    if (!targetBranchId) {
+      const branch = await models.Branch.findOne({ salonId: req.user.salonId });
+      if (branch) {
+        targetBranchId = branch._id;
+      } else {
+        return res.status(400).json({ success: false, message: 'Branch ID is required for invoice and no default branch was found.' });
+      }
+    }
+
+    // Validate Customer & Staff IDs
+    const finalCustomerId = (customerId && mongoose.Types.ObjectId.isValid(customerId)) ? customerId : null;
+    const finalStaffId = (staffId && mongoose.Types.ObjectId.isValid(staffId)) ? staffId : null;
+
     let subTotal = 0;
     
     // Validate & add Services
     const serviceItems = [];
-    for (const item of services) {
-      const s = await models.Service.findById(item.serviceId);
-      if (s) {
-        serviceItems.push({
-          serviceId: s._id,
-          name: s.name,
-          price: s.price,
-          quantity: item.quantity || 1
-        });
-        subTotal += s.price * (item.quantity || 1);
+    if (services && Array.isArray(services)) {
+      for (const item of services) {
+        if (item.serviceId && mongoose.Types.ObjectId.isValid(item.serviceId)) {
+          const s = await models.Service.findById(item.serviceId);
+          if (s) {
+            serviceItems.push({
+              serviceId: s._id,
+              name: s.name,
+              price: s.price,
+              quantity: item.quantity || 1
+            });
+            subTotal += s.price * (item.quantity || 1);
+          }
+        }
       }
     }
 
     // Validate & deduct Products stock
     const productItems = [];
-    for (const item of products) {
-      const p = await models.Product.findById(item.productId);
-      if (p) {
-        productItems.push({
-          productId: p._id,
-          name: p.name,
-          price: p.sellingPrice,
-          quantity: item.quantity || 1
-        });
-        subTotal += p.sellingPrice * (item.quantity || 1);
-        
-        // Stock Deduction
-        p.quantity = Math.max(0, p.quantity - (item.quantity || 1));
-        await p.save();
+    if (products && Array.isArray(products)) {
+      for (const item of products) {
+        if (item.productId && mongoose.Types.ObjectId.isValid(item.productId)) {
+          const p = await models.Product.findById(item.productId);
+          if (p) {
+            productItems.push({
+              productId: p._id,
+              name: p.name,
+              price: p.sellingPrice,
+              quantity: item.quantity || 1
+            });
+            subTotal += p.sellingPrice * (item.quantity || 1);
+            
+            // Stock Deduction
+            p.quantity = Math.max(0, p.quantity - (item.quantity || 1));
+            await p.save();
+          }
+        }
       }
     }
 
@@ -517,8 +540,8 @@ router.post('/invoices', async (req, res) => {
     const invoice = await models.Invoice.create({
       invoiceNumber,
       salonId: req.user.salonId,
-      branchId: req.user.branchId,
-      customerId,
+      branchId: targetBranchId,
+      customerId: finalCustomerId,
       services: serviceItems,
       products: productItems,
       tax: tax || 0,
@@ -526,19 +549,19 @@ router.post('/invoices', async (req, res) => {
       finalAmount,
       paymentMethod: paymentMethod || 'Cash',
       paymentStatus: 'Paid',
-      staffId
+      staffId: finalStaffId
     });
 
     // 1. Loyalty Points Rule: ₹100 spent = 1 point earned
-    if (customerId) {
+    if (finalCustomerId) {
       const pointsEarned = Math.floor(finalAmount / 100);
       if (pointsEarned > 0) {
-        await models.Customer.findByIdAndUpdate(customerId, {
+        await models.Customer.findByIdAndUpdate(finalCustomerId, {
           $inc: { loyaltyPoints: pointsEarned }
         });
         await models.LoyaltyPoint.create({
           salonId: req.user.salonId,
-          customerId,
+          customerId: finalCustomerId,
           pointsEarned,
           transactionAmount: finalAmount
         });
@@ -546,8 +569,8 @@ router.post('/invoices', async (req, res) => {
     }
 
     // 2. Staff Commission Calculation
-    if (staffId) {
-      const employee = await models.Staff.findById(staffId);
+    if (finalStaffId) {
+      const employee = await models.Staff.findById(finalStaffId);
       if (employee) {
         // Commission earned from service revenue
         const serviceRev = serviceItems.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0);
@@ -555,8 +578,8 @@ router.post('/invoices', async (req, res) => {
 
         await models.Commission.create({
           salonId: req.user.salonId,
-          branchId: req.user.branchId,
-          staffId,
+          branchId: targetBranchId,
+          staffId: finalStaffId,
           invoiceId: invoice._id,
           revenueGenerated: serviceRev,
           commissionRate: employee.commissionPercentage,
@@ -566,12 +589,12 @@ router.post('/invoices', async (req, res) => {
     }
 
     // 3. Trigger WhatsApp notification mock
-    if (customerId) {
-      const customer = await models.Customer.findById(customerId);
+    if (finalCustomerId) {
+      const customer = await models.Customer.findById(finalCustomerId);
       if (customer) {
         await models.Notification.create({
           salonId: req.user.salonId,
-          customerId,
+          customerId: finalCustomerId,
           type: 'WhatsApp',
           message: `Dear ${customer.name}, thank you for visiting us. Your bill of ₹${finalAmount} has been paid. Invoice: ${invoiceNumber}.`,
           status: 'Sent'

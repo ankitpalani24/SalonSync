@@ -499,6 +499,10 @@ select option:active {
     overflow: hidden;
   }
 
+  header.main-header {
+    height: 90px !important;
+  }
+
   .main-content {
     flex: 1;
     height: 0; /* Let flex handle the height so overflow-y:auto works */
