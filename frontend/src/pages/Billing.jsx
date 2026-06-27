@@ -48,8 +48,16 @@ const Billing = ({ apptForCheckout, clearApptCheckout }) => {
   // Handle preset appointment checkout from calendar transition
   useEffect(() => {
     if (apptForCheckout) {
-      setSelectedCustId(apptForCheckout.customerId || '');
-      setSelectedStaffId(apptForCheckout.staffId || '');
+      // Safely extract _id from populated objects
+      const custId = typeof apptForCheckout.customerId === 'object' && apptForCheckout.customerId !== null
+        ? apptForCheckout.customerId._id
+        : apptForCheckout.customerId;
+      const stfId = typeof apptForCheckout.staffId === 'object' && apptForCheckout.staffId !== null
+        ? apptForCheckout.staffId._id
+        : apptForCheckout.staffId;
+      
+      setSelectedCustId(custId || '');
+      setSelectedStaffId(stfId || '');
       
       const apptServices = apptForCheckout.services.map(s => ({
         serviceId: s.serviceId,
@@ -121,14 +129,16 @@ const Billing = ({ apptForCheckout, clearApptCheckout }) => {
 
     setIsProcessing(true);
     try {
+      const safeCustId = typeof selectedCustId === 'object' ? selectedCustId?._id : selectedCustId;
+      const safeStaffId = typeof selectedStaffId === 'object' ? selectedStaffId?._id : selectedStaffId;
       const payload = {
-        customerId: selectedCustId || null,
+        customerId: safeCustId || null,
         services: checkoutServices,
         products: checkoutProducts,
         tax: Number(taxPercent),
         discount: Number(discountAmt),
         paymentMethod: payMethod,
-        staffId: selectedStaffId || null
+        staffId: safeStaffId || null
       };
 
       const newInvoice = await createInvoice(payload);
@@ -385,7 +395,10 @@ const Billing = ({ apptForCheckout, clearApptCheckout }) => {
               </thead>
               <tbody>
                 {invoices.map(inv => {
-                  const client = db.customers.find(c => c._id === inv.customerId);
+                  const client = (() => {
+                    if (inv.customerId && typeof inv.customerId === 'object') return inv.customerId;
+                    return db.customers.find(c => String(c._id) === String(inv.customerId));
+                  })();
                   return (
                     <tr key={inv._id}>
                       <td>

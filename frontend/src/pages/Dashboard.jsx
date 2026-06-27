@@ -938,7 +938,10 @@ const Dashboard = ({ setActivePage }) => {
                 </p>
               ) : (
                 myAppointmentsToday.map(appt => {
-                  const client = db.customers.find(c => c._id === appt.customerId);
+                  const client = (() => {
+                    if (appt.customerId && typeof appt.customerId === 'object') return appt.customerId;
+                    return db.customers.find(c => String(c._id) === String(appt.customerId));
+                  })();
                   return (
                     <div key={appt._id} style={{
                       display: 'flex',
@@ -973,7 +976,10 @@ const Dashboard = ({ setActivePage }) => {
                 </p>
               ) : (
                 myInvoicesMonth.slice(0, 5).map((inv) => {
-                  const client = db.customers.find(c => c._id === inv.customerId);
+                  const client = (() => {
+                    if (inv.customerId && typeof inv.customerId === 'object') return inv.customerId;
+                    return db.customers.find(c => String(c._id) === String(inv.customerId));
+                  })();
                   const comm = getCommissionForInvoice(inv, myStaff);
                   return (
                     <div key={inv._id} style={{
@@ -1105,6 +1111,74 @@ const Dashboard = ({ setActivePage }) => {
         </div>
       </div>
 
+      {/* Staff Performance Overview */}
+      <div className="glass-card" style={{ marginBottom: '2rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+          <h3 style={{ fontSize: '1rem', color: 'var(--text-primary)' }}>Staff Monthly Performance & Salary</h3>
+          <button onClick={() => setActivePage('staff')} style={{ background: 'transparent', border: 'none', color: 'var(--gold-primary)', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+            View Full Roster <ArrowUpRight size={12} />
+          </button>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
+          {salonStaff.map(member => {
+            const staffInvoices = branchInvoices.filter(inv => {
+              const sid = typeof inv.staffId === 'object' ? inv.staffId?._id : inv.staffId;
+              return String(sid) === String(member._id) && inv.createdAt >= startOfMonthStr;
+            });
+            const servicesDone = staffInvoices.reduce((sum, inv) => sum + (inv.services?.length || 0), 0);
+            const revenueGenerated = staffInvoices.reduce((sum, inv) => sum + (inv.finalAmount || 0), 0);
+            const commissionEarned = staffInvoices.reduce((sum, inv) => {
+              const servRev = (inv.services || []).reduce((s, item) => s + ((item.price || 0) * (item.quantity || 1)), 0);
+              return sum + Math.round(servRev * ((member.commissionPercentage || 0) / 100));
+            }, 0);
+            return (
+              <div key={member._id} style={{
+                padding: '1rem',
+                background: 'rgba(255,255,255,0.02)',
+                border: '1px solid var(--border-light)',
+                borderRadius: '6px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
+                  <div style={{
+                    width: '36px', height: '36px', borderRadius: '50%',
+                    background: 'var(--gold-bg)', border: '1px solid var(--gold-border)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: 'var(--gold-primary)', fontWeight: 'bold', fontSize: '0.9rem'
+                  }}>
+                    {member.name[0]}
+                  </div>
+                  <div>
+                    <strong style={{ fontSize: '0.85rem', color: 'var(--text-primary)' }}>{member.name}</strong>
+                    <p style={{ fontSize: '0.65rem', color: 'var(--gold-primary)' }}>{member.role}</p>
+                  </div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: '0.75rem' }}>
+                  <div>
+                    <span style={{ color: 'var(--text-muted)' }}>Services Done</span>
+                    <p style={{ fontWeight: 'bold', color: 'var(--text-primary)' }}>{servicesDone}</p>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--text-muted)' }}>Revenue</span>
+                    <p style={{ fontWeight: 'bold', color: 'var(--text-primary)' }}>₹{revenueGenerated.toLocaleString()}</p>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--text-muted)' }}>Commission</span>
+                    <p style={{ fontWeight: 'bold', color: 'var(--accent-green)' }}>₹{commissionEarned.toLocaleString()}</p>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--text-muted)' }}>Base Salary</span>
+                    <p style={{ fontWeight: 'bold', color: 'var(--text-primary)' }}>₹{(member.salary || 0).toLocaleString()}</p>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+          {salonStaff.length === 0 && (
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', padding: '1rem', textAlign: 'center' }}>No staff members registered yet.</p>
+          )}
+        </div>
+      </div>
+
       {/* Widgets Grid */}
       <div className="grid-split-1-5-1">
         
@@ -1122,8 +1196,14 @@ const Dashboard = ({ setActivePage }) => {
               <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textAlign: 'center', padding: '1rem' }}>No upcoming appointments today.</p>
             ) : (
               upcomingAppointments.map((appt) => {
-                const customer = db.customers.find(c => c._id === appt.customerId);
-                const staff = db.staff.find(s => s._id === appt.staffId);
+                const customer = (() => {
+                  if (appt.customerId && typeof appt.customerId === 'object') return appt.customerId;
+                  return db.customers.find(c => String(c._id) === String(appt.customerId));
+                })();
+                const staffObj = (() => {
+                  const sid = typeof appt.staffId === 'object' ? appt.staffId?._id : appt.staffId;
+                  return db.staff.find(s => String(s._id) === String(sid));
+                })();
                 return (
                   <div key={appt._id} style={{
                     display: 'flex',
@@ -1137,7 +1217,7 @@ const Dashboard = ({ setActivePage }) => {
                     <div>
                       <h5 style={{ fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: '600' }}>{customer ? customer.name : 'Walk-in Client'}</h5>
                       <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.15rem' }}>
-                        {appt.services.map(s => s.name).join(', ')} • Stylist: {staff ? staff.name : 'Any'}
+                        {appt.services.map(s => s.name).join(', ')} • Stylist: {staffObj ? staffObj.name : 'Any'}
                       </p>
                     </div>
                     <div style={{ textAlign: 'right', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>

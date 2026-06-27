@@ -233,7 +233,27 @@ router.post('/customers', async (req, res) => {
       ...req.body,
       salonId: req.user.salonId
     });
-    res.status(201).json({ success: true, data: newCustomer });
+
+    // If the customer has an email, auto-create a CLIENT user so they can log in
+    let clientCredentials = null;
+    if (req.body.email) {
+      const existingUser = await models.User.findOne({ email: req.body.email });
+      if (!existingUser) {
+        const defaultPassword = 'welcome123';
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(defaultPassword, salt);
+        await models.User.create({
+          name: req.body.name,
+          email: req.body.email,
+          phone: req.body.phone || '',
+          password: hashedPassword,
+          role: 'CLIENT'
+        });
+        clientCredentials = { email: req.body.email, defaultPassword };
+      }
+    }
+
+    res.status(201).json({ success: true, data: newCustomer, clientCredentials });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
   }

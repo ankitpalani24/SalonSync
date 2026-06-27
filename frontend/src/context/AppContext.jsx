@@ -249,10 +249,21 @@ export const AppProvider = ({ children }) => {
 
   // Helper filter by tenant (salonId)
   const tenantFilter = (items) => {
+    if (!items) return [];
     if (!currentUser || currentUser.role === 'SUPER_ADMIN' || currentUser.role === 'CLIENT') return items;
-    let filtered = items.filter(item => item.salonId === currentUser.salonId);
+    let filtered = items.filter(item => {
+      if (!item.salonId) return false;
+      const itemSalonId = typeof item.salonId === 'object' ? item.salonId?._id : item.salonId;
+      const userSalonId = typeof currentUser.salonId === 'object' ? currentUser.salonId?._id : currentUser.salonId;
+      return String(itemSalonId) === String(userSalonId);
+    });
     if (['SALON_MANAGER', 'STAFF'].includes(currentUser.role) && currentUser.branchId) {
-      filtered = filtered.filter(item => !item.branchId || item.branchId === currentUser.branchId);
+      filtered = filtered.filter(item => {
+        if (!item.branchId) return true; // global/salon-wide config
+        const itemBranchId = typeof item.branchId === 'object' ? item.branchId?._id : item.branchId;
+        const userBranchId = typeof currentUser.branchId === 'object' ? currentUser.branchId?._id : currentUser.branchId;
+        return String(itemBranchId) === String(userBranchId);
+      });
     }
     return filtered;
   };
@@ -277,27 +288,13 @@ export const AppProvider = ({ children }) => {
       });
       const data = await res.json();
       if (data.success) {
-        if (customer.email) {
-          try {
-            await fetch(`${API_URL}/auth/create-user`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-              },
-              body: JSON.stringify({
-                name: customer.name,
-                email: customer.email,
-                phone: customer.phone,
-                password: 'password123',
-                role: 'CLIENT'
-              })
-            });
-          } catch (err) {
-            console.error('Failed to create customer user credentials:', err);
-          }
-        }
         await syncBackendData(token);
+
+        // Show login credentials if a new CLIENT user was auto-created
+        if (data.clientCredentials) {
+          alert(`✅ Client account created!\n\nEmail: ${data.clientCredentials.email}\nDefault Password: ${data.clientCredentials.defaultPassword}\n\nPlease share these credentials with the client so they can log in to SalonSync.`);
+        }
+
         return data.data;
       }
     } catch (err) {

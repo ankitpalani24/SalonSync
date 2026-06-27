@@ -110,9 +110,21 @@ const Appointments = ({ setActivePage, setSelectedApptForCheckout }) => {
     setActivePage('billing');
   };
 
+  // Helper to resolve populated customerId/staffId
+  const resolveCustomer = (appt) => {
+    if (!appt) return null;
+    if (appt.customerId && typeof appt.customerId === 'object') return appt.customerId;
+    return db.customers.find(c => String(c._id) === String(appt.customerId));
+  };
+  const resolveStaff = (appt) => {
+    if (!appt) return null;
+    const sid = typeof appt.staffId === 'object' ? appt.staffId?._id : appt.staffId;
+    return db.staff.find(s => String(s._id) === String(sid));
+  };
+
   // Simulator for sending manual WhatsApp Reminders
   const handleSendReminder = (type) => {
-    const cust = db.customers.find(c => c._id === selectedAppt.customerId);
+    const cust = resolveCustomer(selectedAppt);
     if (!cust) return;
 
     let msg = '';
@@ -124,8 +136,9 @@ const Appointments = ({ setActivePage, setSelectedApptForCheckout }) => {
       msg = `Follow-up: Hi ${cust.name}, we hope you enjoyed your recent session at SalonSync. Please leave us a review!`;
     }
 
+    const custId = cust._id || selectedAppt.customerId;
     addNotification({
-      customerId: selectedAppt.customerId,
+      customerId: custId,
       type: 'WhatsApp',
       message: msg
     });
@@ -334,15 +347,16 @@ const Appointments = ({ setActivePage, setSelectedApptForCheckout }) => {
                                 key={appt._id}
                                 onClick={() => handleApptClick(appt)}
                                 style={{
-                                  background: 'rgba(212,175,55,0.06)',
-                                  border: '1px solid var(--gold-border)',
+                                  background: appt.status === 'Completed' ? 'rgba(46,204,113,0.08)' : (appt.status === 'Cancelled' ? 'rgba(231,76,60,0.06)' : 'rgba(212,175,55,0.06)'),
+                                  border: `1px solid ${appt.status === 'Completed' ? 'rgba(46,204,113,0.3)' : (appt.status === 'Cancelled' ? 'rgba(231,76,60,0.3)' : 'var(--gold-border)')}`,
                                   borderRadius: '4px',
                                   padding: '0.5rem',
                                   cursor: 'pointer',
                                   display: 'inline-flex',
                                   justifyContent: 'space-between',
                                   width: '100%',
-                                  maxWidth: '450px'
+                                  maxWidth: '450px',
+                                  opacity: appt.status === 'Cancelled' ? 0.5 : 1
                                 }}
                               >
                                 <div>
@@ -445,7 +459,7 @@ const Appointments = ({ setActivePage, setSelectedApptForCheckout }) => {
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: 'var(--text-secondary)' }}>Client Name:</span>
                 <strong style={{ color: 'var(--text-primary)' }}>
-                  {db.customers.find(c => c._id === selectedAppt.customerId)?.name || 'Guest walk-in'}
+                  {resolveCustomer(selectedAppt)?.name || 'Guest walk-in'}
                 </strong>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -454,7 +468,7 @@ const Appointments = ({ setActivePage, setSelectedApptForCheckout }) => {
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: 'var(--text-secondary)' }}>Assigned Staff:</span>
-                <span style={{ color: 'var(--text-primary)' }}>{db.staff.find(s => s._id === selectedAppt.staffId)?.name || 'Unassigned'}</span>
+                <span style={{ color: 'var(--text-primary)' }}>{resolveStaff(selectedAppt)?.name || 'Unassigned'}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: 'var(--text-secondary)' }}>Schedule Time:</span>
