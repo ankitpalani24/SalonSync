@@ -55,7 +55,7 @@ const Header = ({ toggleMobileSidebar }) => {
           <h2 style={{ fontSize: '1.2rem', color: 'var(--text-primary)' }} className="header-brand-title">
             {currentUser?.role === 'SUPER_ADMIN' ? 'SalonSync SuperAdmin' : (currentSalon?.name || 'SalonSync Platform')}
           </h2>
-          {currentUser?.role !== 'SUPER_ADMIN' && currentBranch && (
+          {currentUser?.role !== 'SUPER_ADMIN' && currentUser?.role !== 'CLIENT' && currentBranch && (
             <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.25rem' }} className="header-brand-location">
               <MapPin size={12} style={{ color: 'var(--gold-primary)' }} />
               {`${currentBranch.name} (${currentBranch.city})`}

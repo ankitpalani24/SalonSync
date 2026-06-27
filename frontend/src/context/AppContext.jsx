@@ -567,6 +567,66 @@ export const AppProvider = ({ children }) => {
     }
   };
 
+  const updateService = async (serviceId, updatedFields) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/services/${serviceId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(updatedFields)
+      });
+      const data = await res.json();
+      if (data.success) {
+        await syncBackendData(token);
+      }
+    } catch (err) {
+      console.error('Error updating service:', err);
+    }
+  };
+
+  const updateStaff = async (staffId, updatedFields) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/staff/${staffId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(updatedFields)
+      });
+      const data = await res.json();
+      if (data.success) {
+        await syncBackendData(token);
+      }
+    } catch (err) {
+      console.error('Error updating staff:', err);
+    }
+  };
+
+  const updateProduct = async (productId, updatedFields) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/products/${productId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(updatedFields)
+      });
+      const data = await res.json();
+      if (data.success) {
+        await syncBackendData(token);
+      }
+    } catch (err) {
+      console.error('Error updating product:', err);
+    }
+  };
+
   const clockInStaff = async (staffId) => {
     try {
       const token = localStorage.getItem('token');
@@ -717,11 +777,11 @@ export const AppProvider = ({ children }) => {
       // Bookings
       addAppointment, updateAppointmentStatus,
       // Services & packages
-      addService, addPackage,
+      addService, updateService, addPackage,
       // Finance & Inventory
-      addExpense, addProduct, updateProductQuantity, addSupplier, createInvoice,
+      addExpense, addProduct, updateProduct, updateProductQuantity, addSupplier, createInvoice,
       // HR
-      addStaff, clockInStaff, clockOutStaff,
+      addStaff, updateStaff, clockInStaff, clockOutStaff,
       // Configurations
       updateSalonDetails, switchBranch, updateSalonSubscription,
       // Marketing

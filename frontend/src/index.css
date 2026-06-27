@@ -218,6 +218,8 @@ button {
   overflow-y: auto;
   overflow-x: hidden;
   position: relative;
+  /* Ensure sticky header inside this container works correctly */
+  min-height: 0;
 }
 
 .page-container {
@@ -493,6 +495,18 @@ select option:active {
   /* Mobile Sidebar Drawer styling */
   .app-container {
     flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  .main-content {
+    flex: 1;
+    height: 0; /* Let flex handle the height so overflow-y:auto works */
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
   }
   
   .sidebar-container {
@@ -686,6 +700,8 @@ select option:active {
     position: sticky !important;
     top: 0 !important;
     z-index: 90 !important;
+    /* Shadow to visually separate header from content scrolling under it */
+    box-shadow: 0 2px 12px rgba(0,0,0,0.25) !important;
   }
 }
 

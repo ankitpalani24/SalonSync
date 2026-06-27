@@ -3,7 +3,8 @@ import { Plus, Package, Truck, AlertTriangle, ArrowUpRight, ArrowDownRight, Edit
 import { useApp } from '../context/AppContext';
 
 const Inventory = () => {
-  const { tenantFilter, db, addProduct, updateProductQuantity, addSupplier } = useApp();
+  const { tenantFilter, db, addProduct, updateProduct, updateProductQuantity, addSupplier } = useApp();
+  const [editingProduct, setEditingProduct] = useState(null);
 
   const products = tenantFilter(db.products);
   const suppliers = tenantFilter(db.suppliers);
@@ -45,7 +46,7 @@ const Inventory = () => {
 
   const handleProductSubmit = (e) => {
     e.preventDefault();
-    addProduct({
+    const payload = {
       name: prodName,
       sku: prodSku,
       category: prodCat,
@@ -54,8 +55,16 @@ const Inventory = () => {
       sellingPrice: Number(prodSellPrice),
       supplierId: prodSuppId || null,
       lowStockThreshold: Number(prodThreshold)
-    });
+    };
+
+    if (editingProduct) {
+      updateProduct(editingProduct._id, payload);
+    } else {
+      addProduct(payload);
+    }
+
     setShowProdModal(false);
+    setEditingProduct(null);
     
     // reset
     setProdName('');
@@ -63,6 +72,8 @@ const Inventory = () => {
     setProdQty(0);
     setProdBuyPrice(0);
     setProdSellPrice(0);
+    setProdSuppId('');
+    setProdThreshold(5);
   };
 
   const handleSupplierSubmit = (e) => {
@@ -175,9 +186,29 @@ const Inventory = () => {
                       </td>
                       <td>{supp ? supp.name : 'Unknown Vendor'}</td>
                       <td>
-                        <button onClick={() => handleOpenStockAdjust(p)} className="outline-btn" style={{ padding: '0.25rem 0.5rem', fontSize: '0.7rem' }}>
-                          Stock In/Out
-                        </button>
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                          <button onClick={() => handleOpenStockAdjust(p)} className="outline-btn" style={{ padding: '0.25rem 0.5rem', fontSize: '0.7rem' }}>
+                            Stock +/-
+                          </button>
+                          <button
+                            onClick={() => {
+                              setEditingProduct(p);
+                              setProdName(p.name);
+                              setProdSku(p.sku);
+                              setProdCat(p.category);
+                              setProdQty(p.quantity);
+                              setProdBuyPrice(p.purchasePrice);
+                              setProdSellPrice(p.sellingPrice);
+                              setProdSuppId(p.supplierId || '');
+                              setProdThreshold(p.lowStockThreshold || 5);
+                              setShowProdModal(true);
+                            }}
+                            className="outline-btn"
+                            style={{ padding: '0.25rem 0.5rem', fontSize: '0.7rem', borderColor: 'var(--gold-primary)', color: 'var(--gold-primary)' }}
+                          >
+                            Edit
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -229,13 +260,13 @@ const Inventory = () => {
         </div>
       )}
 
-      {/* Add Product Modal */}
+      {/* Add / Edit Product Modal */}
       {showProdModal && (
-        <div onClick={(e) => { if (e.target === e.currentTarget) setShowProdModal(false); }} className="modal-backdrop-overlay">
+        <div onClick={(e) => { if (e.target === e.currentTarget) { setShowProdModal(false); setEditingProduct(null); } }} className="modal-backdrop-overlay">
           <div className="modal-scrollable-content" style={{ maxWidth: '420px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
-              <h3 style={{ color: 'var(--text-primary)' }}>Register Catalog Product</h3>
-              <button onClick={() => setShowProdModal(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)' }}><X size={18} /></button>
+              <h3 style={{ color: 'var(--text-primary)' }}>{editingProduct ? 'Edit Catalog Product' : 'Register Catalog Product'}</h3>
+              <button onClick={() => { setShowProdModal(false); setEditingProduct(null); }} style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)' }}><X size={18} /></button>
             </div>
             <form onSubmit={handleProductSubmit}>
               <div className="form-group">
@@ -268,7 +299,7 @@ const Inventory = () => {
                   <input type="number" required placeholder="750" className="form-control" value={prodSellPrice} onChange={(e) => setProdSellPrice(e.target.value)} />
                 </div>
                 <div className="form-group">
-                  <label>Opening Stock</label>
+                  <label>{editingProduct ? 'Current Stock' : 'Opening Stock'}</label>
                   <input type="number" required className="form-control" value={prodQty} onChange={(e) => setProdQty(e.target.value)} />
                 </div>
               </div>
@@ -287,7 +318,9 @@ const Inventory = () => {
                 </div>
               </div>
 
-              <button type="submit" className="gold-btn" style={{ width: '100%', justifyContent: 'center' }}>Save Product</button>
+              <button type="submit" className="gold-btn" style={{ width: '100%', justifyContent: 'center' }}>
+                {editingProduct ? 'Update Product Details' : 'Save Product'}
+              </button>
             </form>
           </div>
         </div>

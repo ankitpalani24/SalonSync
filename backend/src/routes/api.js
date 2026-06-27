@@ -365,6 +365,20 @@ router.post('/services', async (req, res) => {
   }
 });
 
+router.put('/services/:id', async (req, res) => {
+  try {
+    const service = await models.Service.findOneAndUpdate(
+      { _id: req.params.id, ...req.tenantFilter },
+      req.body,
+      { new: true, runValidators: true }
+    );
+    if (!service) return res.status(404).json({ success: false, message: 'Service not found' });
+    res.json({ success: true, data: service });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+});
+
 router.get('/packages', async (req, res) => {
   try {
     const packages = await models.Package.find(req.tenantFilter);
@@ -629,6 +643,20 @@ router.post('/staff', async (req, res) => {
       branchId: req.user.branchId
     });
     res.status(201).json({ success: true, data: staff });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+});
+
+router.put('/staff/:id', async (req, res) => {
+  try {
+    const staff = await models.Staff.findOneAndUpdate(
+      { _id: req.params.id, ...req.tenantFilter },
+      req.body,
+      { new: true, runValidators: true }
+    );
+    if (!staff) return res.status(404).json({ success: false, message: 'Staff member not found' });
+    res.json({ success: true, data: staff });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
   }

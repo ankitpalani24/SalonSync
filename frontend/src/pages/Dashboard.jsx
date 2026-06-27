@@ -95,24 +95,36 @@ const Dashboard = ({ setActivePage }) => {
   const lowStockProductsList = lowStockAlerts.slice(0, 4);
 
   if (currentUser.role === 'CLIENT') {
-    // Find the customer profile for this client across any salon
-    const customerProfile = db.customers.find(c => c.email === currentUser.email) || {
-      _id: 'guest_cust',
-      loyaltyPoints: 0,
-      membershipLevel: 'None',
+    // Find all customer profiles for this client across all salons to aggregate stats
+    const myCustomerProfiles = db.customers.filter(c => c.email === currentUser.email || (c.phone && c.phone === currentUser.phone));
+    const totalLoyaltyPoints = myCustomerProfiles.reduce((sum, c) => sum + (c.loyaltyPoints || 0), 0);
+    
+    const customerProfile = {
+      _id: myCustomerProfiles.length > 0 ? myCustomerProfiles[0]._id : 'guest_cust',
+      loyaltyPoints: totalLoyaltyPoints,
+      membershipLevel: myCustomerProfiles.map(c => c.membershipLevel).includes('Platinum') ? 'Platinum' 
+        : (myCustomerProfiles.map(c => c.membershipLevel).includes('Gold') ? 'Gold' 
+        : (myCustomerProfiles.map(c => c.membershipLevel).includes('Silver') ? 'Silver' : 'None')),
       name: currentUser.name
     };
 
     // The GET /appointments endpoint populates customerId into an object.
-    // We must handle both populated objects and raw ID strings robustly.
+    // We match by checking if the ID or email/phone matches any profile of the client.
     const matchesCustomer = (apptCustomerId) => {
-      if (!apptCustomerId || !customerProfile._id || customerProfile._id === 'guest_cust') return false;
-      // Populated object
+      if (!apptCustomerId) return false;
+      const targetId = typeof apptCustomerId === 'object' && apptCustomerId !== null
+        ? String(apptCustomerId._id)
+        : String(apptCustomerId);
+      
+      const myCustomerIds = myCustomerProfiles.map(c => String(c._id));
+      if (myCustomerIds.includes(targetId)) return true;
+
+      // Fallback: check email/phone if populated
       if (typeof apptCustomerId === 'object' && apptCustomerId !== null) {
-        return String(apptCustomerId._id) === String(customerProfile._id);
+        if (apptCustomerId.email === currentUser.email) return true;
+        if (apptCustomerId.phone && apptCustomerId.phone === currentUser.phone) return true;
       }
-      // Raw string ID
-      return String(apptCustomerId) === String(customerProfile._id);
+      return false;
     };
 
     const myAppointments = db.appointments.filter(a => matchesCustomer(a.customerId));

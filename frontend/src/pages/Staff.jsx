@@ -3,7 +3,8 @@ import { Plus, User, Clock, Award, Shield, UserCheck, Calculator, X } from 'luci
 import { useApp } from '../context/AppContext';
 
 const Staff = () => {
-  const { currentUser, tenantFilter, db, addStaff, clockInStaff, clockOutStaff } = useApp();
+  const { currentUser, tenantFilter, db, addStaff, updateStaff, clockInStaff, clockOutStaff } = useApp();
+  const [editingStaff, setEditingStaff] = useState(null);
 
   const staff = tenantFilter(db.staff);
   const attendance = tenantFilter(db.attendance);
@@ -31,18 +32,29 @@ const Staff = () => {
 
   const handleStaffSubmit = (e) => {
     e.preventDefault();
-    addStaff({
+    const payload = {
       name: staffName,
       phone: staffPhone,
       role: staffRole,
       salary: Number(staffSalary),
       commissionPercentage: Number(staffComm)
-    });
+    };
+
+    if (editingStaff) {
+      updateStaff(editingStaff._id, payload);
+    } else {
+      addStaff(payload);
+    }
+
     setShowStaffModal(false);
+    setEditingStaff(null);
 
     // reset
     setStaffName('');
     setStaffPhone('');
+    setStaffRole('Hair Stylist');
+    setStaffSalary(20000);
+    setStaffComm(10);
   };
 
   const handleClockIn = (id) => {
@@ -96,26 +108,45 @@ const Staff = () => {
 
               return (
                 <div key={member._id} className="glass-card" style={{ display: 'flex', flexDirection: 'column', justifyBetween: 'space-between' }}>
-                  <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '1.25rem' }}>
-                    <div style={{
-                      width: '46px',
-                      height: '46px',
-                      borderRadius: '50%',
-                      background: 'var(--gold-bg)',
-                      border: '1px solid var(--gold-border)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: 'var(--gold-primary)',
-                      fontSize: '1.1rem',
-                      fontWeight: 'bold'
-                    }}>
-                      {member.name[0]}
+                  <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '1.25rem', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                      <div style={{
+                        width: '46px',
+                        height: '46px',
+                        borderRadius: '50%',
+                        background: 'var(--gold-bg)',
+                        border: '1px solid var(--gold-border)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'var(--gold-primary)',
+                        fontSize: '1.1rem',
+                        fontWeight: 'bold'
+                      }}>
+                        {member.name[0]}
+                      </div>
+                      <div>
+                        <h4 style={{ fontSize: '0.95rem', color: 'var(--text-primary)', fontWeight: '600' }}>{member.name}</h4>
+                        <span style={{ fontSize: '0.7rem', color: 'var(--gold-primary)', fontWeight: '500' }}>{member.role}</span>
+                      </div>
                     </div>
-                    <div>
-                      <h4 style={{ fontSize: '0.95rem', color: 'var(--text-primary)', fontWeight: '600' }}>{member.name}</h4>
-                      <span style={{ fontSize: '0.7rem', color: 'var(--gold-primary)', fontWeight: '500' }}>{member.role}</span>
-                    </div>
+                    {['SALON_OWNER', 'FRANCHISE_OWNER', 'SALON_MANAGER'].includes(currentUser?.role) && (
+                      <button
+                        onClick={() => {
+                          setEditingStaff(member);
+                          setStaffName(member.name);
+                          setStaffPhone(member.phone);
+                          setStaffRole(member.role);
+                          setStaffSalary(member.salary);
+                          setStaffComm(member.commissionPercentage);
+                          setShowStaffModal(true);
+                        }}
+                        className="outline-btn"
+                        style={{ padding: '0.25rem 0.5rem', fontSize: '0.65rem', borderColor: 'var(--gold-primary)', color: 'var(--gold-primary)' }}
+                      >
+                        Edit
+                      </button>
+                    )}
                   </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '1.25rem' }}>
@@ -295,13 +326,13 @@ const Staff = () => {
         </div>
       )}
 
-      {/* Add Staff Modal */}
+      {/* Add / Edit Staff Modal */}
       {showStaffModal && (
-        <div onClick={(e) => { if (e.target === e.currentTarget) setShowStaffModal(false); }} className="modal-backdrop-overlay">
+        <div onClick={(e) => { if (e.target === e.currentTarget) { setShowStaffModal(false); setEditingStaff(null); } }} className="modal-backdrop-overlay">
           <div className="modal-scrollable-content">
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
-              <h3 style={{ color: 'var(--text-primary)' }}>Register Professional Stylist</h3>
-              <button onClick={() => setShowStaffModal(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)' }}><X size={18} /></button>
+              <h3 style={{ color: 'var(--text-primary)' }}>{editingStaff ? 'Edit Staff Member' : 'Register Professional Stylist'}</h3>
+              <button onClick={() => { setShowStaffModal(false); setEditingStaff(null); }} style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)' }}><X size={18} /></button>
             </div>
             <form onSubmit={handleStaffSubmit}>
               <div className="form-group">
@@ -326,7 +357,9 @@ const Staff = () => {
                   <input type="number" placeholder="10" className="form-control" value={staffComm} onChange={(e) => setStaffComm(e.target.value)} />
                 </div>
               </div>
-              <button type="submit" className="gold-btn" style={{ width: '100%', justifyContent: 'center' }}>Save Employee File</button>
+              <button type="submit" className="gold-btn" style={{ width: '100%', justifyContent: 'center' }}>
+                {editingStaff ? 'Update Employee File' : 'Save Employee File'}
+              </button>
             </form>
           </div>
         </div>

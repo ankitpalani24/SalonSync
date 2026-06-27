@@ -220,8 +220,16 @@ const Appointments = ({ setActivePage, setSelectedApptForCheckout }) => {
                     {/* Bookings inside cell */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem', overflow: 'hidden' }}>
                       {dayAppts.slice(0, 3).map((appt) => {
-                        const cust = db.customers.find(c => c._id === appt.customerId);
-                        const isMine = customerProfile && appt.customerId === customerProfile._id;
+                        const cust = (() => {
+                          // customerId may be a populated Customer object or a raw ID string
+                          if (appt.customerId && typeof appt.customerId === 'object') {
+                            return appt.customerId; // already populated
+                          }
+                          return db.customers.find(c => String(c._id) === String(appt.customerId));
+                        })();
+                        const custName = cust?.name || 'Walk-in';
+                        const custId = cust?._id || appt.customerId;
+                        const isMine = customerProfile && String(custId) === String(customerProfile._id);
                         const labelText = isMine ? 'My Session' : 'Slot Blocked';
                         return (
                           <div 
@@ -238,7 +246,7 @@ const Appointments = ({ setActivePage, setSelectedApptForCheckout }) => {
                               borderLeft: `2px solid ${appt.status === 'Completed' ? 'var(--accent-green)' : 'var(--gold-primary)'}`
                             }}
                           >
-                            {appt.time} {currentUser.role === 'CLIENT' ? labelText : (cust ? cust.name.split(' ')[0] : 'Walk-in')}
+                            {appt.time} {currentUser.role === 'CLIENT' ? labelText : (custName.split(' ')[0])}
                           </div>
                         );
                       })}
@@ -284,9 +292,16 @@ const Appointments = ({ setActivePage, setSelectedApptForCheckout }) => {
                           <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>Available</span>
                         ) : (
                           slotAppts.map((appt) => {
-                            const cust = db.customers.find(c => c._id === appt.customerId);
-                            const staff = db.staff.find(s => s._id === appt.staffId);
-                            const isMine = customerProfile && appt.customerId === customerProfile._id;
+                            const cust = (() => {
+                              if (appt.customerId && typeof appt.customerId === 'object') {
+                                return appt.customerId;
+                              }
+                              return db.customers.find(c => String(c._id) === String(appt.customerId));
+                            })();
+                            const custId = cust?._id || appt.customerId;
+                            const staffId = typeof appt.staffId === 'object' ? appt.staffId?._id : appt.staffId;
+                            const staff = db.staff.find(s => String(s._id) === String(staffId));
+                            const isMine = customerProfile && String(custId) === String(customerProfile._id);
                             
                             if (currentUser.role === 'CLIENT' && !isMine) {
                               return (

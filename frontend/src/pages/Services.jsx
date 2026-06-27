@@ -3,7 +3,8 @@ import { Plus, Scissors, Sparkles, Clock, Calculator, Percent, Tag, X } from 'lu
 import { useApp } from '../context/AppContext';
 
 const Services = () => {
-  const { tenantFilter, db, addService, addPackage } = useApp();
+  const { tenantFilter, db, addService, updateService, addPackage } = useApp();
+  const [editingService, setEditingService] = useState(null);
 
   const services = tenantFilter(db.services);
   const packages = tenantFilter(db.packages);
@@ -40,15 +41,23 @@ const Services = () => {
 
   const handleServiceSubmit = (e) => {
     e.preventDefault();
-    addService({
+    const payload = {
       name: srvName,
       category: srvCat,
       duration: Number(srvDuration),
       price: Number(srvPrice),
       materialCost: Number(srvCost),
       description: srvDesc
-    });
+    };
+
+    if (editingService) {
+      updateService(editingService._id, payload);
+    } else {
+      addService(payload);
+    }
+    
     setShowSrvModal(false);
+    setEditingService(null);
     
     // reset
     setSrvName('');
@@ -147,6 +156,7 @@ const Services = () => {
                   <th>Duration</th>
                   <th>Cost Parameters</th>
                   <th>Profit Margin</th>
+                  <th style={{ textAlign: 'center' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -180,6 +190,24 @@ const Services = () => {
                           <span style={{ color: 'var(--accent-green)', fontWeight: 'bold', fontSize: '0.85rem' }}>₹{profitVal}</span>
                           <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>({marginPct}%)</span>
                         </div>
+                      </td>
+                      <td style={{ textAlign: 'center' }}>
+                        <button
+                          onClick={() => {
+                            setEditingService(srv);
+                            setSrvName(srv.name);
+                            setSrvCat(srv.category);
+                            setSrvDuration(srv.duration);
+                            setSrvPrice(srv.price);
+                            setSrvCost(srv.materialCost || 0);
+                            setSrvDesc(srv.description || '');
+                            setShowSrvModal(true);
+                          }}
+                          className="outline-btn"
+                          style={{ padding: '0.25rem 0.65rem', fontSize: '0.7rem' }}
+                        >
+                          Edit
+                        </button>
                       </td>
                     </tr>
                   );
@@ -230,13 +258,13 @@ const Services = () => {
 
       </div>
 
-      {/* Create Service Modal */}
+      {/* Create / Edit Service Modal */}
       {showSrvModal && (
-        <div onClick={(e) => { if (e.target === e.currentTarget) setShowSrvModal(false); }} className="modal-backdrop-overlay">
+        <div onClick={(e) => { if (e.target === e.currentTarget) { setShowSrvModal(false); setEditingService(null); } }} className="modal-backdrop-overlay">
           <div className="modal-scrollable-content">
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
-              <h3 style={{ color: 'var(--text-primary)' }}>Create Menu Service</h3>
-              <button onClick={() => setShowSrvModal(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)' }}><X size={18} /></button>
+              <h3 style={{ color: 'var(--text-primary)' }}>{editingService ? 'Edit Service Details' : 'Create Service Menu Item'}</h3>
+              <button onClick={() => { setShowSrvModal(false); setEditingService(null); }} style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)' }}><X size={18} /></button>
             </div>
             <form onSubmit={handleServiceSubmit}>
               <div className="form-group">
@@ -293,7 +321,9 @@ const Services = () => {
                 <textarea className="form-control" rows="2" placeholder="Brief outline of steps involved..." value={srvDesc} onChange={(e) => setSrvDesc(e.target.value)} />
               </div>
 
-              <button type="submit" className="gold-btn" style={{ width: '100%', justifyContent: 'center' }}>Save Menu Item</button>
+              <button type="submit" className="gold-btn" style={{ width: '100%', justifyContent: 'center' }}>
+                {editingService ? 'Update Service Item' : 'Save Menu Item'}
+              </button>
             </form>
           </div>
         </div>
