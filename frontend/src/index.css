@@ -641,22 +641,26 @@ select option:active {
 
 /* Print Media Styles to resolve black screen and ensure clean thermal/page outputs */
 @media print {
-  body > div:not(.modal-backdrop-overlay),
-  .app-container > *:not(.main-content),
-  .main-content > *:not(.page-container),
-  .page-container > *:not(.modal-backdrop-overlay),
-  .modal-backdrop-overlay > *:not(.print-receipt-modal) {
+  .sidebar-container,
+  header.main-header,
+  .sidebar-backdrop {
     display: none !important;
   }
-  
+
+  .main-content > *:not(.page-container) {
+    display: none !important;
+  }
+
+  .page-container > *:not(.modal-backdrop-overlay) {
+    display: none !important;
+  }
+
   body, html {
     background: #ffffff !important;
     color: #000000 !important;
     height: auto !important;
     overflow: visible !important;
-    display: flex !important;
-    justify-content: center !important;
-    align-items: flex-start !important;
+    display: block !important;
   }
   
   .app-container,

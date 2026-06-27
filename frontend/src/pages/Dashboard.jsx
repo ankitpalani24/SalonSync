@@ -60,12 +60,20 @@ const Dashboard = ({ setActivePage }) => {
 
   // Today's Expenses
   const todayExpenses = branchExpenses
-    .filter(e => e.date === today)
+    .filter(e => {
+      if (!e.date) return false;
+      const expDateStr = e.date.includes('T') ? e.date.split('T')[0] : e.date;
+      return expDateStr === today;
+    })
     .reduce((sum, e) => sum + e.amount, 0);
 
   // Monthly Expenses
   const monthlyExpenses = branchExpenses
-    .filter(e => e.date >= startOfMonthStr)
+    .filter(e => {
+      if (!e.date) return false;
+      const expDateStr = e.date.includes('T') ? e.date.split('T')[0] : e.date;
+      return expDateStr >= startOfMonthStr;
+    })
     .reduce((sum, e) => sum + e.amount, 0);
 
   // Product Inventory material costs from monthly invoices
