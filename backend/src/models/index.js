@@ -144,7 +144,7 @@ const LoyaltyPointSchema = new mongoose.Schema({
 
 // 10. Invoice Schema
 const InvoiceSchema = new mongoose.Schema({
-  invoiceNumber: { type: String, required: true, unique: true },
+  invoiceNumber: { type: String, required: true },
   salonId: { type: mongoose.Schema.Types.ObjectId, ref: 'Salon', required: true },
   branchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch', required: true },
   customerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Customer' },

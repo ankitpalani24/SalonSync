@@ -17,6 +17,14 @@ const connectDB = async () => {
     
     // Auto-seed default users and multi-tenant structures if User database is empty
     await seedDatabase();
+
+    // Drop unique index on invoiceNumber to support multiple salons
+    try {
+      await mongoose.connection.db.collection('invoices').dropIndex('invoiceNumber_1');
+      console.log('Dropped unique index invoiceNumber_1 to support multiple salons.');
+    } catch (e) {
+      // index not found, ignore
+    }
   } catch (primaryError) {
     console.error(`Primary Database connection error: ${primaryError.message}`);
     
@@ -28,6 +36,11 @@ const connectDB = async () => {
         });
         console.log(`MongoDB Connected (Local Fallback): ${conn.connection.host}`);
         await seedDatabase();
+
+        try {
+          await mongoose.connection.db.collection('invoices').dropIndex('invoiceNumber_1');
+          console.log('Dropped unique index invoiceNumber_1 to support multiple salons on fallback.');
+        } catch (e) {}
       } catch (fallbackError) {
         console.error(`Local fallback Database connection also failed: ${fallbackError.message}`);
         console.log('===================================================');

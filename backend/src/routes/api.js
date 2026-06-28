@@ -574,7 +574,8 @@ router.post('/invoices', async (req, res) => {
       if (employee) {
         // Commission earned from service revenue
         const serviceRev = serviceItems.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0);
-        const commissionEarned = Math.round(serviceRev * (employee.commissionPercentage / 100));
+        const commRate = employee.commissionPercentage || 0;
+        const commissionEarned = Math.round(serviceRev * (commRate / 100)) || 0;
 
         await models.Commission.create({
           salonId: req.user.salonId,
@@ -582,8 +583,8 @@ router.post('/invoices', async (req, res) => {
           staffId: finalStaffId,
           invoiceId: invoice._id,
           revenueGenerated: serviceRev,
-          commissionRate: employee.commissionPercentage,
-          commissionEarned
+          commissionRate: commRate,
+          commissionEarned: commissionEarned
         });
       }
     }
