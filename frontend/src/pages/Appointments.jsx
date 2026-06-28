@@ -3,12 +3,16 @@ import { ChevronLeft, ChevronRight, Plus, Calendar, Clock, User, Check, X, Shiel
 import { useApp } from '../context/AppContext';
 
 const Appointments = ({ setActivePage, setSelectedApptForCheckout }) => {
-  const { currentUser, tenantFilter, db, addAppointment, updateAppointmentStatus, addNotification } = useApp();
+  const { currentUser, currentBranch, tenantFilter, db, addAppointment, updateAppointmentStatus, addNotification } = useApp();
 
   const appointments = tenantFilter(db.appointments);
   const customers = tenantFilter(db.customers);
   const services = tenantFilter(db.services);
-  const staffMembers = tenantFilter(db.staff);
+  const staffMembers = tenantFilter(db.staff).filter(s => {
+    if (!currentBranch) return true;
+    const bid = typeof s.branchId === 'object' ? s.branchId?._id : s.branchId;
+    return !bid || String(bid) === String(currentBranch._id);
+  });
   
   const customerProfile = currentUser?.role === 'CLIENT' ? db.customers.find(c => c.email === currentUser.email) : null;
 
@@ -219,6 +223,8 @@ const Appointments = ({ setActivePage, setSelectedApptForCheckout }) => {
                 const dayStr = day.toLocaleDateString('en-CA');
                 const dayAppts = appointments.filter(a => {
                   if (!a.date) return false;
+                  // Hide completed and cancelled appointments from calendar
+                  if (a.status === 'Completed' || a.status === 'Cancelled') return false;
                   const apptDateStr = a.date.includes('T') ? a.date.split('T')[0] : a.date;
                   return apptDateStr === dayStr;
                 });
@@ -293,6 +299,7 @@ const Appointments = ({ setActivePage, setSelectedApptForCheckout }) => {
                   // matches slot hour prefix
                   const slotAppts = appointments.filter(a => {
                     if (!a.date) return false;
+                    if (a.status === 'Completed' || a.status === 'Cancelled') return false;
                     const apptDateStr = a.date.includes('T') ? a.date.split('T')[0] : a.date;
                     return apptDateStr === activeDateStr && a.time.startsWith(hrSlot.substring(0,2));
                   });

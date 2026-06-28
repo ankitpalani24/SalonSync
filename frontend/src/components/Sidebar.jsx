@@ -57,7 +57,7 @@ const Sidebar = ({ activePage, setActivePage, collapsed, setCollapsed, user, log
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       style={{
-        width: collapsed ? '70px' : '260px',
+      width: collapsed ? '70px' : '260px',
       background: 'var(--bg-secondary)',
       borderRight: '1px solid var(--border-light)',
       display: 'flex',
@@ -66,8 +66,7 @@ const Sidebar = ({ activePage, setActivePage, collapsed, setCollapsed, user, log
       transition: 'var(--transition-smooth)',
       position: 'relative',
       zIndex: 100,
-      overflowY: 'auto',
-      overflowX: 'hidden'
+      overflow: 'hidden'
     }}>
       {/* Brand Logo */}
       <div style={{
@@ -112,6 +111,7 @@ const Sidebar = ({ activePage, setActivePage, collapsed, setCollapsed, user, log
       {/* Nav List */}
       <div style={{
         flex: 1,
+        minHeight: 0,
         padding: '1rem 0.5rem',
         display: 'flex',
         flexDirection: 'column',
@@ -158,7 +158,8 @@ const Sidebar = ({ activePage, setActivePage, collapsed, setCollapsed, user, log
         borderTop: '1px solid var(--border-light)',
         display: 'flex',
         flexDirection: 'column',
-        gap: '0.5rem'
+        gap: '0.5rem',
+        flexShrink: 0
       }}>
         {/* Mobile-only Quick Controls */}
         <div className="sidebar-mobile-controls" style={{

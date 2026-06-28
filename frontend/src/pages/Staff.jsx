@@ -3,11 +3,19 @@ import { Plus, User, Clock, Award, Shield, UserCheck, Calculator, X } from 'luci
 import { useApp } from '../context/AppContext';
 
 const Staff = () => {
-  const { currentUser, tenantFilter, db, addStaff, updateStaff, clockInStaff, clockOutStaff } = useApp();
+  const { currentUser, currentBranch, tenantFilter, db, addStaff, updateStaff, clockInStaff, clockOutStaff } = useApp();
   const [editingStaff, setEditingStaff] = useState(null);
 
-  const staff = tenantFilter(db.staff);
-  const attendance = tenantFilter(db.attendance);
+  const staff = tenantFilter(db.staff).filter(s => {
+    if (!currentBranch) return true;
+    const bid = typeof s.branchId === 'object' ? s.branchId?._id : s.branchId;
+    return !bid || String(bid) === String(currentBranch._id);
+  });
+  const attendance = tenantFilter(db.attendance).filter(a => {
+    if (!currentBranch) return true;
+    const bid = typeof a.branchId === 'object' ? a.branchId?._id : a.branchId;
+    return !bid || String(bid) === String(currentBranch._id);
+  });
   const commissions = tenantFilter(db.commissions);
 
   const isStaffRole = currentUser?.role === 'STAFF';

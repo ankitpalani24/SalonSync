@@ -3,13 +3,17 @@ import { Plus, Trash2, Printer, Send, CreditCard, Sparkles, User, FileText, Shop
 import { useApp } from '../context/AppContext';
 
 const Billing = ({ apptForCheckout, clearApptCheckout }) => {
-  const { tenantFilter, db, createInvoice } = useApp();
+  const { tenantFilter, db, createInvoice, currentSalon, currentBranch } = useApp();
 
   const invoices = tenantFilter(db.invoices);
   const customers = tenantFilter(db.customers);
   const services = tenantFilter(db.services);
   const products = tenantFilter(db.products);
-  const staff = tenantFilter(db.staff);
+  const staff = tenantFilter(db.staff).filter(s => {
+    if (!currentBranch) return true;
+    const bid = typeof s.branchId === 'object' ? s.branchId?._id : s.branchId;
+    return !bid || String(bid) === String(currentBranch._id);
+  });
 
   const [activePane, setActivePane] = useState('pos'); // 'pos', 'history'
   const [selectedInvoice, setSelectedInvoice] = useState(null); // printable invoice modal
@@ -18,14 +22,14 @@ const Billing = ({ apptForCheckout, clearApptCheckout }) => {
   const getModalClient = () => {
     if (!selectedInvoice || !selectedInvoice.customerId) return null;
     const cId = typeof selectedInvoice.customerId === 'object' ? selectedInvoice.customerId._id : selectedInvoice.customerId;
-    return db.customers.find(c => c._id === cId) || (typeof selectedInvoice.customerId === 'object' ? selectedInvoice.customerId : null);
+    return db.customers.find(c => String(c._id) === String(cId)) || (typeof selectedInvoice.customerId === 'object' ? selectedInvoice.customerId : null);
   };
   const modalClient = getModalClient();
 
   const getInvoiceCustomerName = (inv) => {
     if (!inv || !inv.customerId) return 'Guest walk-in';
     const cId = typeof inv.customerId === 'object' ? inv.customerId._id : inv.customerId;
-    const client = db.customers.find(c => c._id === cId);
+    const client = db.customers.find(c => String(c._id) === String(cId));
     if (client) return client.name;
     if (typeof inv.customerId === 'object' && inv.customerId.name) return inv.customerId.name;
     return 'Guest walk-in';
@@ -74,11 +78,11 @@ const Billing = ({ apptForCheckout, clearApptCheckout }) => {
   const getSubTotal = () => {
     let sum = 0;
     checkoutServices.forEach(item => {
-      const s = services.find(srv => srv._id === item.serviceId);
+      const s = services.find(srv => String(srv._id) === String(item.serviceId));
       if (s) sum += s.price * item.quantity;
     });
     checkoutProducts.forEach(item => {
-      const p = products.find(prod => prod._id === item.productId);
+      const p = products.find(prod => String(prod._id) === String(item.productId));
       if (p) sum += p.sellingPrice * item.quantity;
     });
     return sum;
@@ -90,7 +94,7 @@ const Billing = ({ apptForCheckout, clearApptCheckout }) => {
 
   const handleAddService = () => {
     if (!tempSrvId) return;
-    const exists = checkoutServices.some(s => s.serviceId === tempSrvId);
+    const exists = checkoutServices.some(s => String(s.serviceId) === String(tempSrvId));
     if (exists) return;
     setCheckoutServices(prev => [...prev, { serviceId: tempSrvId, quantity: 1 }]);
     setTempSrvId('');
@@ -98,7 +102,7 @@ const Billing = ({ apptForCheckout, clearApptCheckout }) => {
 
   const handleAddProduct = () => {
     if (!tempProdId) return;
-    const exists = checkoutProducts.some(p => p.productId === tempProdId);
+    const exists = checkoutProducts.some(p => String(p.productId) === String(tempProdId));
     if (exists) return;
     setCheckoutProducts(prev => [...prev, { productId: tempProdId, quantity: 1 }]);
     setTempProdId('');
@@ -240,7 +244,7 @@ const Billing = ({ apptForCheckout, clearApptCheckout }) => {
                     <>
                       {/* Services loop */}
                       {checkoutServices.map(item => {
-                        const s = services.find(srv => srv._id === item.serviceId);
+                        const s = services.find(srv => String(srv._id) === String(item.serviceId));
                         if (!s) return null;
                         return (
                           <tr key={item.serviceId}>
@@ -266,7 +270,7 @@ const Billing = ({ apptForCheckout, clearApptCheckout }) => {
 
                       {/* Products loop */}
                       {checkoutProducts.map(item => {
-                        const p = products.find(prod => prod._id === item.productId);
+                        const p = products.find(prod => String(prod._id) === String(item.productId));
                         if (!p) return null;
                         return (
                           <tr key={item.productId}>
@@ -462,9 +466,9 @@ const Billing = ({ apptForCheckout, clearApptCheckout }) => {
 
             {/* Receipt Content */}
             <div style={{ textAlign: 'center', borderBottom: '1px dashed #ddd', paddingBottom: '1rem', marginBottom: '1.25rem' }}>
-              <h3 style={{ fontSize: '1.4rem', fontWeight: 'bold', fontFamily: 'var(--font-serif)', color: '#000' }}>LUXE & GOLD SALON</h3>
-              <p style={{ fontSize: '0.75rem', color: '#555' }}>Signature Towers,Carter Road, Bandra West, Mumbai</p>
-              <p style={{ fontSize: '0.75rem', color: '#555' }}>GSTIN: 27AAAAA1111A1Z1 • Ph: +91 22 2640 1234</p>
+              <h3 style={{ fontSize: '1.4rem', fontWeight: 'bold', fontFamily: 'var(--font-serif)', color: '#000' }}>{currentSalon?.name || 'SalonSync'}</h3>
+              <p style={{ fontSize: '0.75rem', color: '#555' }}>{currentBranch ? `${currentBranch.name}, ${currentBranch.address || ''} ${currentBranch.city || ''}` : (currentSalon?.address || '')}</p>
+              <p style={{ fontSize: '0.75rem', color: '#555' }}>{currentSalon?.gstNumber ? `GSTIN: ${currentSalon.gstNumber} • ` : ''}{currentSalon?.phone ? `Ph: ${currentSalon.phone}` : ''}</p>
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: '#333', marginBottom: '1rem' }}>
@@ -474,7 +478,7 @@ const Billing = ({ apptForCheckout, clearApptCheckout }) => {
               </div>
               <div>
                 <p><strong>Client Name:</strong> {getInvoiceCustomerName(selectedInvoice)}</p>
-                <p><strong>Stylist:</strong> {db.staff.find(s => s._id === selectedInvoice.staffId)?.name || 'House Stylist'}</p>
+                <p><strong>Stylist:</strong> {(() => { const sid = typeof selectedInvoice.staffId === 'object' ? selectedInvoice.staffId?._id : selectedInvoice.staffId; return db.staff.find(s => String(s._id) === String(sid))?.name || (typeof selectedInvoice.staffId === 'object' ? selectedInvoice.staffId?.name : null) || 'House Stylist'; })()}</p>
               </div>
             </div>
 

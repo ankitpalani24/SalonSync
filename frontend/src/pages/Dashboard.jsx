@@ -33,10 +33,16 @@ const Dashboard = ({ setActivePage }) => {
   const salonProducts = tenantFilter(db.products);
   const salonStaff = tenantFilter(db.staff);
 
-  // Branch filter (if not checking all)
-  const branchInvoices = salonInvoices.filter(i => i.branchId === currentBranch?._id);
-  const branchAppointments = salonAppointments.filter(a => a.branchId === currentBranch?._id);
-  const branchExpenses = salonExpenses.filter(e => e.branchId === currentBranch?._id);
+  // Branch filter helper - uses String() comparison for MongoDB ObjectId safety
+  const matchBranch = (itemBranchId) => {
+    if (!currentBranch?._id) return true; // no branch selected, show all
+    if (!itemBranchId) return true; // salon-wide items
+    const a = typeof itemBranchId === 'object' ? itemBranchId?._id : itemBranchId;
+    return String(a) === String(currentBranch._id);
+  };
+  const branchInvoices = salonInvoices.filter(i => matchBranch(i.branchId));
+  const branchAppointments = salonAppointments.filter(a => matchBranch(a.branchId));
+  const branchExpenses = salonExpenses.filter(e => matchBranch(e.branchId));
   
   // Date ranges
   const today = new Date().toLocaleDateString('en-CA');
