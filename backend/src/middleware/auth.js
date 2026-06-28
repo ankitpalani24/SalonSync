@@ -1,6 +1,85 @@
 const jwt = require('jsonwebtoken');
 const { User } = require('../models');
 
+const initializedSalons = new Set();
+
+const ensureDefaultSalonData = async (salonId, user) => {
+  if (!salonId || initializedSalons.has(String(salonId))) return;
+
+  try {
+    const models = require('../models');
+
+    // 1. Ensure at least one Branch exists
+    let branch = await models.Branch.findOne({ salonId });
+    if (!branch) {
+      branch = await models.Branch.create({
+        salonId,
+        name: 'Main Branch',
+        address: 'Signature Towers, Bandra West',
+        city: 'Mumbai',
+        state: 'Maharashtra',
+        phone: user.phone || '9999999999',
+        status: 'Active'
+      });
+      console.log(`Created default branch for salon ${salonId}`);
+    }
+
+    // 2. Ensure at least one Staff exists
+    const staffCount = await models.Staff.countDocuments({ salonId });
+    if (staffCount === 0) {
+      await models.Staff.create({
+        salonId,
+        branchId: branch._id,
+        name: 'Emma Watson',
+        phone: user.phone || '9999999999',
+        role: 'Senior Stylist',
+        salary: 25000,
+        commissionPercentage: 10
+      });
+      console.log(`Created default staff for salon ${salonId}`);
+    }
+
+    // 3. Ensure at least one Service exists
+    const serviceCount = await models.Service.countDocuments({ salonId });
+    if (serviceCount === 0) {
+      await models.Service.create([
+        { salonId, name: 'Premium Haircut', category: 'Haircut', duration: 30, price: 500, materialCost: 50 },
+        { salonId, name: 'Global Hair Color', category: 'Hair Color', duration: 90, price: 2500, materialCost: 600 },
+        { salonId, name: 'Gold Facial', category: 'Facial', duration: 60, price: 1500, materialCost: 200 },
+        { salonId, name: 'Bridal Makeover', category: 'Bridal Services', duration: 180, price: 15000, materialCost: 2500 }
+      ]);
+      console.log(`Created default services for salon ${salonId}`);
+    }
+
+    // 4. Ensure at least one Product exists
+    const productCount = await models.Product.countDocuments({ salonId });
+    if (productCount === 0) {
+      await models.Product.create({
+        salonId,
+        name: 'Argan Oil Shampoo',
+        sku: 'SHAMP-ARG-500',
+        category: 'Hair Care',
+        quantity: 15,
+        purchasePrice: 400,
+        sellingPrice: 750,
+        lowStockThreshold: 3
+      });
+      console.log(`Created default products for salon ${salonId}`);
+    }
+
+    // 5. Ensure the user document itself has branchId assigned
+    if (user && !user.branchId) {
+      user.branchId = branch._id;
+      await user.save();
+      console.log(`Associated branchId ${branch._id} with user ${user._id}`);
+    }
+
+    initializedSalons.add(String(salonId));
+  } catch (err) {
+    console.error(`Error in ensureDefaultSalonData for salon ${salonId}:`, err);
+  }
+};
+
 const protect = async (req, res, next) => {
   let token;
   if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
@@ -12,6 +91,12 @@ const protect = async (req, res, next) => {
       if (!req.user) {
         return res.status(401).json({ success: false, message: 'Not authorized, user not found' });
       }
+
+      // Auto-repair missing salon seed data for newly/manually registered salons
+      if (req.user.salonId) {
+        await ensureDefaultSalonData(req.user.salonId, req.user);
+      }
+
       next();
     } catch (error) {
       console.error(error);
