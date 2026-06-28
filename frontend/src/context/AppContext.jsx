@@ -71,7 +71,7 @@ export const AppProvider = ({ children }) => {
   const API_URL = `http://${window.location.hostname}:5000/api`;
 
   // Sync all collection data from backend DB
-  const syncBackendData = async (token = localStorage.getItem('token')) => {
+  const syncBackendData = async (token = localStorage.getItem('token'), user = currentUser) => {
     if (!token) return;
     try {
       const headers = { 'Authorization': `Bearer ${token}` };
@@ -91,20 +91,42 @@ export const AppProvider = ({ children }) => {
       if (branchData.success) {
         activeBranches = branchData.data;
         const local = localStorage.getItem('branch');
+        let validLocalBranch = null;
+
         if (local) {
-          setCurrentBranch(JSON.parse(local));
-        } else if (currentUser && currentUser.branchId) {
-          const userB = activeBranches.find(b => b._id === currentUser.branchId);
+          try {
+            const parsed = JSON.parse(local);
+            const userSalonId = user ? (typeof user.salonId === 'object' ? user.salonId?._id : user.salonId) : null;
+            const branchSalonId = parsed ? (typeof parsed.salonId === 'object' ? parsed.salonId?._id : parsed.salonId) : null;
+            
+            // Verify branch belongs to the logged-in salon and exists in fetched branches
+            if (userSalonId && String(branchSalonId) === String(userSalonId) && activeBranches.some(b => String(b._id) === String(parsed._id))) {
+              validLocalBranch = parsed;
+            }
+          } catch (e) {
+            console.error('Error parsing branch from localStorage:', e);
+          }
+        }
+
+        if (validLocalBranch) {
+          setCurrentBranch(validLocalBranch);
+        } else {
+          // Clear stale localStorage branch
+          localStorage.removeItem('branch');
+
+          // Fallback to user's assigned branch or first branch in active list
+          const targetBranchId = user ? (typeof user.branchId === 'object' ? user.branchId?._id : user.branchId) : null;
+          const userB = targetBranchId ? activeBranches.find(b => String(b._id) === String(targetBranchId)) : null;
+
           if (userB) {
             setCurrentBranch(userB);
             localStorage.setItem('branch', JSON.stringify(userB));
           } else if (activeBranches.length > 0) {
             setCurrentBranch(activeBranches[0]);
             localStorage.setItem('branch', JSON.stringify(activeBranches[0]));
+          } else {
+            setCurrentBranch(null);
           }
-        } else if (activeBranches.length > 0) {
-          setCurrentBranch(activeBranches[0]);
-          localStorage.setItem('branch', JSON.stringify(activeBranches[0]));
         }
       }
 
@@ -207,7 +229,7 @@ export const AppProvider = ({ children }) => {
         localStorage.setItem('token', data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
         setCurrentUser(data.user);
-        await syncBackendData(data.token);
+        await syncBackendData(data.token, data.user);
         return { success: true, user: data.user };
       }
       return { success: false, message: data.message };
@@ -228,7 +250,7 @@ export const AppProvider = ({ children }) => {
         localStorage.setItem('token', data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
         setCurrentUser(data.user);
-        await syncBackendData(data.token);
+        await syncBackendData(data.token, data.user);
         return { success: true };
       }
       return { success: false, message: data.message };
