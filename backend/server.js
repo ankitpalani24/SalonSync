@@ -19,8 +19,14 @@ connectDB();
 
 const app = express();
 
-// Middleware
-app.use(cors());
+// Middleware — single CORS config with origin whitelist
+app.use(cors({
+  origin: [
+    "http://localhost:5173",
+    "https://salonsync-iota.vercel.app"
+  ],
+  credentials: true
+}));
 app.use(express.json());
 
 // API Routes
@@ -49,15 +55,3 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`SalonSync Server running on port ${PORT}`);
 });
-
-const cors = require("cors");
-
-app.use(
-  cors({
-    origin: [
-      "http://localhost:5173",
-      "https://salonsync-iota.vercel.app"
-    ],
-    credentials: true,
-  })
-);

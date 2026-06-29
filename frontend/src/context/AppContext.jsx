@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import * as mockData from '../data/mockData';
+import { API_URL } from '../config/api';
 
 const AppContext = createContext();
 
@@ -66,9 +67,6 @@ export const AppProvider = ({ children }) => {
       localStorage.setItem('theme', 'light');
     }
   }, [darkMode]);
-
-  // API Backend sync base url (dynamic host to support local network/mobile testing)
-  const API_URL = `http://${window.location.hostname}:5000/api`;
 
   // Sync all collection data from backend DB
   const syncBackendData = async (token = localStorage.getItem('token'), user = currentUser) => {
