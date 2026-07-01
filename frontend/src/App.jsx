@@ -166,7 +166,7 @@ function App() {
   const notifications = db?.notifications && currentUser
     ? (currentUser.role === 'CLIENT'
         ? db.notifications.filter(n => myCustomerIds.includes(String(n.customerId)))
-        : db.notifications.filter(n => n.salonId === currentUser.salonId)
+        : db.notifications.filter(n => n.salonId === currentUser.salonId && !n.customerId)
       ).slice(0, 5)
     : [];
 

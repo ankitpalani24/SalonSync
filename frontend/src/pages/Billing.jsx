@@ -185,6 +185,7 @@ const Billing = ({ apptForCheckout, clearApptCheckout }) => {
           if (client) {
             addNotification({
               customerId: safeCustId,
+              salonId: null, // Exclude from salon owner's feed
               type: 'Billing',
               message: `Your visit receipt ${newInvoice.invoiceNumber || 'INV'} has been generated. Total charged: ₹${finalAmount}. Thank you for using SalonSync!`,
               status: 'Sent'

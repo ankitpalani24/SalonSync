@@ -8,7 +8,7 @@ import { useApp } from '../context/AppContext';
 import { RevenueLineChart, ProfitBarChart, ServiceShareDonut } from '../components/DashboardCharts';
 
 const Dashboard = ({ setActivePage }) => {
-  const { currentUser, currentBranch, tenantFilter, db, updateAppointmentStatus, addAppointment } = useApp();
+  const { currentUser, currentBranch, tenantFilter, db, updateAppointmentStatus, addAppointment, addNotification } = useApp();
 
   // Exploration / Client States
   const [activeTab, setActiveTab] = React.useState('my-desk'); // 'my-desk' or 'explore'
@@ -227,6 +227,28 @@ const Dashboard = ({ setActivePage }) => {
           setBookingLoading(false);
           return;
         }
+
+        // 1. Send notification to the Salon Owner
+        addNotification({
+          salonId: selectedSalon._id,
+          customerId: null, // Exclude from client feed, direct to Owner
+          type: 'Appointment',
+          message: `New booking: Client ${currentUser.name} booked ${selectedService.name} on ${bookingDate} at ${bookingTime}.`,
+          status: 'Sent'
+        });
+
+        // 2. Send confirmation notification to the Client
+        const clientProfile = db.customers.find(c => c.email === currentUser.email || (c.phone && c.phone === currentUser.phone));
+        if (clientProfile) {
+          addNotification({
+            customerId: clientProfile._id,
+            salonId: null, // Exclude from Owner's feed, direct to Client
+            type: 'Appointment',
+            message: `Your booking for ${selectedService.name} at ${selectedSalon.name} is confirmed for ${bookingDate} at ${bookingTime}.`,
+            status: 'Sent'
+          });
+        }
+
         setBookingSuccess('Session booked successfully! You can view it in My Desk.');
         setTimeout(() => {
           handleCloseBookingModal();

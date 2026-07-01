@@ -70,19 +70,20 @@
 
 .light-mode .form-control {
   background: #ffffff !important;
-  border: 1px solid rgba(0, 0, 0, 0.18) !important;
-  color: #1a1a1a !important;
+  border: 1px solid var(--border-light) !important;
+  color: var(--text-primary) !important;
 }
 
 .light-mode .form-control:focus {
   border-color: var(--gold-primary) !important;
-  box-shadow: 0 0 0 3px rgba(92, 110, 43, 0.15) !important;
+  box-shadow: 0 0 0 3px var(--gold-glow) !important;
+  background: #ffffff !important;
 }
 
 .light-mode select,
 .light-mode select option {
   background-color: #ffffff !important;
-  color: #1a1a1a !important;
+  color: var(--text-primary) !important;
 }
 
 /* Base resets */
@@ -955,7 +956,7 @@ body:has(.sidebar-container.open) .main-content {
 
 @media (max-width: 768px) {
   .main-header {
-    height: 80px !important; /* Thicker professional header on mobile */
+    height: 90px !important; /* Thicker professional header on mobile */
     padding: 0 1.25rem !important;
     flex-wrap: nowrap !important;
   }
