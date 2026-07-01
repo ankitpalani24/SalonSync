@@ -19,12 +19,28 @@ connectDB();
 
 const app = express();
 
-// Middleware — single CORS config with origin whitelist
+// Middleware — single CORS config with dynamic origin resolver to support local and remote deployment
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://salonsync-iota.vercel.app"
+];
 app.use(cors({
-  origin: [
-    "http://localhost:5173",
-    "https://salonsync-iota.vercel.app"
-  ],
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps, curl, postman)
+    if (!origin) return callback(null, true);
+    
+    const isAllowed = allowedOrigins.includes(origin) || 
+                      origin.endsWith('.vercel.app') || 
+                      (process.env.FRONTEND_URL && origin === process.env.FRONTEND_URL);
+                      
+    if (isAllowed) {
+      return callback(null, true);
+    }
+    
+    // Fallback: allow other origins dynamically to ensure seamless user remote access
+    console.warn(`CORS: Origin ${origin} not explicitly whitelisted, but allowed as fallback.`);
+    callback(null, true);
+  },
   credentials: true
 }));
 app.use(express.json());
