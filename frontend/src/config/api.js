@@ -6,8 +6,18 @@ const getApiUrl = () => {
   
   // Dynamic fallback based on current host
   const hostname = window.location.hostname;
-  if (hostname === 'localhost' || hostname === '127.0.0.1') {
-    return 'http://localhost:5000/api';
+  
+  // Check if current hostname is localhost or a local network IP / domain
+  const isLocal = 
+    hostname === 'localhost' ||
+    hostname === '127.0.0.1' ||
+    hostname.startsWith('192.168.') ||
+    hostname.startsWith('10.') ||
+    hostname.startsWith('172.') ||
+    hostname.endsWith('.local');
+    
+  if (isLocal) {
+    return `http://${hostname}:5000/api`;
   }
   
   // Production backend fallback (Render)
