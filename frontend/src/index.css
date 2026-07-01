@@ -47,20 +47,20 @@
 
 /* Light Mode Variables Override */
 .light-mode {
-  --bg-primary: #f1f3f6;
+  --bg-primary: #fafaf6; /* Premium alabaster warm off-white background */
   --bg-secondary: #ffffff;
-  --bg-card: #ffffff;
-  --bg-card-hover: #fafafa;
-  --text-primary: #1a1a1a;
-  --text-secondary: #4a4a4a;
-  --text-muted: #717171;
-  --border-light: rgba(0, 0, 0, 0.12);
-  --shadow-premium: 0 4px 16px 0 rgba(0, 0, 0, 0.08);
-  --olive-primary: #5c6e2b;
-  --olive-hover: #4a5921;
-  --olive-glow: rgba(92, 110, 43, 0.25);
-  --olive-bg: rgba(92, 110, 43, 0.12);
-  --olive-border: rgba(92, 110, 43, 0.3);
+  --bg-card: rgba(255, 255, 255, 0.9);
+  --bg-card-hover: #fcfbf9;
+  --text-primary: #1b2014; /* Muted warm charcoal text */
+  --text-secondary: #58614c; /* Olive-tinted gray */
+  --text-muted: #858e78;
+  --border-light: rgba(112, 130, 56, 0.12); /* Soft olive-tinted borders */
+  --shadow-premium: 0 10px 30px rgba(112, 130, 56, 0.05); /* Soft olive-tinted shadow */
+  --olive-primary: #6c8033; /* Rich luxury olive green */
+  --olive-hover: #556627;
+  --olive-glow: rgba(108, 128, 51, 0.18);
+  --olive-bg: rgba(108, 128, 51, 0.06);
+  --olive-border: rgba(108, 128, 51, 0.2);
   --gold-primary: var(--olive-primary);
   --gold-hover: var(--olive-hover);
   --gold-glow: var(--olive-glow);

@@ -699,10 +699,14 @@ export const AppProvider = ({ children }) => {
       status: 'Sent',
       ...notif
     };
-    setDb(prev => ({
-      ...prev,
-      notifications: [newNotif, ...prev.notifications]
-    }));
+    setDb(prev => {
+      const updatedNotifs = [newNotif, ...prev.notifications];
+      localStorage.setItem('sf_notifications', JSON.stringify(updatedNotifs));
+      return {
+        ...prev,
+        notifications: updatedNotifs
+      };
+    });
   };
 
   // POS Checkout Billing Generator

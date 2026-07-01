@@ -3,7 +3,7 @@ import { Plus, Trash2, Printer, Send, CreditCard, Sparkles, User, FileText, Shop
 import { useApp } from '../context/AppContext';
 
 const Billing = ({ apptForCheckout, clearApptCheckout }) => {
-  const { tenantFilter, db, createInvoice, currentSalon, currentBranch } = useApp();
+  const { tenantFilter, db, createInvoice, addNotification, currentSalon, currentBranch } = useApp();
 
   const invoices = tenantFilter(db.invoices);
   const customers = tenantFilter(db.customers);
@@ -102,7 +102,16 @@ const Billing = ({ apptForCheckout, clearApptCheckout }) => {
 
   const handleAddProduct = () => {
     if (!tempProdId) return;
-    const exists = checkoutProducts.some(p => String(p.productId) === String(tempProdId));
+    
+    const p = products.find(prod => String(prod._id) === String(tempProdId));
+    if (!p) return;
+    
+    if (p.quantity <= 0) {
+      alert(`Cannot add ${p.name} to billing. Out of stock!`);
+      return;
+    }
+    
+    const exists = checkoutProducts.some(item => String(item.productId) === String(tempProdId));
     if (exists) return;
     setCheckoutProducts(prev => [...prev, { productId: tempProdId, quantity: 1 }]);
     setTempProdId('');
@@ -120,7 +129,20 @@ const Billing = ({ apptForCheckout, clearApptCheckout }) => {
     if (type === 'service') {
       setCheckoutServices(prev => prev.map(s => s.serviceId === id ? { ...s, quantity: Math.max(1, s.quantity + delta) } : s));
     } else {
-      setCheckoutProducts(prev => prev.map(p => p.productId === id ? { ...p, quantity: Math.max(1, p.quantity + delta) } : p));
+      const p = products.find(prod => String(prod._id) === String(id));
+      if (!p) return;
+      
+      setCheckoutProducts(prev => prev.map(item => {
+        if (item.productId === id) {
+          const newQty = item.quantity + delta;
+          if (newQty > p.quantity) {
+            alert(`Cannot increase quantity. Only ${p.quantity} units of ${p.name} available in stock.`);
+            return item;
+          }
+          return { ...item, quantity: Math.max(1, newQty) };
+        }
+        return item;
+      }));
     }
   };
 
@@ -129,6 +151,15 @@ const Billing = ({ apptForCheckout, clearApptCheckout }) => {
     if (checkoutServices.length === 0 && checkoutProducts.length === 0) {
       alert('Please add at least one treatment service or product to invoice.');
       return;
+    }
+
+    // Verify stock availability before submission
+    for (const item of checkoutProducts) {
+      const p = products.find(prod => String(prod._id) === String(item.productId));
+      if (p && item.quantity > p.quantity) {
+        alert(`Cannot complete billing. Insufficient stock for ${p.name}. Available: ${p.quantity}, Demanded: ${item.quantity}`);
+        return;
+      }
     }
 
     setIsProcessing(true);
@@ -148,6 +179,19 @@ const Billing = ({ apptForCheckout, clearApptCheckout }) => {
       const newInvoice = await createInvoice(payload);
       
       if (newInvoice) {
+        // Send notification to the client
+        if (safeCustId) {
+          const client = customers.find(c => String(c._id) === String(safeCustId));
+          if (client) {
+            addNotification({
+              customerId: safeCustId,
+              type: 'Billing',
+              message: `Your visit receipt ${newInvoice.invoiceNumber || 'INV'} has been generated. Total charged: ₹${finalAmount}. Thank you for using SalonSync!`,
+              status: 'Sent'
+            });
+          }
+        }
+
         // Clear Form
         setSelectedCustId('');
         setWalkinName('');
