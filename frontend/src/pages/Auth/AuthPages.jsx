@@ -130,7 +130,7 @@ const AuthPages = ({ defaultView = 'login', onAuthSuccess, onBackToLanding }) =>
               margin: '0 auto 1rem auto',
               cursor: 'pointer'
             }}
-          >SF</div>
+          >SS</div>
           <h2 style={{ fontSize: '1.75rem', color: '#fff' }}>SalonSync</h2>
           <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
             {view === 'login' && 'Sign in to access your salon desk'}

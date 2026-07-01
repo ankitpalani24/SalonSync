@@ -948,5 +948,32 @@ body:has(.sidebar-container.open) .main-content {
   }
 }
 
+/* Header & Landing Nav Custom Sizing & Overlap Fixes */
+.main-header {
+  height: 75px;
+}
+
+@media (max-width: 768px) {
+  .main-header {
+    height: 90px !important; /* Increased header size in mobile view */
+    padding: 0 1.25rem !important;
+  }
+  .landing-nav {
+    padding: 1rem 1.25rem !important; /* Prevents button overlap */
+  }
+}
+
+@media (max-width: 480px) {
+  .landing-brand-name {
+    font-size: 1.05rem !important; /* Scale down brand text on small screens */
+  }
+}
+
+@media (max-width: 375px) {
+  .landing-brand-name {
+    display: none !important; /* Hide brand text on extremely small screens, leaving the 'SS' logo block */
+  }
+}
+
 
 

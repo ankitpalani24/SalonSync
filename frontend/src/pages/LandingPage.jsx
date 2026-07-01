@@ -51,7 +51,7 @@ const LandingPage = ({ onStartTrial, onLogin }) => {
             color: '#000',
             fontWeight: 'bold'
           }}>SS</div>
-          <span style={{ fontSize: '1.25rem', fontWeight: '700', letterSpacing: '1px', color: '#fff' }}>
+          <span className="landing-brand-name" style={{ fontSize: '1.25rem', fontWeight: '700', letterSpacing: '1px', color: '#fff' }}>
             SalonSync
           </span>
         </div>
