@@ -1,6 +1,6 @@
 const getApiUrl = () => {
-  // If explicitly configured via Vite env, use it
-  if (import.meta.env.VITE_API_URL) {
+  // If explicitly configured via Vite env and not a placeholder, use it
+  if (import.meta.env.VITE_API_URL && !import.meta.env.VITE_API_URL.includes("YOUR-RENDER-URL")) {
     return import.meta.env.VITE_API_URL;
   }
   
