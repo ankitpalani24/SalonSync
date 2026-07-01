@@ -304,14 +304,6 @@ const Dashboard = ({ setActivePage }) => {
                 </h3>
                 <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>Accumulated checkouts</p>
               </div>
-
-              <div className="glass-card">
-                <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Preferred Expert</span>
-                <h3 style={{ fontSize: '1.45rem', color: 'var(--text-primary)', marginTop: '0.5rem' }}>
-                  {favStaff ? favStaff.name : 'Emma Watson'}
-                </h3>
-                <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>Top stylist visited</p>
-              </div>
             </div>
 
             {/* Client Roster and Recommendations Split */}

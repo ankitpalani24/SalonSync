@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Mail, Lock, Phone, User, Home, MapPin, Building, Key } from 'lucide-react';
+import { Mail, Lock, Phone, User, Home, MapPin, Building, Key, X } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
 const AuthPages = ({ defaultView = 'login', onAuthSuccess, onBackToLanding }) => {
@@ -108,11 +108,34 @@ const AuthPages = ({ defaultView = 'login', onAuthSuccess, onBackToLanding }) =>
       padding: '2rem'
     }}>
       <div className="glass-card gold-border" style={{
+        position: 'relative',
         width: '100%',
         maxWidth: (view === 'signup' && signupRole === 'SALON_OWNER') ? '800px' : '450px',
         padding: '2.5rem',
         borderRadius: '12px'
       }}>
+        {/* Close Button / Cross Icon */}
+        <button
+          onClick={onBackToLanding}
+          style={{
+            position: 'absolute',
+            top: '15px',
+            right: '15px',
+            background: 'transparent',
+            border: 'none',
+            color: 'var(--text-secondary)',
+            cursor: 'pointer',
+            padding: '0.25rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            transition: 'color 0.2s'
+          }}
+          aria-label="Close"
+        >
+          <X size={20} />
+        </button>
+
         {/* Header */}
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
           <div 
@@ -131,7 +154,7 @@ const AuthPages = ({ defaultView = 'login', onAuthSuccess, onBackToLanding }) =>
               cursor: 'pointer'
             }}
           >SS</div>
-          <h2 style={{ fontSize: '1.75rem', color: '#fff' }}>SalonSync</h2>
+          <h2 style={{ fontSize: '1.75rem', color: 'var(--text-primary)' }}>SalonSync</h2>
           <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
             {view === 'login' && 'Sign in to access your salon desk'}
             {view === 'signup' && 'Register your beauty enterprise'}

@@ -21,7 +21,9 @@ const Header = ({ toggleMobileSidebar }) => {
 
   return (
     <header className="main-header" style={{
-      background: 'var(--bg-secondary)',
+      background: 'rgba(20, 20, 20, 0.75)',
+      backdropFilter: 'var(--glass-blur)',
+      WebkitBackdropFilter: 'var(--glass-blur)',
       borderBottom: '1px solid var(--border-light)',
       display: 'flex',
       alignItems: 'center',

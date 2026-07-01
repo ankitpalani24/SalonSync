@@ -955,8 +955,19 @@ body:has(.sidebar-container.open) .main-content {
 
 @media (max-width: 768px) {
   .main-header {
-    height: 90px !important; /* Increased header size in mobile view */
+    height: 80px !important; /* Thicker professional header on mobile */
     padding: 0 1.25rem !important;
+    flex-wrap: nowrap !important;
+  }
+  .header-user-details {
+    display: none !important; /* Hide user name/role text on mobile to avoid wrap/overflow */
+  }
+  .header-brand-title {
+    font-size: 1rem !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 170px;
   }
   .landing-nav {
     padding: 1rem 1.25rem !important; /* Prevents button overlap */
