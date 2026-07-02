@@ -18,7 +18,7 @@ const Header = ({ toggleMobileSidebar, onOpenProfile }) => {
 
   return (
     <header className="main-header" style={{
-      background: 'rgba(20, 20, 20, 0.75)',
+      background: 'var(--bg-header)',
       backdropFilter: 'var(--glass-blur)',
       WebkitBackdropFilter: 'var(--glass-blur)',
       borderBottom: '1px solid var(--border-light)',

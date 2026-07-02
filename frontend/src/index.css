@@ -4,8 +4,9 @@
   /* Colors */
   --bg-primary: #0a0a0a;
   --bg-secondary: #141414;
-  --bg-card: rgba(25, 25, 25, 0.65);
-  --bg-card-hover: rgba(35, 35, 35, 0.85);
+  --bg-header: rgba(20, 20, 20, 0.75);
+  --bg-card: linear-gradient(135deg, rgba(30, 30, 30, 0.75) 0%, rgba(18, 18, 18, 0.85) 100%);
+  --bg-card-hover: linear-gradient(135deg, rgba(112, 130, 56, 0.25) 0%, rgba(91, 109, 43, 0.05) 100%);
   
   /* Premium Olive Green Variables */
   --olive-primary: #708238;
@@ -47,20 +48,21 @@
 
 /* Light Mode Variables Override */
 .light-mode {
-  --bg-primary: #fafaf6; /* Premium alabaster warm off-white background */
+  --bg-primary: #f2f1e6; /* Premium rich warm off-white background */
   --bg-secondary: #ffffff;
-  --bg-card: rgba(255, 255, 255, 0.9);
-  --bg-card-hover: #fcfbf9;
+  --bg-header: #ffffff;
+  --bg-card: linear-gradient(135deg, rgba(255, 255, 255, 1) 0%, rgba(246, 245, 240, 0.95) 100%);
+  --bg-card-hover: linear-gradient(135deg, rgba(108, 128, 51, 0.22) 0%, rgba(85, 102, 39, 0.04) 100%);
   --text-primary: #1b2014; /* Muted warm charcoal text */
   --text-secondary: #58614c; /* Olive-tinted gray */
   --text-muted: #858e78;
-  --border-light: rgba(112, 130, 56, 0.12); /* Soft olive-tinted borders */
+  --border-light: rgba(112, 130, 56, 0.35); /* Visible borders in light mode */
   --shadow-premium: 0 10px 30px rgba(112, 130, 56, 0.05); /* Soft olive-tinted shadow */
   --olive-primary: #6c8033; /* Rich luxury olive green */
   --olive-hover: #556627;
   --olive-glow: rgba(108, 128, 51, 0.18);
   --olive-bg: rgba(108, 128, 51, 0.06);
-  --olive-border: rgba(108, 128, 51, 0.2);
+  --olive-border: rgba(108, 128, 51, 0.4); /* Visible olive border */
   --gold-primary: var(--olive-primary);
   --gold-hover: var(--olive-hover);
   --gold-glow: var(--olive-glow);
@@ -154,8 +156,14 @@ button {
 
 .glass-card:hover {
   transform: translateY(-2px);
-  border-color: var(--gold-border);
+  border-color: var(--olive-primary);
   background: var(--bg-card-hover);
+  box-shadow: 0 10px 30px var(--olive-glow);
+}
+
+.sidebar-link:hover {
+  background: linear-gradient(135deg, rgba(112, 130, 56, 0.15) 0%, rgba(112, 130, 56, 0.05) 100%) !important;
+  color: var(--olive-primary) !important;
 }
 
 .glass-card.gold-border {
