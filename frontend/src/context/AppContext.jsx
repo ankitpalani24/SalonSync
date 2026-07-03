@@ -5,6 +5,16 @@ import { API_URL } from '../config/api';
 const AppContext = createContext();
 
 export const AppProvider = ({ children }) => {
+  const safeParse = (str, fallback = null) => {
+    if (!str || str === 'undefined') return fallback;
+    try {
+      return JSON.parse(str);
+    } catch (e) {
+      console.error('Error parsing JSON from localStorage:', e);
+      return fallback;
+    }
+  };
+
   // Theme state
   const [darkMode, setDarkMode] = useState(() => {
     const local = localStorage.getItem('theme');
@@ -17,25 +27,21 @@ export const AppProvider = ({ children }) => {
 
   // Active tenant states
   const [currentUser, setCurrentUser] = useState(() => {
-    const local = localStorage.getItem('user');
-    return local ? JSON.parse(local) : null;
+    return safeParse(localStorage.getItem('user'));
   });
 
   const [currentSalon, setCurrentSalon] = useState(() => {
-    const local = localStorage.getItem('salon');
-    return local ? JSON.parse(local) : null;
+    return safeParse(localStorage.getItem('salon'));
   });
 
   const [currentBranch, setCurrentBranch] = useState(() => {
-    const local = localStorage.getItem('branch');
-    return local ? JSON.parse(local) : null;
+    return safeParse(localStorage.getItem('branch'));
   });
 
   // DB collections state
   const [db, setDb] = useState(() => {
     const getLocal = (key, defaultVal) => {
-      const data = localStorage.getItem(key);
-      return data ? JSON.parse(data) : defaultVal;
+      return safeParse(localStorage.getItem(key), defaultVal);
     };
     return {
       salons: getLocal('sf_salons', mockData.mockSalons),
@@ -93,7 +99,7 @@ export const AppProvider = ({ children }) => {
 
         if (local) {
           try {
-            const parsed = JSON.parse(local);
+            const parsed = safeParse(local);
             const userSalonId = user ? (typeof user.salonId === 'object' ? user.salonId?._id : user.salonId) : null;
             const branchSalonId = parsed ? (typeof parsed.salonId === 'object' ? parsed.salonId?._id : parsed.salonId) : null;
             

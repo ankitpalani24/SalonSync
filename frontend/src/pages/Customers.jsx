@@ -88,7 +88,10 @@ const Customers = () => {
 
   // Visit history lookup
   const getCustomerHistory = (custId) => {
-    const invoices = tenantFilter(db.invoices).filter(i => i.customerId === custId);
+    const invoices = tenantFilter(db.invoices).filter(i => {
+      const id = i.customerId && typeof i.customerId === 'object' ? i.customerId._id : i.customerId;
+      return String(id) === String(custId);
+    });
     let totalSpent = invoices.reduce((sum, i) => sum + i.finalAmount, 0);
     
     const servicesTaken = [];

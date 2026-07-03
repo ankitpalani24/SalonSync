@@ -46,9 +46,25 @@ const Dashboard = ({ setActivePage }) => {
   
   // Date ranges
   const today = new Date().toLocaleDateString('en-CA');
-  const startOfMonth = new Date();
-  startOfMonth.setDate(1);
-  const startOfMonthStr = startOfMonth.toLocaleDateString('en-CA');
+  // Get the most recent month from invoices/expenses to keep dashboard populated with seed data
+  const getLatestDataMonthStr = () => {
+    const dates = [
+      ...branchInvoices.map(i => i.createdAt ? i.createdAt.split('T')[0] : ''),
+      ...branchExpenses.map(e => e.date ? (e.date.includes('T') ? e.date.split('T')[0] : e.date) : '')
+    ].filter(Boolean);
+    if (dates.length === 0) {
+      const today = new Date();
+      today.setDate(1);
+      return today.toLocaleDateString('en-CA');
+    }
+    dates.sort();
+    const latestDate = new Date(dates[dates.length - 1]);
+    latestDate.setDate(1);
+    return latestDate.toLocaleDateString('en-CA');
+  };
+  
+  const startOfMonthStr = getLatestDataMonthStr();
+  const currentMonthName = new Date(startOfMonthStr).toLocaleString('default', { month: 'long' });
 
   // ----------------------------------------------------
   // CALCULATIONS (PROFIT & LOSS ENGINE)
@@ -56,12 +72,12 @@ const Dashboard = ({ setActivePage }) => {
   
   // Today's Revenue
   const todayRevenue = branchInvoices
-    .filter(i => i.createdAt.startsWith(today))
+    .filter(i => i.createdAt && i.createdAt.startsWith(today))
     .reduce((sum, i) => sum + i.finalAmount, 0);
 
   // Monthly Revenue
   const monthlyRevenue = branchInvoices
-    .filter(i => i.createdAt >= startOfMonthStr)
+    .filter(i => i.createdAt && i.createdAt >= startOfMonthStr)
     .reduce((sum, i) => sum + i.finalAmount, 0);
 
   // Today's Expenses
@@ -943,7 +959,7 @@ const Dashboard = ({ setActivePage }) => {
             <h3 style={{ fontSize: '1.65rem', color: 'var(--text-primary)', marginTop: '0.5rem' }}>
               {monthlyCompletedCount} Completed
             </h3>
-            <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>Total checked-out treatments in June</p>
+            <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>Total checked-out treatments in {currentMonthName}</p>
           </div>
 
           <div className="glass-card">
@@ -1098,7 +1114,7 @@ const Dashboard = ({ setActivePage }) => {
         {/* Card 4 */}
         <div className="glass-card gold-border" style={{ background: 'var(--gold-bg)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)', marginBottom: '0.75rem' }}>
-            <span style={{ fontSize: '0.8rem', fontWeight: '600', color: 'var(--gold-primary)' }}>Net Profit (June)</span>
+            <span style={{ fontSize: '0.8rem', fontWeight: '600', color: 'var(--gold-primary)' }}>Net Profit ({currentMonthName})</span>
             <Sparkles size={16} style={{ color: 'var(--gold-primary)' }} />
           </div>
           <h3 style={{ fontSize: '1.65rem', color: 'var(--gold-primary)' }}>₹{netProfit.toLocaleString()}</h3>
@@ -1152,7 +1168,7 @@ const Dashboard = ({ setActivePage }) => {
           {salonStaff.map(member => {
             const staffInvoices = branchInvoices.filter(inv => {
               const sid = typeof inv.staffId === 'object' ? inv.staffId?._id : inv.staffId;
-              return String(sid) === String(member._id) && inv.createdAt >= startOfMonthStr;
+              return String(sid) === String(member._id) && inv.createdAt && inv.createdAt >= startOfMonthStr;
             });
             const servicesDone = staffInvoices.reduce((sum, inv) => sum + (inv.services?.length || 0), 0);
             const revenueGenerated = staffInvoices.reduce((sum, inv) => sum + (inv.finalAmount || 0), 0);
@@ -1294,7 +1310,10 @@ const Dashboard = ({ setActivePage }) => {
             <h3 style={{ fontSize: '1rem', color: 'var(--text-primary)', marginBottom: '1rem' }}>Recent Checkouts</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               {recentPayments.map((inv) => {
-                const client = db.customers.find(c => c._id === inv.customerId);
+                const client = (() => {
+                  if (inv.customerId && typeof inv.customerId === 'object') return inv.customerId;
+                  return db.customers.find(c => String(c._id) === String(inv.customerId));
+                })();
                 return (
                   <div key={inv._id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem' }}>
                     <div>

@@ -5,6 +5,7 @@
   --bg-primary: #0a0a0a;
   --bg-secondary: #141414;
   --bg-header: rgba(20, 20, 20, 0.75);
+  --bg-sidebar: var(--bg-secondary);
   --bg-card: linear-gradient(135deg, rgba(30, 30, 30, 0.75) 0%, rgba(18, 18, 18, 0.85) 100%);
   --bg-card-hover: linear-gradient(135deg, rgba(112, 130, 56, 0.25) 0%, rgba(91, 109, 43, 0.05) 100%);
   
@@ -24,6 +25,9 @@
   --text-primary: #ffffff;
   --text-secondary: #aaaaaa;
   --text-muted: #666666;
+  
+  --sidebar-text-inactive: var(--text-secondary);
+  --sidebar-active-bg: var(--gold-bg);
   
   --border-light: rgba(255, 255, 255, 0.08);
   --border-gold: var(--olive-border);
@@ -51,11 +55,14 @@
   --bg-primary: #f2f1e6; /* Premium rich warm off-white background */
   --bg-secondary: #ffffff;
   --bg-header: #ffffff;
+  --bg-sidebar: rgba(108, 128, 51, 0.5); /* Olive green with 50% opacity */
   --bg-card: linear-gradient(135deg, rgba(255, 255, 255, 1) 0%, rgba(246, 245, 240, 0.95) 100%);
   --bg-card-hover: linear-gradient(135deg, rgba(108, 128, 51, 0.22) 0%, rgba(85, 102, 39, 0.04) 100%);
   --text-primary: #1b2014; /* Muted warm charcoal text */
   --text-secondary: #58614c; /* Olive-tinted gray */
   --text-muted: #858e78;
+  --sidebar-text-inactive: #1b2014; /* High contrast dark charcoal text for sidebar */
+  --sidebar-active-bg: rgba(255, 255, 255, 0.6); /* Translucent white indicator */
   --border-light: rgba(112, 130, 56, 0.35); /* Visible borders in light mode */
   --shadow-premium: 0 10px 30px rgba(112, 130, 56, 0.05); /* Soft olive-tinted shadow */
   --olive-primary: #6c8033; /* Rich luxury olive green */
@@ -509,7 +516,7 @@ select option:active {
   }
 
   header.main-header {
-    height: 90px !important;
+    height: 105px !important;
   }
 
   .main-content {
@@ -964,7 +971,7 @@ body:has(.sidebar-container.open) .main-content {
 
 @media (max-width: 768px) {
   .main-header {
-    height: 90px !important; /* Thicker professional header on mobile */
+    height: 105px !important; /* Thicker professional header on mobile */
     padding: 0 1.25rem !important;
     flex-wrap: nowrap !important;
   }

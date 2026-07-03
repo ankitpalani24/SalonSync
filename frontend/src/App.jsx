@@ -249,6 +249,17 @@ function App() {
             </button>
 
             {showAlerts && (
+              <div 
+                onClick={() => setShowAlerts(false)}
+                style={{
+                  position: 'fixed',
+                  inset: 0,
+                  background: 'transparent',
+                  zIndex: 9998
+                }}
+              />
+            )}
+            {showAlerts && (
               <div style={{
                 position: 'absolute',
                 bottom: '65px',

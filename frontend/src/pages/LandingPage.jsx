@@ -33,11 +33,13 @@ const LandingPage = ({ onStartTrial, onLogin }) => {
         justifyContent: 'space-between',
         padding: '1.5rem 4rem',
         borderBottom: '1px solid rgba(212,175,55,0.1)',
-        position: 'sticky',
+        position: 'fixed',
         top: 0,
+        left: 0,
+        right: 0,
         background: 'rgba(8,8,8,0.9)',
         backdropFilter: 'blur(10px)',
-        zIndex: 50
+        zIndex: 100
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <div style={{
@@ -72,7 +74,7 @@ const LandingPage = ({ onStartTrial, onLogin }) => {
 
       {/* Hero Section */}
       <section style={{
-        padding: '6rem 2rem 4rem 2rem',
+        padding: '10rem 2rem 4rem 2rem',
         textAlign: 'center',
         background: 'radial-gradient(circle at center, rgba(212,175,55,0.1) 0%, rgba(8,8,8,0) 70%)',
       }}>

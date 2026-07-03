@@ -58,7 +58,7 @@ const Sidebar = ({ activePage, setActivePage, collapsed, setCollapsed, user, log
       onTouchMove={handleTouchMove}
       style={{
       width: collapsed ? '70px' : '260px',
-      background: 'var(--bg-secondary)',
+      background: 'var(--bg-sidebar)',
       borderRight: '1px solid var(--border-light)',
       display: 'flex',
       flexDirection: 'column',
@@ -132,8 +132,8 @@ const Sidebar = ({ activePage, setActivePage, collapsed, setCollapsed, user, log
                 gap: '1rem',
                 padding: '0.85rem 1rem',
                 width: '100%',
-                background: isActive ? 'var(--gold-bg)' : 'transparent',
-                color: isActive ? 'var(--gold-primary)' : 'var(--text-secondary)',
+                background: isActive ? 'var(--sidebar-active-bg)' : 'transparent',
+                color: isActive ? 'var(--gold-primary)' : 'var(--sidebar-text-inactive)',
                 border: 'none',
                 borderLeft: isActive ? '3px solid var(--gold-primary)' : '3px solid transparent',
                 borderRadius: '4px',
