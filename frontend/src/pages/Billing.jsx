@@ -107,7 +107,7 @@ const Billing = ({ apptForCheckout, clearApptCheckout }) => {
     if (!p) return;
     
     if (p.quantity <= 0) {
-      alert(`Cannot add ${p.name} to billing. Out of stock!`);
+      addToast(`Cannot add ${p.name} to billing. Out of stock!`, 'error');
       return;
     }
     
@@ -136,7 +136,7 @@ const Billing = ({ apptForCheckout, clearApptCheckout }) => {
         if (item.productId === id) {
           const newQty = item.quantity + delta;
           if (newQty > p.quantity) {
-            alert(`Cannot increase quantity. Only ${p.quantity} units of ${p.name} available in stock.`);
+            addToast(`Cannot increase quantity. Only ${p.quantity} units of ${p.name} available in stock.`, 'warning');
             return item;
           }
           return { ...item, quantity: Math.max(1, newQty) };
@@ -149,7 +149,7 @@ const Billing = ({ apptForCheckout, clearApptCheckout }) => {
   const handleCheckoutSubmit = async (e) => {
     e.preventDefault();
     if (checkoutServices.length === 0 && checkoutProducts.length === 0) {
-      alert('Please add at least one treatment service or product to invoice.');
+      addToast('Please add at least one treatment service or product to invoice.', 'warning');
       return;
     }
 
@@ -157,7 +157,7 @@ const Billing = ({ apptForCheckout, clearApptCheckout }) => {
     for (const item of checkoutProducts) {
       const p = products.find(prod => String(prod._id) === String(item.productId));
       if (p && item.quantity > p.quantity) {
-        alert(`Cannot complete billing. Insufficient stock for ${p.name}. Available: ${p.quantity}, Demanded: ${item.quantity}`);
+        addToast(`Cannot complete billing. Insufficient stock for ${p.name}. Available: ${p.quantity}, Demanded: ${item.quantity}`, 'error');
         return;
       }
     }
@@ -179,6 +179,7 @@ const Billing = ({ apptForCheckout, clearApptCheckout }) => {
       const newInvoice = await createInvoice(payload);
       
       if (newInvoice) {
+        addToast(`Invoice ${newInvoice.invoiceNumber || 'INV'} generated successfully!`, 'success');
         // Send notification to the client
         if (safeCustId) {
           const client = customers.find(c => String(c._id) === String(safeCustId));
@@ -204,11 +205,11 @@ const Billing = ({ apptForCheckout, clearApptCheckout }) => {
         // Open print preview modal immediately
         setSelectedInvoice(newInvoice);
       } else {
-        alert('Failed to generate invoice. Please verify backend connection.');
+        addToast('Failed to generate invoice. Please verify backend connection.', 'error');
       }
     } catch (err) {
       console.error(err);
-      alert('An error occurred during checkout.');
+      addToast('An error occurred during checkout.', 'error');
     } finally {
       setIsProcessing(false);
     }
@@ -420,8 +421,16 @@ const Billing = ({ apptForCheckout, clearApptCheckout }) => {
               </div>
             </div>
 
-            <button type="submit" className="gold-btn" style={{ width: '100%', justifyContent: 'center', marginTop: '1rem' }}>
-              <CreditCard size={16} /> Collect Payment & Print Invoice
+            <button type="submit" disabled={isProcessing} className="gold-btn" style={{ width: '100%', justifyContent: 'center', marginTop: '1rem' }}>
+              {isProcessing ? (
+                <>
+                  <span className="btn-spinner"></span> Processing Checkout...
+                </>
+              ) : (
+                <>
+                  <CreditCard size={16} /> Collect Payment & Print Invoice
+                </>
+              )}
             </button>
           </div>
         </form>

@@ -59,6 +59,7 @@ const Sidebar = ({ activePage, setActivePage, collapsed, setCollapsed, user, log
       style={{
       width: collapsed ? '70px' : '260px',
       background: 'var(--bg-sidebar)',
+      opacity: 1,
       borderRight: '1px solid var(--border-light)',
       display: 'flex',
       flexDirection: 'column',

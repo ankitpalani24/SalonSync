@@ -8,7 +8,7 @@ import { useApp } from '../context/AppContext';
 import { RevenueLineChart, ProfitBarChart, ServiceShareDonut } from '../components/DashboardCharts';
 
 const Dashboard = ({ setActivePage }) => {
-  const { currentUser, currentBranch, tenantFilter, db, updateAppointmentStatus, addAppointment, addNotification } = useApp();
+  const { currentUser, currentBranch, tenantFilter, db, updateAppointmentStatus, addAppointment, addNotification, addToast } = useApp();
 
   // Exploration / Client States
   const [activeTab, setActiveTab] = React.useState('my-desk'); // 'my-desk' or 'explore'
@@ -217,7 +217,7 @@ const Dashboard = ({ setActivePage }) => {
     const handleBookingSubmit = async (e) => {
       e.preventDefault();
       if (!selectedSalon || !selectedService || !bookingBranchId || !bookingStaffId || !bookingDate || !bookingTime) {
-        alert('Please fill out all booking fields');
+        addToast('Please fill out all booking fields', 'warning');
         return;
       }
 
@@ -239,7 +239,7 @@ const Dashboard = ({ setActivePage }) => {
 
         const result = await addAppointment(payload);
         if (result && result.success === false) {
-          alert(`Booking failed: ${result.message}`);
+          addToast(`Booking failed: ${result.message}`, 'error');
           setBookingLoading(false);
           return;
         }
@@ -266,6 +266,7 @@ const Dashboard = ({ setActivePage }) => {
         }
 
         setBookingSuccess('Session booked successfully! You can view it in My Desk.');
+        addToast('Session booked successfully!', 'success');
         setTimeout(() => {
           handleCloseBookingModal();
           setSelectedSalon(null);
@@ -273,7 +274,7 @@ const Dashboard = ({ setActivePage }) => {
         }, 2500);
       } catch (err) {
         console.error(err);
-        alert('Booking failed. Please try again.');
+        addToast('Booking failed. Please try again.', 'error');
       } finally {
         setBookingLoading(false);
       }

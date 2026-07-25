@@ -3,7 +3,7 @@ import { Mail, Lock, Phone, User, Home, MapPin, Building, Key, X } from 'lucide-
 import { useApp } from '../../context/AppContext';
 
 const AuthPages = ({ defaultView = 'login', onAuthSuccess, onBackToLanding }) => {
-  const { login, signup } = useApp();
+  const { login, signup, addToast } = useApp();
   const [view, setView] = useState(defaultView); // 'login', 'signup', 'forgot', 'otp', 'reset'
   const [signupRole, setSignupRole] = useState('SALON_OWNER'); // 'SALON_OWNER', 'CLIENT'
 
@@ -34,9 +34,11 @@ const AuthPages = ({ defaultView = 'login', onAuthSuccess, onBackToLanding }) =>
     const result = await login(email, password);
     setLoading(false);
     if (result.success) {
+      addToast('Welcome back to SalonSync!', 'success');
       onAuthSuccess();
     } else {
       setErrorMsg(result.message);
+      addToast(result.message || 'Login failed', 'error');
     }
   };
 
@@ -60,11 +62,13 @@ const AuthPages = ({ defaultView = 'login', onAuthSuccess, onBackToLanding }) =>
     setLoading(false);
     if (result.success) {
       setSuccessMsg('Account registered successfully! Loading workspace...');
+      addToast('Account registered successfully!', 'success');
       setTimeout(() => {
         onAuthSuccess();
-      }, 1500);
+      }, 1200);
     } else {
       setErrorMsg(result.message);
+      addToast(result.message || 'Registration failed', 'error');
     }
   };
 
@@ -241,7 +245,13 @@ const AuthPages = ({ defaultView = 'login', onAuthSuccess, onBackToLanding }) =>
             </div>
 
             <button type="submit" disabled={loading} className="gold-btn" style={{ width: '100%', justifyContent: 'center' }}>
-              {loading ? 'Authenticating...' : 'Sign In'}
+              {loading ? (
+                <>
+                  <span className="btn-spinner"></span> Authenticating...
+                </>
+              ) : (
+                'Sign In'
+              )}
             </button>
 
             <div style={{ textAlign: 'center', marginTop: '1.5rem', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>

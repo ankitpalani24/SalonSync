@@ -63,6 +63,30 @@ export const AppProvider = ({ children }) => {
     };
   });
 
+  // ── Toast Notification System ──
+  const [toasts, setToasts] = useState([]);
+
+  const addToast = (message, type = 'info', duration = 4000) => {
+    const id = Date.now() + Math.random().toString(36).substring(2, 9);
+    setToasts((prev) => [...prev, { id, message, type }]);
+    if (duration > 0) {
+      setTimeout(() => {
+        removeToast(id);
+      }, duration);
+    }
+  };
+
+  const removeToast = (id) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  };
+
+  const toast = {
+    success: (msg, duration) => addToast(msg, 'success', duration),
+    error: (msg, duration) => addToast(msg, 'error', duration),
+    warning: (msg, duration) => addToast(msg, 'warning', duration),
+    info: (msg, duration) => addToast(msg, 'info', duration)
+  };
+
   // Apply dark mode CSS classes
   useEffect(() => {
     if (darkMode) {
@@ -318,13 +342,16 @@ export const AppProvider = ({ children }) => {
 
         // Show login credentials if a new CLIENT user was auto-created
         if (data.clientCredentials) {
-          alert(`✅ Client account created!\n\nEmail: ${data.clientCredentials.email}\nDefault Password: ${data.clientCredentials.defaultPassword}\n\nPlease share these credentials with the client so they can log in to SalonSync.`);
+          addToast(`✅ Client account created!\nEmail: ${data.clientCredentials.email}\nPassword: ${data.clientCredentials.defaultPassword}`, 'success', 8000);
+        } else {
+          addToast('Customer added successfully!', 'success');
         }
 
         return data.data;
       }
     } catch (err) {
       console.error('Error adding customer:', err);
+      addToast('Failed to add customer', 'error');
     }
   };
 
@@ -342,9 +369,12 @@ export const AppProvider = ({ children }) => {
       const data = await res.json();
       if (data.success) {
         await syncBackendData(token);
+        addToast('Customer updated successfully!', 'success');
+        return data.data;
       }
     } catch (err) {
       console.error('Error updating customer:', err);
+      addToast('Failed to update customer', 'error');
     }
   };
 
@@ -360,9 +390,11 @@ export const AppProvider = ({ children }) => {
       const data = await res.json();
       if (data.success) {
         await syncBackendData(token);
+        addToast('Customer deleted successfully!', 'info');
       }
     } catch (err) {
       console.error('Error deleting customer:', err);
+      addToast('Failed to delete customer', 'error');
     }
   };
 

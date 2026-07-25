@@ -3,7 +3,7 @@ import { Shield, Users, BarChart3, Edit, Settings, Crown, Mail, CheckCircle, X }
 import { useApp } from '../../context/AppContext';
 
 const SuperAdmin = () => {
-  const { db, updateSalonSubscription } = useApp();
+  const { db, updateSalonSubscription, addToast } = useApp();
 
   const [selectedSalonId, setSelectedSalonId] = useState('');
   const [showSubModal, setShowSubModal] = useState(false);
@@ -33,6 +33,7 @@ const SuperAdmin = () => {
   const handleSubscriptionSubmit = (e) => {
     e.preventDefault();
     updateSalonSubscription(selectedSalonId, subPlan, subStatus);
+    addToast('Subscription plan & status updated successfully!', 'success');
     setShowSubModal(false);
   };
 

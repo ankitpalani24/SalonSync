@@ -147,7 +147,7 @@ const Appointments = ({ setActivePage, setSelectedApptForCheckout }) => {
       message: msg
     });
 
-    alert(`Simulated WhatsApp sent: "${msg}"`);
+    addToast(`Simulated WhatsApp sent: "${msg}"`, 'success');
   };
 
   return (
@@ -550,7 +550,7 @@ const Appointments = ({ setActivePage, setSelectedApptForCheckout }) => {
                 onClick={() => {
                   handleStatusChange('Cancelled');
                   setShowDetailModal(false);
-                  alert('Your appointment has been cancelled successfully.');
+                  addToast('Your appointment has been cancelled successfully.', 'success');
                 }} 
                 className="outline-btn" 
                 style={{ width: '100%', justifyContent: 'center', borderColor: 'var(--accent-red)', color: 'var(--accent-red)' }}

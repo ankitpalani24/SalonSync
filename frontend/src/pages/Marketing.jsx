@@ -3,13 +3,14 @@ import { MessageSquare, Mail, Bell, Sparkles, Send, Play, Layers, X } from 'luci
 import { useApp } from '../context/AppContext';
 
 const Marketing = () => {
-  const { tenantFilter, db, addNotification } = useApp();
+  const { tenantFilter, db, addNotification, addToast } = useApp();
 
   const notifications = tenantFilter(db.notifications);
   const customers = tenantFilter(db.customers);
 
   const [activeTab, setActiveTab] = useState('triggers'); // 'triggers', 'history'
   const [showCampaignModal, setShowCampaignModal] = useState(false);
+  const [isDispatching, setIsDispatching] = useState(false);
 
   // Form states
   const [campaignTitle, setCampaignTitle] = useState('');
@@ -19,23 +20,28 @@ const Marketing = () => {
 
   // Auto trigger states
   const [triggers, setTriggers] = useState([
-    { id: 'bday', name: 'Birthday Wishes', desc: 'Sends coupon codes on client birthdays.', channel: 'WhatsApp', enabled: true },
-    { id: 'anniv', name: 'Anniversary Greetings', desc: 'Triggered automatically on anniversary logs.', channel: 'WhatsApp', enabled: false },
     { id: 'appt_rem', name: 'Appointment Reminders', desc: 'Alerts sent 2 hours before scheduled slot.', channel: 'SMS', enabled: true },
     { id: 'renewal', name: 'Membership Expiry Warnings', desc: 'Alerts sent 15 days before membership validity expires.', channel: 'WhatsApp', enabled: true },
-    { id: 'revisit', name: 'Client Revisit Prompts', desc: 'Sent to clients who have not visited in 45 days.', channel: 'WhatsApp', enabled: true }
+    { id: 'bday', name: 'Automated Birthday Greetings', desc: 'Sends discount voucher on client birthday dates.', channel: 'WhatsApp', enabled: true },
+    { id: 'loyalty', name: 'Loyalty Tier Milestone', desc: 'Alert when customer reaches Gold or Platinum levels.', channel: 'Email', enabled: false },
   ]);
 
   const toggleTrigger = (id) => {
     setTriggers(prev => prev.map(t => t.id === id ? { ...t, enabled: !t.enabled } : t));
+    addToast('Automation trigger updated', 'info');
   };
 
-  const handleCampaignSubmit = (e) => {
+  const handleDispatchCampaign = async (e) => {
     e.preventDefault();
-    if (!campaignMessage) return;
+    if (!campaignTitle || !campaignMessage) {
+      addToast('Please enter campaign title and message body', 'warning');
+      return;
+    }
+
+    setIsDispatching(true);
 
     let targetClients = customers;
-    if (campaignTarget === 'Platinum only') {
+    if (campaignTarget === 'Platinum Tiers') {
       targetClients = customers.filter(c => c.membershipLevel === 'Platinum');
     }
 
@@ -48,7 +54,8 @@ const Marketing = () => {
       });
     });
 
-    alert(`Broadcast dispatched! Sent ${targetClients.length} ${campaignChannel} campaigns successfully.`);
+    addToast(`Broadcast dispatched! Sent ${targetClients.length} ${campaignChannel} campaigns successfully.`, 'success');
+    setIsDispatching(false);
     setShowCampaignModal(false);
 
     // reset
@@ -253,7 +260,17 @@ const Marketing = () => {
                 </p>
               </div>
 
-              <button type="submit" className="gold-btn" style={{ width: '100%', justifyContent: 'center' }}>Dispatched Campaign Broadcast</button>
+              <button type="submit" disabled={isDispatching} className="gold-btn" style={{ width: '100%', justifyContent: 'center' }}>
+                {isDispatching ? (
+                  <>
+                    <span className="btn-spinner"></span> Dispatching Broadcast...
+                  </>
+                ) : (
+                  <>
+                    <Send size={16} /> Dispatched Campaign Broadcast
+                  </>
+                )}
+              </button>
             </form>
           </div>
         </div>

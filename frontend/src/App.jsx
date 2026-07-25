@@ -5,6 +5,7 @@ import { Bell, LogOut, MapPin } from 'lucide-react';
 // Import components
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
+import ToastContainer from './components/ToastContainer';
 
 // Import Pages
 import LandingPage from './pages/LandingPage';
@@ -134,27 +135,36 @@ function App() {
   if (!currentUser) {
     if (activePage === 'login') {
       return (
-        <AuthPages 
-          defaultView="login" 
-          onAuthSuccess={() => setActivePage('dashboard')} 
-          onBackToLanding={() => setActivePage('landing')} 
-        />
+        <>
+          <ToastContainer />
+          <AuthPages 
+            defaultView="login" 
+            onAuthSuccess={() => setActivePage('dashboard')} 
+            onBackToLanding={() => setActivePage('landing')} 
+          />
+        </>
       );
     }
     if (activePage === 'signup') {
       return (
-        <AuthPages 
-          defaultView="signup" 
-          onAuthSuccess={() => setActivePage('dashboard')} 
-          onBackToLanding={() => setActivePage('landing')} 
-        />
+        <>
+          <ToastContainer />
+          <AuthPages 
+            defaultView="signup" 
+            onAuthSuccess={() => setActivePage('dashboard')} 
+            onBackToLanding={() => setActivePage('landing')} 
+          />
+        </>
       );
     }
     return (
-      <LandingPage 
-        onStartTrial={() => setActivePage('signup')} 
-        onLogin={() => setActivePage('login')} 
-      />
+      <>
+        <ToastContainer />
+        <LandingPage 
+          onStartTrial={() => setActivePage('signup')} 
+          onLogin={() => setActivePage('login')} 
+        />
+      </>
     );
   }
 
@@ -173,6 +183,7 @@ function App() {
   // 2. INNER WORKSPACE WORKFLOW LAYOUT
   return (
     <div className="app-container">
+      <ToastContainer />
       {/* Backdrop for mobile drawer */}
       {mobileSidebarOpen && (
         <div className="sidebar-backdrop" onClick={() => setMobileSidebarOpen(false)}></div>
