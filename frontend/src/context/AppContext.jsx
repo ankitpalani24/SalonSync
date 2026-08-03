@@ -436,21 +436,56 @@ export const AppProvider = ({ children }) => {
 
   const updateAppointmentStatus = async (id, status) => {
     try {
+      // Optimistic local update
+      setDb(prev => ({
+        ...prev,
+        appointments: prev.appointments.map(a => a._id === id ? { ...a, status } : a)
+      }));
       const token = localStorage.getItem('token');
-      const res = await fetch(`${API_URL}/appointments/${id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ status })
-      });
-      const data = await res.json();
-      if (data.success) {
-        await syncBackendData(token);
+      if (token) {
+        const res = await fetch(`${API_URL}/appointments/${id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ status })
+        });
+        const data = await res.json();
+        if (data.success) {
+          await syncBackendData(token);
+        }
       }
     } catch (err) {
       console.error('Error updating appointment status:', err);
+    }
+  };
+
+  const updateAppointment = async (id, updatedFields) => {
+    try {
+      // Optimistic local update
+      setDb(prev => {
+        const updatedAppts = prev.appointments.map(a => a._id === id ? { ...a, ...updatedFields } : a);
+        localStorage.setItem('sf_appointments', JSON.stringify(updatedAppts));
+        return { ...prev, appointments: updatedAppts };
+      });
+      const token = localStorage.getItem('token');
+      if (token) {
+        const res = await fetch(`${API_URL}/appointments/${id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(updatedFields)
+        });
+        const data = await res.json();
+        if (data.success) {
+          await syncBackendData(token);
+        }
+      }
+    } catch (err) {
+      console.error('Error updating appointment:', err);
     }
   };
 
@@ -834,7 +869,7 @@ export const AppProvider = ({ children }) => {
       // CRM
       addCustomer, updateCustomer, deleteCustomer,
       // Bookings
-      addAppointment, updateAppointmentStatus,
+      addAppointment, updateAppointmentStatus, updateAppointment,
       // Services & packages
       addService, updateService, addPackage,
       // Finance & Inventory

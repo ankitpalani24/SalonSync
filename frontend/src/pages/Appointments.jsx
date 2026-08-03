@@ -1,10 +1,73 @@
-import React, { useState } from 'react';
-import { ChevronLeft, ChevronRight, Plus, Calendar, Clock, User, Check, X, ShieldAlert, AlertCircle } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import {
+  ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon, Clock,
+  User, Check, X, Search, Filter, RefreshCw, AlertCircle,
+  CheckCircle2, XCircle, CreditCard, Sparkles, Phone, UserCheck, MessageSquare
+} from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
-const Appointments = ({ setActivePage, setSelectedApptForCheckout }) => {
-  const { currentUser, currentBranch, tenantFilter, db, addAppointment, updateAppointmentStatus, addNotification } = useApp();
+// ─── SERVICE COLOR PALETTE ENGINE ───────────────────────────────────────────
+const SERVICE_COLORS = [
+  { bg: 'rgba(112, 130, 56, 0.18)', border: '#708238', text: '#8b9b6a' }, // Olive Green
+  { bg: 'rgba(52, 152, 219, 0.18)', border: '#3498db', text: '#5dade2' }, // Cyan Blue
+  { bg: 'rgba(155, 89, 182, 0.18)', border: '#9b59b6', text: '#af7ac5' }, // Purple
+  { bg: 'rgba(230, 126, 34, 0.18)', border: '#e67e22', text: '#f39c12' }, // Amber Orange
+  { bg: 'rgba(46, 204, 113, 0.18)', border: '#2ecc71', text: '#58d68d' }, // Emerald
+  { bg: 'rgba(231, 76, 60, 0.18)', border: '#e74c3c', text: '#ec7063' },   // Rose Red
+];
 
+const getServiceColor = (serviceName = '') => {
+  let hash = 0;
+  for (let i = 0; i < serviceName.length; i++) {
+    hash = serviceName.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const index = Math.abs(hash) % SERVICE_COLORS.length;
+  return SERVICE_COLORS[index];
+};
+
+// ─── TIME SLOTS GENERATOR (08:00 to 20:00) ──────────────────────────────────
+const TIME_SLOTS = [
+  '08:00', '09:00', '10:00', '11:00', '12:00',
+  '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00'
+];
+
+// Helper to format date string to YYYY-MM-DD
+const formatDateStr = (d) => {
+  if (!d) return '';
+  const dateObj = new Date(d);
+  if (isNaN(dateObj.getTime())) return String(d).split('T')[0];
+  const year = dateObj.getFullYear();
+  const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+  const day = String(dateObj.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+// Helper for date display
+const formatDateDisplay = (date, viewType) => {
+  if (viewType === 'month') {
+    return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  } else if (viewType === 'week') {
+    const start = new Date(date);
+    start.setDate(date.getDate() - date.getDay());
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    return `${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+  } else {
+    return date.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' });
+  }
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// MAIN APPOINTMENTS PAGE
+// ═══════════════════════════════════════════════════════════════════════════════
+const Appointments = ({ setActivePage, setSelectedApptForCheckout }) => {
+  const {
+    currentUser, currentBranch, tenantFilter, db,
+    addAppointment, updateAppointment, updateAppointmentStatus,
+    addCustomer, addNotification, addToast
+  } = useApp();
+
+  // Filtered collections
   const appointments = tenantFilter(db.appointments);
   const customers = tenantFilter(db.customers);
   const services = tenantFilter(db.services);
@@ -13,555 +76,953 @@ const Appointments = ({ setActivePage, setSelectedApptForCheckout }) => {
     const bid = typeof s.branchId === 'object' ? s.branchId?._id : s.branchId;
     return !bid || String(bid) === String(currentBranch._id);
   });
-  
+  const invoices = tenantFilter(db.invoices);
+
   const customerProfile = currentUser?.role === 'CLIENT' ? db.customers.find(c => c.email === currentUser.email) : null;
 
-  // Calendar views: 'month', 'week', 'day'
-  const [viewType, setViewType] = useState('month');
-  const [currentDate, setCurrentDate] = useState(new Date()); // Dynamic current system date coordinate
+  // View States
+  const [viewType, setViewType] = useState('week'); // 'day', 'week', 'month', 'staff'
+  const [currentDate, setCurrentDate] = useState(new Date());
 
-  const [showBookModal, setShowBookModal] = useState(false);
+  // Search & Filters
+  const [searchQuery, setSearchQuery] = useState('');
+  const [staffFilter, setStaffFilter] = useState('ALL');
+  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [serviceFilter, setServiceFilter] = useState('ALL');
+
+  // Modals & Drag State
+  const [showQuickBookModal, setShowQuickBookModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedAppt, setSelectedAppt] = useState(null);
+  const [draggedApptId, setDraggedApptId] = useState(null);
 
-  // Booking Form states
+  // Quick Booking Form States
+  const [bookingCustType, setBookingCustType] = useState('registered'); // 'registered' | 'walkin'
   const [selectedCustId, setSelectedCustId] = useState('');
   const [walkinName, setWalkinName] = useState('');
+  const [walkinPhone, setWalkinPhone] = useState('');
   const [selectedServId, setSelectedServId] = useState('');
   const [selectedStaffId, setSelectedStaffId] = useState('');
-  const [bookingDate, setBookingDate] = useState(new Date().toLocaleDateString('en-CA'));
-  const [bookingTime, setBookingTime] = useState('11:00');
+  const [bookingDate, setBookingDate] = useState(formatDateStr(new Date()));
+  const [bookingTime, setBookingTime] = useState('10:00');
 
-  // Month navigation helpers
+  // ────────────────────────────────────────────────────────────────────────────
+  // NAVIGATION HELPERS
+  // ────────────────────────────────────────────────────────────────────────────
   const handlePrev = () => {
-    const nextDate = new Date(currentDate);
-    if (viewType === 'month') nextDate.setMonth(nextDate.getMonth() - 1);
-    else if (viewType === 'week') nextDate.setDate(nextDate.getDate() - 7);
-    else nextDate.setDate(nextDate.getDate() - 1);
-    setCurrentDate(nextDate);
+    const next = new Date(currentDate);
+    if (viewType === 'month') next.setMonth(next.getMonth() - 1);
+    else if (viewType === 'week') next.setDate(next.getDate() - 7);
+    else next.setDate(next.getDate() - 1);
+    setCurrentDate(next);
   };
 
   const handleNext = () => {
-    const nextDate = new Date(currentDate);
-    if (viewType === 'month') nextDate.setMonth(nextDate.getMonth() + 1);
-    else if (viewType === 'week') nextDate.setDate(nextDate.getDate() + 7);
-    else nextDate.setDate(nextDate.getDate() + 1);
-    setCurrentDate(nextDate);
+    const next = new Date(currentDate);
+    if (viewType === 'month') next.setMonth(next.getMonth() + 1);
+    else if (viewType === 'week') next.setDate(next.getDate() + 7);
+    else next.setDate(next.getDate() + 1);
+    setCurrentDate(next);
   };
 
-  // Build grid days for Month view
-  const getDaysInMonth = (date) => {
-    const yr = date.getFullYear();
-    const mo = date.getMonth();
-    const firstDay = new Date(yr, mo, 1).getDay();
-    const daysInMo = new Date(yr, mo + 1, 0).getDate();
-    
-    const cells = [];
-    // Padding for offset
-    for (let i = 0; i < firstDay; i++) cells.push(null);
-    for (let d = 1; d <= daysInMo; d++) cells.push(new Date(yr, mo, d));
-    
-    return cells;
+  const handleToday = () => {
+    setCurrentDate(new Date());
   };
 
-  const handleOpenBookModal = () => {
-    setSelectedCustId(currentUser?.role === 'CLIENT' ? (customerProfile?._id || '') : (customers[0]?._id || ''));
-    setWalkinName('');
-    setSelectedServId(services[0]?._id || '');
-    setSelectedStaffId(staffMembers[0]?._id || '');
-    setBookingDate(currentDate.toLocaleDateString('en-CA'));
-    setBookingTime('11:00');
-    setShowBookModal(true);
-  };
-
-  const handleBookSubmit = (e) => {
-    e.preventDefault();
-    
-    let custId = selectedCustId;
-    if (!selectedCustId && walkinName) {
-      // Create new customer profile for walk-in
-      const walk = addCustomer({ name: walkinName, phone: 'Walk-in' });
-      custId = walk._id;
-    }
-
-    const srv = services.find(s => s._id === selectedServId);
-    
-    addAppointment({
-      customerId: custId,
-      services: [{ serviceId: selectedServId, name: srv ? srv.name : 'Service', price: srv ? srv.price : 0 }],
-      staffId: selectedStaffId,
-      date: bookingDate,
-      time: bookingTime
-    });
-
-    setShowBookModal(false);
-  };
-
-  const handleApptClick = (appt) => {
-    setSelectedAppt(appt);
-    setShowDetailModal(true);
-  };
-
-  const handleStatusChange = (status) => {
-    updateAppointmentStatus(selectedAppt._id, status);
-    setSelectedAppt(prev => ({ ...prev, status }));
-  };
-
-  // Hook for instant POS switch on completion
-  const handleProceedToCheckout = () => {
-    setShowDetailModal(false);
-    setSelectedApptForCheckout(selectedAppt);
-    setActivePage('billing');
-  };
-
-  // Helper to resolve populated customerId/staffId
+  // ────────────────────────────────────────────────────────────────────────────
+  // RESOLUTION HELPERS
+  // ────────────────────────────────────────────────────────────────────────────
   const resolveCustomer = (appt) => {
     if (!appt) return null;
     if (appt.customerId && typeof appt.customerId === 'object') return appt.customerId;
     return db.customers.find(c => String(c._id) === String(appt.customerId));
   };
+
   const resolveStaff = (appt) => {
     if (!appt) return null;
     const sid = typeof appt.staffId === 'object' ? appt.staffId?._id : appt.staffId;
     return db.staff.find(s => String(s._id) === String(sid));
   };
 
-  // Simulator for sending manual WhatsApp Reminders
-  const handleSendReminder = (type) => {
+  const getPaymentStatus = (appt) => {
+    if (!appt) return 'Pending';
+    if (appt.status === 'Completed') return 'Paid';
+    // Check if an invoice exists for this appointment or customer checkout
+    const cust = resolveCustomer(appt);
+    const hasInv = invoices.some(i => {
+      const invCustId = typeof i.customerId === 'object' ? i.customerId?._id : i.customerId;
+      return cust && String(invCustId) === String(cust._id) && i.createdAt && i.createdAt.startsWith(formatDateStr(appt.date));
+    });
+    return hasInv ? 'Paid' : 'Pending';
+  };
+
+  const getServiceDuration = (appt) => {
+    if (!appt || !appt.services || appt.services.length === 0) return '30 min';
+    const mainServ = db.services.find(s => s._id === appt.services[0].serviceId || s.name === appt.services[0].name);
+    return `${mainServ?.duration || 30} min`;
+  };
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // FILTERING LOGIC
+  // ────────────────────────────────────────────────────────────────────────────
+  const filteredAppointments = useMemo(() => {
+    return appointments.filter(appt => {
+      const cust = resolveCustomer(appt);
+      const staff = resolveStaff(appt);
+      const servNames = appt.services ? appt.services.map(s => s.name).join(' ') : '';
+      const custName = cust?.name || 'Walk-in';
+
+      // Search query
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const matchesQ =
+          custName.toLowerCase().includes(q) ||
+          servNames.toLowerCase().includes(q) ||
+          (staff && staff.name.toLowerCase().includes(q)) ||
+          (appt.time && appt.time.toLowerCase().includes(q));
+        if (!matchesQ) return false;
+      }
+
+      // Staff filter
+      if (staffFilter !== 'ALL') {
+        const sid = typeof appt.staffId === 'object' ? appt.staffId?._id : appt.staffId;
+        if (String(sid) !== String(staffFilter)) return false;
+      }
+
+      // Status filter
+      if (statusFilter !== 'ALL' && appt.status !== statusFilter) return false;
+
+      // Service filter
+      if (serviceFilter !== 'ALL') {
+        const hasServ = appt.services && appt.services.some(s => String(s.serviceId) === String(serviceFilter) || s.name === serviceFilter);
+        if (!hasServ) return false;
+      }
+
+      return true;
+    });
+  }, [appointments, searchQuery, staffFilter, statusFilter, serviceFilter, db.customers, db.staff]);
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // DRAG AND DROP RESCHEDULING
+  // ────────────────────────────────────────────────────────────────────────────
+  const handleDragStart = (e, appt) => {
+    e.stopPropagation();
+    setDraggedApptId(appt._id);
+    e.dataTransfer.setData('text/plain', appt._id);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = async (e, targetDateStr, targetTime, targetStaffId) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const apptId = e.dataTransfer.getData('text/plain') || draggedApptId;
+    if (!apptId) return;
+
+    const targetAppt = db.appointments.find(a => String(a._id) === String(apptId));
+    if (!targetAppt) return;
+
+    const updatePayload = {};
+    if (targetDateStr) updatePayload.date = targetDateStr;
+    if (targetTime) updatePayload.time = targetTime;
+    if (targetStaffId) updatePayload.staffId = targetStaffId;
+
+    if (Object.keys(updatePayload).length > 0) {
+      await updateAppointment(apptId, updatePayload);
+      const cust = resolveCustomer(targetAppt);
+      const custName = cust ? cust.name : 'Walk-in';
+      addToast(`Rescheduled ${custName}'s appointment to ${updatePayload.date || targetAppt.date} at ${updatePayload.time || targetAppt.time}`, 'success');
+    }
+    setDraggedApptId(null);
+  };
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // QUICK BOOKING POPUP HANDLERS
+  // ────────────────────────────────────────────────────────────────────────────
+  const handleOpenQuickBook = (presetDateStr, presetTime, presetStaffId) => {
+    setBookingCustType('registered');
+    setSelectedCustId(customers[0]?._id || '');
+    setWalkinName('');
+    setWalkinPhone('');
+    setSelectedServId(services[0]?._id || '');
+    setSelectedStaffId(presetStaffId || staffMembers[0]?._id || '');
+    setBookingDate(presetDateStr || formatDateStr(currentDate));
+    setBookingTime(presetTime || '10:00');
+    setShowQuickBookModal(true);
+  };
+
+  const handleQuickBookSubmit = async (e) => {
+    e.preventDefault();
+
+    let custId = selectedCustId;
+    let isWalkin = false;
+
+    if (bookingCustType === 'walkin' || (!selectedCustId && walkinName)) {
+      if (!walkinName.trim()) {
+        addToast('Please enter walk-in customer name', 'warning');
+        return;
+      }
+      isWalkin = true;
+      if (addCustomer) {
+        const newCust = await addCustomer({ name: `${walkinName.trim()} (Walk-in)`, phone: walkinPhone || 'Walk-in' });
+        if (newCust && newCust._id) custId = newCust._id;
+      }
+    }
+
+    const srv = services.find(s => String(s._id) === String(selectedServId)) || services[0];
+
+    const result = await addAppointment({
+      customerId: custId || null,
+      services: [{
+        serviceId: srv ? srv._id : selectedServId,
+        name: srv ? srv.name : 'Service',
+        price: srv ? srv.price : 0
+      }],
+      staffId: selectedStaffId,
+      date: bookingDate,
+      time: bookingTime,
+      status: 'Scheduled',
+      isWalkin
+    });
+
+    if (result && result.success !== false) {
+      addToast(`Appointment booked for ${bookingDate} at ${bookingTime}`, 'success');
+      setShowQuickBookModal(false);
+    } else {
+      addToast(result?.message || 'Failed to book appointment', 'error');
+    }
+  };
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // DETAIL MODAL HANDLERS
+  // ────────────────────────────────────────────────────────────────────────────
+  const handleApptClick = (e, appt) => {
+    e.stopPropagation();
+    setSelectedAppt(appt);
+    setShowDetailModal(true);
+  };
+
+  const handleStatusChange = async (newStatus) => {
+    if (!selectedAppt) return;
+    await updateAppointmentStatus(selectedAppt._id, newStatus);
+    setSelectedAppt(prev => ({ ...prev, status: newStatus }));
+    addToast(`Status updated to ${newStatus}`, 'info');
+  };
+
+  const handleProceedToCheckout = () => {
+    setShowDetailModal(false);
+    setSelectedApptForCheckout(selectedAppt);
+    setActivePage('billing');
+  };
+
+  const handleSendWhatsApp = (type) => {
     const cust = resolveCustomer(selectedAppt);
     if (!cust) return;
 
     let msg = '';
-    if (type === 'reminder') {
-      msg = `Reminder: Hello ${cust.name}, this is a gentle reminder for your scheduled treatment at SalonSync on ${selectedAppt.date} at ${selectedAppt.time}.`;
-    } else if (type === 'confirmation') {
-      msg = `Confirmed: Hello ${cust.name}, your appointment at SalonSync is successfully confirmed for ${selectedAppt.date} at ${selectedAppt.time}.`;
+    if (type === 'confirmation') {
+      msg = `Confirmed: Hello ${cust.name}, your appointment at SalonSync is confirmed for ${selectedAppt.date} at ${selectedAppt.time}.`;
+    } else if (type === 'reminder') {
+      msg = `Reminder: Hi ${cust.name}, gentle reminder for your scheduled treatment at SalonSync on ${selectedAppt.date} at ${selectedAppt.time}.`;
     } else {
-      msg = `Follow-up: Hi ${cust.name}, we hope you enjoyed your recent session at SalonSync. Please leave us a review!`;
+      msg = `Follow-up: Hi ${cust.name}, thank you for visiting SalonSync! Please share your feedback with us.`;
     }
 
-    const custId = cust._id || selectedAppt.customerId;
     addNotification({
-      customerId: custId,
+      customerId: cust._id || selectedAppt.customerId,
       type: 'WhatsApp',
       message: msg
     });
 
-    addToast(`Simulated WhatsApp sent: "${msg}"`, 'success');
+    addToast(`WhatsApp alert sent to ${cust.name}`, 'success');
   };
 
-  return (
-    <div className="page-container animated-fade-in">
-      {/* Header */}
-      <div className="page-header">
-        <div>
-          <h1 style={{ fontSize: '1.85rem', color: 'var(--text-primary)' }}>Calendar Bookings</h1>
-          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Schedule treatments, manage staff slots, and run notifications.</p>
+  // ────────────────────────────────────────────────────────────────────────────
+  // CALENDAR GRID CALCULATIONS
+  // ────────────────────────────────────────────────────────────────────────────
+
+  // Get current week dates (Sun - Sat)
+  const getWeekDates = (date) => {
+    const start = new Date(date);
+    start.setDate(date.getDate() - date.getDay());
+    const week = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(start);
+      d.setDate(start.getDate() + i);
+      week.push(d);
+    }
+    return week;
+  };
+
+  // Get current month cells (with padding)
+  const getMonthCells = (date) => {
+    const yr = date.getFullYear();
+    const mo = date.getMonth();
+    const firstDay = new Date(yr, mo, 1).getDay();
+    const daysInMo = new Date(yr, mo + 1, 0).getDate();
+
+    const cells = [];
+    for (let i = 0; i < firstDay; i++) cells.push(null);
+    for (let d = 1; d <= daysInMo; d++) cells.push(new Date(yr, mo, d));
+    return cells;
+  };
+
+  const weekDates = useMemo(() => getWeekDates(currentDate), [currentDate]);
+  const monthCells = useMemo(() => getMonthCells(currentDate), [currentDate]);
+  const todayStr = formatDateStr(new Date());
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // RENDER APPOINTMENT CARD COMPONENT
+  // ════════════════════════════════════════════════════════════════════════════
+  const renderApptCard = (appt, compact = false) => {
+    const cust = resolveCustomer(appt);
+    const staff = resolveStaff(appt);
+    const mainServName = appt.services && appt.services.length > 0 ? appt.services[0].name : 'Service';
+    const color = getServiceColor(mainServName);
+    const custName = cust ? cust.name : 'Walk-in Customer';
+    const isWalkin = !cust || cust.phone === 'Walk-in' || appt.isWalkin;
+    const duration = getServiceDuration(appt);
+    const payStatus = getPaymentStatus(appt);
+
+    const isMine = customerProfile && cust && String(cust._id) === String(customerProfile._id);
+
+    return (
+      <div
+        key={appt._id}
+        draggable={currentUser.role !== 'CLIENT' || isMine}
+        onDragStart={(e) => handleDragStart(e, appt)}
+        onClick={(e) => handleApptClick(e, appt)}
+        className="gcal-appt-card"
+        style={{
+          background: color.bg,
+          borderLeft: `3px solid ${color.border}`,
+          opacity: appt.status === 'Cancelled' ? 0.55 : 1,
+        }}
+      >
+        <div className="gcal-appt-header">
+          <span className="gcal-appt-time">{appt.time}</span>
+          <span className={`badge ${appt.status.toLowerCase().replace(' ', '')}`}>{appt.status}</span>
         </div>
-        <button onClick={handleOpenBookModal} className="gold-btn">
-          <Plus size={16} /> Book Appointment
-        </button>
+
+        <div className="gcal-appt-cust">
+          <strong>{custName}</strong>
+          {isWalkin && <span className="gcal-walkin-badge">Walk-in</span>}
+        </div>
+
+        <div className="gcal-appt-service" style={{ color: color.text }}>
+          {appt.services.map(s => s.name).join(', ')}
+        </div>
+
+        {!compact && (
+          <div className="gcal-appt-footer">
+            <span className="gcal-appt-staff">Stylist: {staff ? staff.name : 'Any'}</span>
+            <div className="gcal-appt-tags">
+              <span className="gcal-tag">{duration}</span>
+              <span className={`gcal-pay-tag ${payStatus.toLowerCase()}`}>{payStatus}</span>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // JSX RETURN
+  // ════════════════════════════════════════════════════════════════════════════
+  return (
+    <div className="page-container animated-fade-in gcal-container">
+
+      {/* ─── HEADER & CONTROLS ────────────────────────────────────────────── */}
+      <div className="gcal-header">
+        <div className="gcal-header-title">
+          <h1>Calendar Bookings</h1>
+          <p>Google Calendar-style scheduler & staff booking engine</p>
+        </div>
+
+        <div className="gcal-header-right">
+          <button className="gold-btn" onClick={() => handleOpenQuickBook()}>
+            <Plus size={16} /> Quick Booking
+          </button>
+        </div>
       </div>
 
-      {/* Roster Calendar Grid Wrap */}
-      <div className="glass-card">
-        
-        {/* Navigation Toolbar */}
-        <div className="page-header" style={{ marginBottom: '1.5rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <button onClick={handlePrev} style={{ background: 'transparent', border: '1px solid var(--border-light)', color: 'var(--text-primary)', borderRadius: '4px', padding: '0.35rem' }}>
-              <ChevronLeft size={16} />
-            </button>
-            <h3 style={{ fontSize: '1.15rem', color: 'var(--text-primary)', minWidth: '150px', textAlign: 'center' }}>
-              {viewType === 'month' && currentDate.toLocaleDateString('default', { month: 'long', year: 'numeric' })}
-              {viewType === 'week' && `Week of ${currentDate.toLocaleDateString('default', { month: 'short', day: 'numeric' })}`}
-              {viewType === 'day' && currentDate.toLocaleDateString('default', { weekday: 'long', month: 'short', day: 'numeric' })}
-            </h3>
-            <button onClick={handleNext} style={{ background: 'transparent', border: '1px solid var(--border-light)', color: 'var(--text-primary)', borderRadius: '4px', padding: '0.35rem' }}>
-              <ChevronRight size={16} />
-            </button>
-          </div>
 
-          <div style={{ display: 'flex', gap: '0.25rem', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-light)', borderRadius: '4px', padding: '0.15rem' }}>
-            {['month', 'week', 'day'].map((v) => (
-              <button
-                key={v}
-                onClick={() => setViewType(v)}
-                style={{
-                  background: viewType === v ? 'var(--gold-primary)' : 'transparent',
-                  color: viewType === v ? '#000' : 'var(--text-secondary)',
-                  border: 'none',
-                  borderRadius: '3px',
-                  padding: '0.35rem 0.75rem',
-                  fontSize: '0.75rem',
-                  fontWeight: '600',
-                  textTransform: 'capitalize'
-                }}
-              >
-                {v}
-              </button>
-            ))}
+      {/* ─── TOOLBAR & SEARCH / FILTERS ──────────────────────────────────── */}
+      <div className="gcal-toolbar-card">
+        {/* Navigation & Date Display */}
+        <div className="gcal-nav-group">
+          <div className="gcal-nav-btns">
+            <button onClick={handlePrev} className="gcal-icon-btn" title="Previous">
+              <ChevronLeft size={18} />
+            </button>
+            <button onClick={handleToday} className="gcal-today-btn">
+              Today
+            </button>
+            <button onClick={handleNext} className="gcal-icon-btn" title="Next">
+              <ChevronRight size={18} />
+            </button>
           </div>
+          <h2 className="gcal-date-display">{formatDateDisplay(currentDate, viewType)}</h2>
         </div>
 
-        {/* 1. MONTH VIEW */}
-        {viewType === 'month' && (
-          <div className="calendar-view-container">
-            <div className="calendar-month-grid-wrapper">
-            {/* Weekdays Row */}
-            <div className="calendar-weekdays-row">
-              {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
-                <div key={d} className="calendar-weekday-cell">{d}</div>
-              ))}
-            </div>
+        {/* View Switcher */}
+        <div className="gcal-view-switcher">
+          {[
+            { id: 'day', label: 'Day' },
+            { id: 'week', label: 'Week' },
+            { id: 'month', label: 'Month' },
+            { id: 'staff', label: 'Staff Resource' },
+          ].map(v => (
+            <button
+              key={v.id}
+              className={`gcal-view-btn ${viewType === v.id ? 'active' : ''}`}
+              onClick={() => setViewType(v.id)}
+            >
+              {v.label}
+            </button>
+          ))}
+        </div>
+      </div>
 
-            {/* Days Grid */}
-            <div className="calendar-month-grid">
-              {getDaysInMonth(currentDate).map((day, idx) => {
-                if (!day) return <div key={`empty-${idx}`} className="calendar-day-cell empty"></div>;
-                
-                const dayStr = day.toLocaleDateString('en-CA');
-                const dayAppts = appointments.filter(a => {
-                  if (!a.date) return false;
-                  // Hide completed and cancelled appointments from calendar
-                  if (a.status === 'Completed' || a.status === 'Cancelled') return false;
-                  const apptDateStr = a.date.includes('T') ? a.date.split('T')[0] : a.date;
-                  return apptDateStr === dayStr;
-                });
-                const isToday = dayStr === new Date().toLocaleDateString('en-CA'); // Dynamic today's date
 
-                return (
-                  <div key={dayStr} className={`calendar-day-cell ${isToday ? 'today' : ''}`}>
-                    <span style={{ color: isToday ? 'var(--gold-primary)' : 'inherit', fontWeight: isToday ? 'bold' : 'normal' }}>
-                      {day.getDate()}
-                    </span>
+      {/* ─── FILTERS BAR ─────────────────────────────────────────────────── */}
+      <div className="gcal-filters-bar">
+        {/* Search */}
+        <div className="gcal-search-box">
+          <Search size={15} style={{ color: 'var(--gold-primary)' }} />
+          <input
+            type="text"
+            placeholder="Search appointment, client, service, stylist..."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+          />
+          {searchQuery && (
+            <button className="gcal-search-clear" onClick={() => setSearchQuery('')}>
+              <X size={13} />
+            </button>
+          )}
+        </div>
 
-                    {/* Bookings inside cell */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem', overflow: 'hidden' }}>
-                      {dayAppts.slice(0, 3).map((appt) => {
-                        const cust = (() => {
-                          // customerId may be a populated Customer object or a raw ID string
-                          if (appt.customerId && typeof appt.customerId === 'object') {
-                            return appt.customerId; // already populated
-                          }
-                          return db.customers.find(c => String(c._id) === String(appt.customerId));
-                        })();
-                        const custName = cust?.name || 'Walk-in';
-                        const custId = cust?._id || appt.customerId;
-                        const isMine = customerProfile && String(custId) === String(customerProfile._id);
-                        const labelText = isMine ? 'My Session' : 'Slot Blocked';
-                        return (
-                          <div 
-                            key={appt._id}
-                            onClick={() => {
-                              if (currentUser.role === 'CLIENT' && !isMine) return;
-                              handleApptClick(appt);
-                            }}
-                            className="calendar-appt-badge"
-                            style={{
-                              background: appt.status === 'Completed' ? 'rgba(46,204,113,0.15)' : 'rgba(212,175,55,0.15)',
-                              color: appt.status === 'Completed' ? 'var(--accent-green)' : 'var(--gold-primary)',
-                              cursor: (currentUser.role === 'CLIENT' && !isMine) ? 'default' : 'pointer',
-                              borderLeft: `2px solid ${appt.status === 'Completed' ? 'var(--accent-green)' : 'var(--gold-primary)'}`
-                            }}
-                          >
-                            {appt.time} {currentUser.role === 'CLIENT' ? labelText : (custName.split(' ')[0])}
-                          </div>
-                        );
-                      })}
-                      {dayAppts.length > 3 && (
-                        <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textAlign: 'center' }}>
-                          + {dayAppts.length - 3} more
-                        </span>
-                      )}
+        {/* Staff Filter */}
+        <div className="gcal-filter-item">
+          <label>Staff:</label>
+          <select value={staffFilter} onChange={e => setStaffFilter(e.target.value)}>
+            <option value="ALL">All Staff</option>
+            {staffMembers.map(s => (
+              <option key={s._id} value={s._id}>{s.name}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Status Filter */}
+        <div className="gcal-filter-item">
+          <label>Status:</label>
+          <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
+            <option value="ALL">All Statuses</option>
+            <option value="Scheduled">Scheduled</option>
+            <option value="Confirmed">Confirmed</option>
+            <option value="In Progress">In Progress</option>
+            <option value="Completed">Completed</option>
+            <option value="Cancelled">Cancelled</option>
+          </select>
+        </div>
+
+        {/* Service Filter */}
+        <div className="gcal-filter-item">
+          <label>Service:</label>
+          <select value={serviceFilter} onChange={e => setServiceFilter(e.target.value)}>
+            <option value="ALL">All Services</option>
+            {services.map(s => (
+              <option key={s._id} value={s._id}>{s.name}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+
+      {/* ════════════════════════════════════════════════════════════════════
+         CALENDAR VIEWS
+         ════════════════════════════════════════════════════════════════════ */}
+
+      {/* ─── 1. WEEKLY VIEW (7-Day Grid) ─────────────────────────────────── */}
+      {viewType === 'week' && (
+        <div className="gcal-grid-card">
+          <div className="gcal-week-header">
+            <div className="gcal-time-col-header">Time</div>
+            {weekDates.map(d => {
+              const dStr = formatDateStr(d);
+              const isToday = dStr === todayStr;
+              return (
+                <div key={dStr} className={`gcal-week-day-header ${isToday ? 'today' : ''}`}>
+                  <span className="gcal-day-name">{d.toLocaleDateString('en-US', { weekday: 'short' })}</span>
+                  <span className="gcal-day-num">{d.getDate()}</span>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="gcal-week-body">
+            {TIME_SLOTS.map(timeSlot => (
+              <div key={timeSlot} className="gcal-week-row">
+                <div className="gcal-time-cell">{timeSlot}</div>
+
+                {weekDates.map(d => {
+                  const dStr = formatDateStr(d);
+                  const cellAppts = filteredAppointments.filter(a => {
+                    const apptDateStr = formatDateStr(a.date);
+                    const apptHour = a.time ? a.time.substring(0, 2) : '';
+                    return apptDateStr === dStr && apptHour === timeSlot.substring(0, 2);
+                  });
+
+                  return (
+                    <div
+                      key={`${dStr}-${timeSlot}`}
+                      className="gcal-slot-cell"
+                      onDragOver={handleDragOver}
+                      onDrop={(e) => handleDrop(e, dStr, timeSlot, null)}
+                      onClick={() => handleOpenQuickBook(dStr, timeSlot)}
+                    >
+                      {cellAppts.map(appt => renderApptCard(appt, true))}
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            ))}
           </div>
         </div>
       )}
 
-        {/* 2. WEEK VIEW / 3. DAY VIEW (Hourly listing) */}
-        {(viewType === 'week' || viewType === 'day') && (
-          <div style={{ border: '1px solid var(--border-light)', borderRadius: '6px', background: 'rgba(255,255,255,0.01)', padding: '1rem', maxHeight: '450px', overflowY: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
-              <thead>
-                <tr style={{ borderBottom: '1px solid var(--border-light)' }}>
-                  <th style={{ padding: '0.5rem', textAlign: 'left', color: 'var(--gold-primary)' }}>Time Slot</th>
-                  <th style={{ padding: '0.5rem', textAlign: 'left', color: 'var(--gold-primary)' }}>Client Booking details</th>
-                </tr>
-              </thead>
-              <tbody>
-                {['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00'].map((hrSlot) => {
-                  const activeDateStr = currentDate.toLocaleDateString('en-CA');
-                  // matches slot hour prefix
-                  const slotAppts = appointments.filter(a => {
-                    if (!a.date) return false;
-                    if (a.status === 'Completed' || a.status === 'Cancelled') return false;
-                    const apptDateStr = a.date.includes('T') ? a.date.split('T')[0] : a.date;
-                    return apptDateStr === activeDateStr && a.time.startsWith(hrSlot.substring(0,2));
-                  });
 
-                  return (
-                    <tr key={hrSlot} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
-                      <td style={{ padding: '0.75rem 0.5rem', fontWeight: '600', color: 'var(--text-primary)', width: '100px' }}>{hrSlot}</td>
-                      <td style={{ padding: '0.5rem' }}>
-                        {slotAppts.length === 0 ? (
-                          <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>Available</span>
-                        ) : (
-                          slotAppts.map((appt) => {
-                            const cust = (() => {
-                              if (appt.customerId && typeof appt.customerId === 'object') {
-                                return appt.customerId;
-                              }
-                              return db.customers.find(c => String(c._id) === String(appt.customerId));
-                            })();
-                            const custId = cust?._id || appt.customerId;
-                            const staffId = typeof appt.staffId === 'object' ? appt.staffId?._id : appt.staffId;
-                            const staff = db.staff.find(s => String(s._id) === String(staffId));
-                            const isMine = customerProfile && String(custId) === String(customerProfile._id);
-                            
-                            if (currentUser.role === 'CLIENT' && !isMine) {
-                              return (
-                                <div
-                                  key={appt._id}
-                                  style={{
-                                    background: 'rgba(255,255,255,0.02)',
-                                    border: '1px solid var(--border-light)',
-                                    borderRadius: '4px',
-                                    padding: '0.5rem',
-                                    display: 'inline-flex',
-                                    justifyContent: 'space-between',
-                                    width: '100%',
-                                    maxWidth: '450px',
-                                    cursor: 'default'
-                                  }}
-                                >
-                                  <div>
-                                    <strong style={{ color: 'var(--text-muted)' }}>Slot Blocked</strong>
-                                    <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                                      Unavailable for scheduling
-                                    </p>
-                                  </div>
-                                </div>
-                              );
-                            }
-
-                            return (
-                              <div
-                                key={appt._id}
-                                onClick={() => handleApptClick(appt)}
-                                style={{
-                                  background: appt.status === 'Completed' ? 'rgba(46,204,113,0.08)' : (appt.status === 'Cancelled' ? 'rgba(231,76,60,0.06)' : 'rgba(212,175,55,0.06)'),
-                                  border: `1px solid ${appt.status === 'Completed' ? 'rgba(46,204,113,0.3)' : (appt.status === 'Cancelled' ? 'rgba(231,76,60,0.3)' : 'var(--gold-border)')}`,
-                                  borderRadius: '4px',
-                                  padding: '0.5rem',
-                                  cursor: 'pointer',
-                                  display: 'inline-flex',
-                                  justifyContent: 'space-between',
-                                  width: '100%',
-                                  maxWidth: '450px',
-                                  opacity: appt.status === 'Cancelled' ? 0.5 : 1
-                                }}
-                              >
-                                <div>
-                                  <strong>{cust ? cust.name : 'Walk-in'}</strong>
-                                  <p style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
-                                    {appt.services.map(s => s.name).join(', ')} • Stylist: {staff ? staff.name : 'Any'}
-                                  </p>
-                                </div>
-                                <span className={`badge ${appt.status.toLowerCase().replace(' ', '')}`} style={{ alignSelf: 'center' }}>{appt.status}</span>
-                              </div>
-                            );
-                          })
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-      </div>
-
-      {/* Book Appointment Modal */}
-      {showBookModal && (
-        <div onClick={(e) => { if (e.target === e.currentTarget) setShowBookModal(false); }} className="modal-backdrop-overlay">
-          <div className="modal-scrollable-content" style={{ maxWidth: '450px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
-              <h3 style={{ color: 'var(--text-primary)' }}>New Treatment Booking</h3>
-              <button onClick={() => setShowBookModal(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)' }}><X size={18} /></button>
+      {/* ─── 2. DAILY VIEW (Single Day Detailed Schedule) ─────────────────── */}
+      {viewType === 'day' && (
+        <div className="gcal-grid-card">
+          <div className="gcal-day-header">
+            <div className="gcal-time-col-header">Time</div>
+            <div className="gcal-day-title">
+              {currentDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
             </div>
-            <form onSubmit={handleBookSubmit}>
-              {currentUser?.role === 'CLIENT' ? (
-                <div className="form-group">
-                  <label>Booking Customer</label>
-                  <input type="text" className="form-control" disabled value={`${currentUser.name} (${customerProfile?.phone || ''})`} />
+          </div>
+
+          <div className="gcal-day-body">
+            {TIME_SLOTS.map(timeSlot => {
+              const dStr = formatDateStr(currentDate);
+              const cellAppts = filteredAppointments.filter(a => {
+                const apptDateStr = formatDateStr(a.date);
+                const apptHour = a.time ? a.time.substring(0, 2) : '';
+                return apptDateStr === dStr && apptHour === timeSlot.substring(0, 2);
+              });
+
+              return (
+                <div key={timeSlot} className="gcal-day-row">
+                  <div className="gcal-time-cell">{timeSlot}</div>
+                  <div
+                    className="gcal-day-slot-cell"
+                    onDragOver={handleDragOver}
+                    onDrop={(e) => handleDrop(e, dStr, timeSlot, null)}
+                    onClick={() => handleOpenQuickBook(dStr, timeSlot)}
+                  >
+                    {cellAppts.length === 0 ? (
+                      <span className="gcal-slot-empty-label">+ Click to book slot</span>
+                    ) : (
+                      <div className="gcal-day-appts-grid">
+                        {cellAppts.map(appt => renderApptCard(appt, false))}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              ) : (
-                <>
-                  <div className="form-group">
-                    <label>Select Registered Client</label>
-                    <select className="form-control" value={selectedCustId} onChange={(e) => setSelectedCustId(e.target.value)}>
-                      {customers.map(c => <option key={c._id} value={c._id}>{c.name} ({c.phone})</option>)}
-                      <option value="">-- Add Walk-in Customer --</option>
-                    </select>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+
+      {/* ─── 3. MONTHLY VIEW (Full Month Grid) ───────────────────────────── */}
+      {viewType === 'month' && (
+        <div className="gcal-grid-card">
+          {/* Weekday Labels */}
+          <div className="gcal-month-weekdays">
+            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
+              <div key={d} className="gcal-month-weekday-cell">{d}</div>
+            ))}
+          </div>
+
+          {/* Month Days Grid */}
+          <div className="gcal-month-grid">
+            {monthCells.map((dayObj, idx) => {
+              if (!dayObj) return <div key={`empty-${idx}`} className="gcal-month-cell empty" />;
+
+              const dStr = formatDateStr(dayObj);
+              const isToday = dStr === todayStr;
+              const cellAppts = filteredAppointments.filter(a => formatDateStr(a.date) === dStr);
+
+              return (
+                <div
+                  key={dStr}
+                  className={`gcal-month-cell ${isToday ? 'today' : ''}`}
+                  onDragOver={handleDragOver}
+                  onDrop={(e) => handleDrop(e, dStr, null, null)}
+                  onClick={() => handleOpenQuickBook(dStr)}
+                >
+                  <div className="gcal-month-date-num">
+                    <span className={isToday ? 'today-badge' : ''}>{dayObj.getDate()}</span>
+                    {cellAppts.length > 0 && (
+                      <span className="gcal-month-count">{cellAppts.length} appts</span>
+                    )}
                   </div>
 
-                  {!selectedCustId && (
-                    <div className="form-group">
-                      <label>Walk-in Client Name</label>
-                      <input type="text" required placeholder="Guest Client" className="form-control" value={walkinName} onChange={(e) => setWalkinName(e.target.value)} />
-                    </div>
-                  )}
-                </>
+                  <div className="gcal-month-appts-stack">
+                    {cellAppts.slice(0, 3).map(appt => {
+                      const cust = resolveCustomer(appt);
+                      const servName = appt.services && appt.services.length > 0 ? appt.services[0].name : 'Service';
+                      const color = getServiceColor(servName);
+                      return (
+                        <div
+                          key={appt._id}
+                          draggable={currentUser.role !== 'CLIENT'}
+                          onDragStart={(e) => handleDragStart(e, appt)}
+                          onClick={(e) => handleApptClick(e, appt)}
+                          className="gcal-month-appt-pill"
+                          style={{ background: color.bg, borderLeft: `3px solid ${color.border}` }}
+                        >
+                          <span className="gcal-pill-time">{appt.time}</span>
+                          <span className="gcal-pill-name">{cust ? cust.name : 'Walk-in'}</span>
+                        </div>
+                      );
+                    })}
+                    {cellAppts.length > 3 && (
+                      <div className="gcal-month-more">+ {cellAppts.length - 3} more</div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+
+      {/* ─── 4. STAFF-WISE RESOURCE VIEW ────────────────────────────────── */}
+      {viewType === 'staff' && (
+        <div className="gcal-grid-card">
+          <div className="gcal-staff-header-row">
+            <div className="gcal-time-col-header">Time</div>
+            {staffMembers.map(staff => (
+              <div key={staff._id} className="gcal-staff-col-header">
+                <div className="gcal-staff-avatar">{staff.name.charAt(0)}</div>
+                <div className="gcal-staff-info">
+                  <strong>{staff.name}</strong>
+                  <span>{staff.role}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="gcal-staff-body">
+            {TIME_SLOTS.map(timeSlot => {
+              const dStr = formatDateStr(currentDate);
+
+              return (
+                <div key={timeSlot} className="gcal-staff-row">
+                  <div className="gcal-time-cell">{timeSlot}</div>
+
+                  {staffMembers.map(staff => {
+                    const cellAppts = filteredAppointments.filter(a => {
+                      const apptDateStr = formatDateStr(a.date);
+                      const sid = typeof a.staffId === 'object' ? a.staffId?._id : a.staffId;
+                      const apptHour = a.time ? a.time.substring(0, 2) : '';
+                      return apptDateStr === dStr && String(sid) === String(staff._id) && apptHour === timeSlot.substring(0, 2);
+                    });
+
+                    return (
+                      <div
+                        key={`${staff._id}-${timeSlot}`}
+                        className="gcal-staff-slot-cell"
+                        onDragOver={handleDragOver}
+                        onDrop={(e) => handleDrop(e, dStr, timeSlot, staff._id)}
+                        onClick={() => handleOpenQuickBook(dStr, timeSlot, staff._id)}
+                      >
+                        {cellAppts.map(appt => renderApptCard(appt, true))}
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+
+      {/* ════════════════════════════════════════════════════════════════════
+         QUICK BOOKING POPUP MODAL
+         ════════════════════════════════════════════════════════════════════ */}
+      {showQuickBookModal && (
+        <div className="modal-backdrop-overlay" onClick={() => setShowQuickBookModal(false)}>
+          <div className="modal-scrollable-content gcal-modal" onClick={e => e.stopPropagation()}>
+            <div className="gcal-modal-header">
+              <h3>
+                <CalendarIcon size={18} style={{ color: 'var(--gold-primary)' }} /> Quick Appointment Booking
+              </h3>
+              <button className="gcal-modal-close" onClick={() => setShowQuickBookModal(false)}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleQuickBookSubmit} className="gcal-modal-form">
+              {/* Customer Type Selector */}
+              {currentUser?.role !== 'CLIENT' && (
+                <div className="gcal-tab-toggle">
+                  <button
+                    type="button"
+                    className={bookingCustType === 'registered' ? 'active' : ''}
+                    onClick={() => setBookingCustType('registered')}
+                  >
+                    Registered Client
+                  </button>
+                  <button
+                    type="button"
+                    className={bookingCustType === 'walkin' ? 'active' : ''}
+                    onClick={() => setBookingCustType('walkin')}
+                  >
+                    Walk-in Customer
+                  </button>
+                </div>
               )}
 
+              {/* Client Selector or Walk-in Fields */}
+              {currentUser?.role === 'CLIENT' ? (
+                <div className="form-group">
+                  <label>Client</label>
+                  <input type="text" className="form-control" disabled value={`${currentUser.name} (${customerProfile?.phone || ''})`} />
+                </div>
+              ) : bookingCustType === 'registered' ? (
+                <div className="form-group">
+                  <label>Select Registered Client</label>
+                  <select
+                    className="form-control"
+                    required
+                    value={selectedCustId}
+                    onChange={e => setSelectedCustId(e.target.value)}
+                  >
+                    {customers.map(c => (
+                      <option key={c._id} value={c._id}>{c.name} ({c.phone || 'No phone'})</option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <div className="grid-2-cols">
+                  <div className="form-group">
+                    <label>Walk-in Customer Name</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      required
+                      placeholder="Guest Client Name"
+                      value={walkinName}
+                      onChange={e => setWalkinName(e.target.value)}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Phone Number (Optional)</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="Mobile number"
+                      value={walkinPhone}
+                      onChange={e => setWalkinPhone(e.target.value)}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Service Selection */}
               <div className="form-group">
-                <label>Select Treatment Service</label>
-                <select className="form-control" value={selectedServId} onChange={(e) => setSelectedServId(e.target.value)}>
-                  {services.map(s => <option key={s._id} value={s._id}>{s.name} (₹{s.price})</option>)}
+                <label>Select Service / Treatment</label>
+                <select
+                  className="form-control"
+                  required
+                  value={selectedServId}
+                  onChange={e => setSelectedServId(e.target.value)}
+                >
+                  {services.map(s => (
+                    <option key={s._id} value={s._id}>
+                      {s.name} — ₹{s.price} ({s.duration || 30} mins)
+                    </option>
+                  ))}
                 </select>
               </div>
 
+              {/* Staff Assignment */}
               <div className="form-group">
-                <label>Assign Professional Stylist</label>
-                <select className="form-control" value={selectedStaffId} onChange={(e) => setSelectedStaffId(e.target.value)}>
-                  {staffMembers.map(s => <option key={s._id} value={s._id}>{s.name} ({s.role})</option>)}
+                <label>Assign Stylist / Staff</label>
+                <select
+                  className="form-control"
+                  required
+                  value={selectedStaffId}
+                  onChange={e => setSelectedStaffId(e.target.value)}
+                >
+                  {staffMembers.map(st => (
+                    <option key={st._id} value={st._id}>
+                      {st.name} ({st.role})
+                    </option>
+                  ))}
                 </select>
               </div>
 
+              {/* Date & Time */}
               <div className="grid-2-cols">
                 <div className="form-group">
-                  <label>Booking Date</label>
-                  <input type="date" required className="form-control" value={bookingDate} onChange={(e) => setBookingDate(e.target.value)} />
+                  <label>Appointment Date</label>
+                  <input
+                    type="date"
+                    className="form-control"
+                    required
+                    value={bookingDate}
+                    onChange={e => setBookingDate(e.target.value)}
+                  />
                 </div>
                 <div className="form-group">
                   <label>Start Time</label>
-                  <input type="time" required className="form-control" value={bookingTime} onChange={(e) => setBookingTime(e.target.value)} />
+                  <select
+                    className="form-control"
+                    required
+                    value={bookingTime}
+                    onChange={e => setBookingTime(e.target.value)}
+                  >
+                    {TIME_SLOTS.map(t => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
-              <button type="submit" className="gold-btn" style={{ width: '100%', justifyContent: 'center', marginTop: '1rem' }}>Confirm Booking</button>
+              <button type="submit" className="gold-btn gcal-submit-btn">
+                ✓ Confirm Appointment
+              </button>
             </form>
           </div>
         </div>
       )}
 
-      {/* Appointment Detail & Automation Panel Modal */}
-      {showDetailModal && selectedAppt && (
-        <div onClick={(e) => { if (e.target === e.currentTarget) setShowDetailModal(false); }} className="modal-backdrop-overlay">
-          <div className="modal-scrollable-content" style={{ maxWidth: '480px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
-              <h3 style={{ color: 'var(--text-primary)' }}>Appointment Desk</h3>
-              <button onClick={() => setShowDetailModal(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)' }}><X size={18} /></button>
-            </div>
-            
-            {/* Core Info */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', fontSize: '0.85rem', marginBottom: '1.5rem', borderBottom: '1px solid var(--border-light)', paddingBottom: '1.25rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: 'var(--text-secondary)' }}>Client Name:</span>
-                <strong style={{ color: 'var(--text-primary)' }}>
-                  {resolveCustomer(selectedAppt)?.name || 'Guest walk-in'}
-                </strong>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: 'var(--text-secondary)' }}>Treatment:</span>
-                <span style={{ color: 'var(--text-primary)' }}>{selectedAppt.services.map(s => s.name).join(', ')}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: 'var(--text-secondary)' }}>Assigned Staff:</span>
-                <span style={{ color: 'var(--text-primary)' }}>{resolveStaff(selectedAppt)?.name || 'Unassigned'}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: 'var(--text-secondary)' }}>Schedule Time:</span>
-                <span style={{ color: 'var(--gold-primary)', fontWeight: 'bold' }}>{selectedAppt.date} at {selectedAppt.time}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ color: 'var(--text-secondary)' }}>Status Badge:</span>
-                <span className={`badge ${selectedAppt.status.toLowerCase().replace(' ', '')}`}>{selectedAppt.status}</span>
-              </div>
-            </div>
 
-            {/* Status Modification Actions */}
-            {currentUser?.role !== 'CLIENT' && (
-              <div style={{ marginBottom: '1.5rem' }}>
-                <h4 style={{ fontSize: '0.85rem', color: 'var(--gold-primary)', marginBottom: '0.5rem' }}>Set Progress Status</h4>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-                  {['Scheduled', 'Confirmed', 'In Progress', 'Completed', 'Cancelled'].map((st) => (
-                    <button
-                      key={st}
-                      onClick={() => handleStatusChange(st)}
-                      style={{
-                        background: selectedAppt.status === st ? 'var(--gold-primary)' : 'rgba(255,255,255,0.03)',
-                        color: selectedAppt.status === st ? '#000' : 'var(--text-secondary)',
-                        border: '1px solid var(--border-light)',
-                        borderRadius: '4px',
-                        padding: '0.35rem 0.5rem',
-                        fontSize: '0.7rem',
-                        fontWeight: '500'
-                      }}
-                    >
-                      {st}
-                    </button>
-                  ))}
+      {/* ════════════════════════════════════════════════════════════════════
+         APPOINTMENT DETAIL & ACTION POPUP MODAL
+         ════════════════════════════════════════════════════════════════════ */}
+      {showDetailModal && selectedAppt && (() => {
+        const cust = resolveCustomer(selectedAppt);
+        const staff = resolveStaff(selectedAppt);
+        const servNames = selectedAppt.services ? selectedAppt.services.map(s => s.name).join(', ') : 'Service';
+        const mainServName = selectedAppt.services && selectedAppt.services.length > 0 ? selectedAppt.services[0].name : 'Service';
+        const color = getServiceColor(mainServName);
+        const duration = getServiceDuration(selectedAppt);
+        const payStatus = getPaymentStatus(selectedAppt);
+        const isWalkin = !cust || cust.phone === 'Walk-in' || selectedAppt.isWalkin;
+
+        return (
+          <div className="modal-backdrop-overlay" onClick={() => setShowDetailModal(false)}>
+            <div className="modal-scrollable-content gcal-modal" onClick={e => e.stopPropagation()}>
+              <div className="gcal-modal-header" style={{ borderBottom: `3px solid ${color.border}` }}>
+                <div>
+                  <h3 style={{ fontSize: '1.2rem', color: 'var(--text-primary)' }}>
+                    {cust ? cust.name : 'Walk-in Customer'}
+                  </h3>
+                  <span style={{ fontSize: '0.75rem', color: color.text }}>{servNames}</span>
                 </div>
+                <button className="gcal-modal-close" onClick={() => setShowDetailModal(false)}>
+                  <X size={18} />
+                </button>
               </div>
-            )}
 
-            {/* Campaign Automation simulator */}
-            {currentUser?.role !== 'CLIENT' && (
-              <div style={{ background: 'rgba(255,255,255,0.02)', padding: '1rem', borderRadius: '6px', border: '1px solid var(--border-light)', marginBottom: '1.5rem' }}>
-                <h4 style={{ fontSize: '0.8rem', color: 'var(--text-primary)', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                  <AlertCircle size={14} style={{ color: 'var(--gold-primary)' }} /> WhatsApp Automation Triggers
-                </h4>
-                <div className="grid-3-cols">
-                  <button onClick={() => handleSendReminder('confirmation')} style={{ background: 'transparent', border: '1px solid var(--gold-border)', color: 'var(--gold-primary)', fontSize: '0.65rem', padding: '0.4rem', borderRadius: '4px' }}>
-                    Send Confirm
-                  </button>
-                  <button onClick={() => handleSendReminder('reminder')} style={{ background: 'transparent', border: '1px solid var(--gold-border)', color: 'var(--gold-primary)', fontSize: '0.65rem', padding: '0.4rem', borderRadius: '4px' }}>
-                    Send Reminder
-                  </button>
-                  <button onClick={() => handleSendReminder('followup')} style={{ background: 'transparent', border: '1px solid var(--gold-border)', color: 'var(--gold-primary)', fontSize: '0.65rem', padding: '0.4rem', borderRadius: '4px' }}>
-                    Send Follow-up
-                  </button>
+              <div className="gcal-detail-body">
+                <div className="gcal-detail-row">
+                  <span className="gcal-detail-label">Status:</span>
+                  <span className={`badge ${selectedAppt.status.toLowerCase().replace(' ', '')}`}>{selectedAppt.status}</span>
                 </div>
+
+                <div className="gcal-detail-row">
+                  <span className="gcal-detail-label">Payment Status:</span>
+                  <span className={`gcal-pay-tag ${payStatus.toLowerCase()}`}>{payStatus}</span>
+                </div>
+
+                <div className="gcal-detail-row">
+                  <span className="gcal-detail-label">Schedule:</span>
+                  <strong style={{ color: 'var(--gold-primary)' }}>{selectedAppt.date} at {selectedAppt.time} ({duration})</strong>
+                </div>
+
+                <div className="gcal-detail-row">
+                  <span className="gcal-detail-label">Assigned Stylist:</span>
+                  <span>{staff ? staff.name : 'Unassigned'} ({staff?.role || 'Staff'})</span>
+                </div>
+
+                {cust && (
+                  <div className="gcal-detail-row">
+                    <span className="gcal-detail-label">Contact:</span>
+                    <span>{cust.phone || cust.email || 'N/A'}</span>
+                  </div>
+                )}
+
+                {/* Status Switcher */}
+                {currentUser?.role !== 'CLIENT' && (
+                  <div className="gcal-status-section">
+                    <label>Update Appointment Status:</label>
+                    <div className="gcal-status-btns">
+                      {['Scheduled', 'Confirmed', 'In Progress', 'Completed', 'Cancelled'].map(st => (
+                        <button
+                          key={st}
+                          className={`gcal-status-btn ${selectedAppt.status === st ? 'active' : ''}`}
+                          onClick={() => handleStatusChange(st)}
+                        >
+                          {st}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* WhatsApp Automation Simulator */}
+                {currentUser?.role !== 'CLIENT' && (
+                  <div className="gcal-whatsapp-box">
+                    <label><MessageSquare size={13} /> WhatsApp Reminders</label>
+                    <div className="gcal-whatsapp-btns">
+                      <button onClick={() => handleSendWhatsApp('confirmation')}>Send Confirmation</button>
+                      <button onClick={() => handleSendWhatsApp('reminder')}>Send Reminder</button>
+                      <button onClick={() => handleSendWhatsApp('followup')}>Send Follow-up</button>
+                    </div>
+                  </div>
+                )}
+
+                {/* POS Checkout Hook */}
+                {currentUser?.role !== 'CLIENT' && selectedAppt.status === 'Completed' && (
+                  <button className="gold-btn gcal-submit-btn" onClick={handleProceedToCheckout}>
+                    <CreditCard size={16} /> Proceed to POS Checkout
+                  </button>
+                )}
+
+                {/* Client Cancel Booking Option */}
+                {currentUser?.role === 'CLIENT' && selectedAppt.status !== 'Completed' && selectedAppt.status !== 'Cancelled' && (
+                  <button
+                    className="outline-btn"
+                    style={{ width: '100%', justifyContent: 'center', borderColor: 'var(--accent-red)', color: 'var(--accent-red)' }}
+                    onClick={async () => {
+                      await handleStatusChange('Cancelled');
+                      setShowDetailModal(false);
+                    }}
+                  >
+                    Cancel Booking Reservation
+                  </button>
+                )}
               </div>
-            )}
-
-            {/* Transition hook to POS billing */}
-            {currentUser?.role !== 'CLIENT' && selectedAppt.status === 'Completed' && (
-              <button 
-                onClick={handleProceedToCheckout} 
-                className="gold-btn" 
-                style={{ width: '100%', justifyContent: 'center' }}
-              >
-                Proceed to POS Checkout (Invoice Billing)
-              </button>
-            )}
-
-            {/* CLIENT Cancel Booking Option */}
-            {currentUser?.role === 'CLIENT' && (selectedAppt.status !== 'Completed' && selectedAppt.status !== 'Cancelled') && (
-              <button 
-                onClick={() => {
-                  handleStatusChange('Cancelled');
-                  setShowDetailModal(false);
-                  addToast('Your appointment has been cancelled successfully.', 'success');
-                }} 
-                className="outline-btn" 
-                style={{ width: '100%', justifyContent: 'center', borderColor: 'var(--accent-red)', color: 'var(--accent-red)' }}
-              >
-                Cancel Booking Reservation
-              </button>
-            )}
-
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
     </div>
   );
