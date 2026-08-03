@@ -1,22 +1,83 @@
 import React from 'react';
-import { 
-  TrendingUp, Users, Calendar, AlertTriangle, 
+import {
+  TrendingUp, Users, Calendar, AlertTriangle,
   CreditCard, Sparkles, UserPlus, FileText, ArrowUpRight,
-  MapPin, Phone, Star, X, Clock, ChevronLeft
+  MapPin, Phone, Star, X, Clock, ChevronLeft,
+  DollarSign, ShoppingBag, Activity, BarChart3,
+  Zap, PlusCircle, Receipt, UserCheck, Package,
+  ArrowUp, ArrowDown, Bell, CheckCircle2, XCircle,
+  ClipboardList, RefreshCw
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { RevenueLineChart, ProfitBarChart, ServiceShareDonut } from '../components/DashboardCharts';
+import {
+  RevenueExpenseChart,
+  MonthlyProfitChart,
+  AppointmentTrendChart,
+  CustomerGrowthChart,
+  PopularServicesDonut
+} from '../components/DashboardCharts';
 
+// ─── KPI CARD COMPONENT ──────────────────────────────────────────────────────
+const KpiCard = ({ title, value, subtitle, icon: Icon, iconColor, trend, trendUp, accentBorder, glowColor, delay = 0 }) => (
+  <div
+    className="dash-kpi-card"
+    style={{
+      animationDelay: `${delay}ms`,
+      borderLeft: accentBorder ? `3px solid ${accentBorder}` : undefined,
+    }}
+  >
+    <div className="dash-kpi-header">
+      <div
+        className="dash-kpi-icon"
+        style={{
+          background: `${iconColor}12`,
+          color: iconColor,
+          boxShadow: glowColor ? `0 0 20px ${glowColor}` : undefined,
+        }}
+      >
+        <Icon size={20} />
+      </div>
+      {trend !== undefined && (
+        <div className={`dash-kpi-trend ${trendUp ? 'up' : 'down'}`}>
+          {trendUp ? <ArrowUp size={12} /> : <ArrowDown size={12} />}
+          <span>{trend}%</span>
+        </div>
+      )}
+    </div>
+    <div className="dash-kpi-value">{value}</div>
+    <div className="dash-kpi-title">{title}</div>
+    {subtitle && <div className="dash-kpi-subtitle">{subtitle}</div>}
+  </div>
+);
+
+// ─── SECTION HEADER ──────────────────────────────────────────────────────────
+const SectionHeader = ({ icon: Icon, title, action, actionLabel, actionIcon: ActionIcon }) => (
+  <div className="dash-section-header">
+    <div className="dash-section-title">
+      {Icon && <Icon size={18} style={{ color: 'var(--gold-primary)' }} />}
+      <h3>{title}</h3>
+    </div>
+    {action && (
+      <button className="dash-section-action" onClick={action}>
+        {actionLabel} {ActionIcon && <ActionIcon size={12} />}
+      </button>
+    )}
+  </div>
+);
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// MAIN DASHBOARD COMPONENT
+// ═══════════════════════════════════════════════════════════════════════════════
 const Dashboard = ({ setActivePage }) => {
   const { currentUser, currentBranch, tenantFilter, db, updateAppointmentStatus, addAppointment, addNotification, addToast } = useApp();
 
   // Exploration / Client States
-  const [activeTab, setActiveTab] = React.useState('my-desk'); // 'my-desk' or 'explore'
+  const [activeTab, setActiveTab] = React.useState('my-desk');
   const [selectedSalon, setSelectedSalon] = React.useState(null);
   const [selectedService, setSelectedService] = React.useState(null);
   const [searchQuery, setSearchQuery] = React.useState('');
   const [showBookingModal, setShowBookingModal] = React.useState(false);
-  
+
   // Booking Form States
   const [bookingBranchId, setBookingBranchId] = React.useState('');
   const [bookingStaffId, setBookingStaffId] = React.useState('');
@@ -33,20 +94,19 @@ const Dashboard = ({ setActivePage }) => {
   const salonProducts = tenantFilter(db.products);
   const salonStaff = tenantFilter(db.staff);
 
-  // Branch filter helper - uses String() comparison for MongoDB ObjectId safety
+  // Branch filter helper
   const matchBranch = (itemBranchId) => {
-    if (!currentBranch?._id) return true; // no branch selected, show all
-    if (!itemBranchId) return true; // salon-wide items
+    if (!currentBranch?._id) return true;
+    if (!itemBranchId) return true;
     const a = typeof itemBranchId === 'object' ? itemBranchId?._id : itemBranchId;
     return String(a) === String(currentBranch._id);
   };
   const branchInvoices = salonInvoices.filter(i => matchBranch(i.branchId));
   const branchAppointments = salonAppointments.filter(a => matchBranch(a.branchId));
   const branchExpenses = salonExpenses.filter(e => matchBranch(e.branchId));
-  
+
   // Date ranges
   const today = new Date().toLocaleDateString('en-CA');
-  // Get the most recent month from invoices/expenses to keep dashboard populated with seed data
   const getLatestDataMonthStr = () => {
     const dates = [
       ...branchInvoices.map(i => i.createdAt ? i.createdAt.split('T')[0] : ''),
@@ -62,14 +122,14 @@ const Dashboard = ({ setActivePage }) => {
     latestDate.setDate(1);
     return latestDate.toLocaleDateString('en-CA');
   };
-  
+
   const startOfMonthStr = getLatestDataMonthStr();
   const currentMonthName = new Date(startOfMonthStr).toLocaleString('default', { month: 'long' });
 
-  // ----------------------------------------------------
+  // ────────────────────────────────────────────────────────────────────────────
   // CALCULATIONS (PROFIT & LOSS ENGINE)
-  // ----------------------------------------------------
-  
+  // ────────────────────────────────────────────────────────────────────────────
+
   // Today's Revenue
   const todayRevenue = branchInvoices
     .filter(i => i.createdAt && i.createdAt.startsWith(today))
@@ -98,7 +158,7 @@ const Dashboard = ({ setActivePage }) => {
     })
     .reduce((sum, e) => sum + e.amount, 0);
 
-  // Product Inventory material costs from monthly invoices
+  // Material costs
   let monthlyMaterialCost = 0;
   branchInvoices.forEach(inv => {
     inv.services.forEach(item => {
@@ -109,7 +169,24 @@ const Dashboard = ({ setActivePage }) => {
     });
   });
 
+  const todayProfit = todayRevenue - todayExpenses;
   const netProfit = monthlyRevenue - monthlyExpenses - monthlyMaterialCost;
+
+  // Today's Appointments
+  const todayAppointments = branchAppointments.filter(a => a.date === today);
+  const todayAppointmentCount = todayAppointments.length;
+
+  // Total Customers
+  const totalCustomers = salonCustomers.length;
+
+  // New Customers (this month)
+  const newCustomersThisMonth = salonCustomers.filter(c => {
+    if (!c.createdAt) return false;
+    return c.createdAt >= startOfMonthStr;
+  }).length;
+
+  // Active Staff
+  const activeStaffCount = salonStaff.filter(s => s.status === 'Active' || !s.status).length;
 
   // Stock Warnings
   const lowStockAlerts = salonProducts.filter(p => p.quantity <= p.lowStockThreshold);
@@ -120,37 +197,90 @@ const Dashboard = ({ setActivePage }) => {
   // Widget Lists
   const upcomingAppointments = branchAppointments
     .filter(a => a.status !== 'Completed' && a.status !== 'Cancelled')
-    .slice(0, 5);
+    .slice(0, 6);
 
-  const recentPayments = branchInvoices.slice(-4).reverse();
-  const lowStockProductsList = lowStockAlerts.slice(0, 4);
+  const recentPayments = branchInvoices.slice(-5).reverse();
+  const lowStockProductsList = lowStockAlerts.slice(0, 5);
 
+  // Recent Activities (generated from recent invoices & appointments)
+  const recentActivities = React.useMemo(() => {
+    const activities = [];
+
+    // From recent invoices
+    branchInvoices.slice(-4).reverse().forEach(inv => {
+      const client = (() => {
+        if (inv.customerId && typeof inv.customerId === 'object') return inv.customerId;
+        return db.customers.find(c => String(c._id) === String(inv.customerId));
+      })();
+      activities.push({
+        id: `inv-${inv._id}`,
+        type: 'payment',
+        icon: CreditCard,
+        color: 'var(--gold-primary)',
+        title: `Payment received from ${client ? client.name : 'Walk-in'}`,
+        detail: `₹${inv.finalAmount.toLocaleString()} via ${inv.paymentMethod || 'Cash'}`,
+        time: inv.createdAt ? new Date(inv.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Today',
+      });
+    });
+
+    // From recent appointments
+    branchAppointments.slice(-3).reverse().forEach(appt => {
+      const customer = (() => {
+        if (appt.customerId && typeof appt.customerId === 'object') return appt.customerId;
+        return db.customers.find(c => String(c._id) === String(appt.customerId));
+      })();
+      const iconMap = {
+        Completed: CheckCircle2,
+        Cancelled: XCircle,
+        Scheduled: Calendar,
+        'In Progress': Activity,
+      };
+      const colorMap = {
+        Completed: 'var(--accent-green)',
+        Cancelled: 'var(--accent-red)',
+        Scheduled: '#3498db',
+        'In Progress': 'var(--accent-orange)',
+      };
+      activities.push({
+        id: `appt-${appt._id}`,
+        type: 'appointment',
+        icon: iconMap[appt.status] || Calendar,
+        color: colorMap[appt.status] || '#3498db',
+        title: `${appt.status} – ${appt.services.map(s => s.name).join(', ')}`,
+        detail: customer ? customer.name : 'Walk-in client',
+        time: appt.time || 'Scheduled',
+      });
+    });
+
+    return activities.slice(0, 6);
+  }, [branchInvoices, branchAppointments, db.customers]);
+
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // CLIENT DASHBOARD
+  // ════════════════════════════════════════════════════════════════════════════
   if (currentUser.role === 'CLIENT') {
-    // Find all customer profiles for this client across all salons to aggregate stats
     const myCustomerProfiles = db.customers.filter(c => c.email === currentUser.email || (c.phone && c.phone === currentUser.phone));
     const totalLoyaltyPoints = myCustomerProfiles.reduce((sum, c) => sum + (c.loyaltyPoints || 0), 0);
-    
+
     const customerProfile = {
       _id: myCustomerProfiles.length > 0 ? myCustomerProfiles[0]._id : 'guest_cust',
       loyaltyPoints: totalLoyaltyPoints,
-      membershipLevel: myCustomerProfiles.map(c => c.membershipLevel).includes('Platinum') ? 'Platinum' 
-        : (myCustomerProfiles.map(c => c.membershipLevel).includes('Gold') ? 'Gold' 
+      membershipLevel: myCustomerProfiles.map(c => c.membershipLevel).includes('Platinum') ? 'Platinum'
+        : (myCustomerProfiles.map(c => c.membershipLevel).includes('Gold') ? 'Gold'
         : (myCustomerProfiles.map(c => c.membershipLevel).includes('Silver') ? 'Silver' : 'None')),
       name: currentUser.name
     };
 
-    // The GET /appointments endpoint populates customerId into an object.
-    // We match by checking if the ID or email/phone matches any profile of the client.
     const matchesCustomer = (apptCustomerId) => {
       if (!apptCustomerId) return false;
       const targetId = typeof apptCustomerId === 'object' && apptCustomerId !== null
         ? String(apptCustomerId._id)
         : String(apptCustomerId);
-      
+
       const myCustomerIds = myCustomerProfiles.map(c => String(c._id));
       if (myCustomerIds.includes(targetId)) return true;
 
-      // Fallback: check email/phone if populated
       if (typeof apptCustomerId === 'object' && apptCustomerId !== null) {
         if (apptCustomerId.email === currentUser.email) return true;
         if (apptCustomerId.phone && apptCustomerId.phone === currentUser.phone) return true;
@@ -165,17 +295,15 @@ const Dashboard = ({ setActivePage }) => {
     const upcomingMyAppts = myAppointments.filter(a => a.status !== 'Completed' && a.status !== 'Cancelled');
     const pastMyAppts = myAppointments.filter(a => a.status === 'Completed');
 
-    // Favorite staff: find staff from past appointments
     const myStaffIds = pastMyAppts.map(a => a.staffId);
     const favStaffId = myStaffIds.sort((a,b) =>
       myStaffIds.filter(v => v===a).length - myStaffIds.filter(v => v===b).length
     ).pop();
     const favStaff = db.staff.find(s => s._id === favStaffId) || db.staff[0];
 
-    // Exploration variables
     const salonsList = db.salons || [];
-    const filteredSalons = salonsList.filter(s => 
-      s.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    const filteredSalons = salonsList.filter(s =>
+      s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (s.city && s.city.toLowerCase().includes(searchQuery.toLowerCase()))
     );
 
@@ -183,14 +311,12 @@ const Dashboard = ({ setActivePage }) => {
       setSelectedSalon(salon);
       setSelectedService(null);
       setShowBookingModal(false);
-      // Auto select first branch of that salon if available
       const salonBranches = db.branches.filter(b => b.salonId === salon._id);
       if (salonBranches.length > 0) {
         setBookingBranchId(salonBranches[0]._id);
       } else {
         setBookingBranchId('');
       }
-      // Auto select first staff of that salon if available
       const salonStaff = db.staff.filter(st => st.salonId === salon._id);
       if (salonStaff.length > 0) {
         setBookingStaffId(salonStaff[0]._id);
@@ -244,21 +370,19 @@ const Dashboard = ({ setActivePage }) => {
           return;
         }
 
-        // 1. Send notification to the Salon Owner
         addNotification({
           salonId: selectedSalon._id,
-          customerId: null, // Exclude from client feed, direct to Owner
+          customerId: null,
           type: 'Appointment',
           message: `New booking: Client ${currentUser.name} booked ${selectedService.name} on ${bookingDate} at ${bookingTime}.`,
           status: 'Sent'
         });
 
-        // 2. Send confirmation notification to the Client
         const clientProfile = db.customers.find(c => c.email === currentUser.email || (c.phone && c.phone === currentUser.phone));
         if (clientProfile) {
           addNotification({
             customerId: clientProfile._id,
-            salonId: null, // Exclude from Owner's feed, direct to Client
+            salonId: null,
             type: 'Appointment',
             message: `Your booking for ${selectedService.name} at ${selectedSalon.name} is confirmed for ${bookingDate} at ${bookingTime}.`,
             status: 'Sent'
@@ -290,7 +414,7 @@ const Dashboard = ({ setActivePage }) => {
               Track your beauty loyalty status, check-in history, and book upcoming slots.
             </p>
           </div>
-          
+
           {/* Dashboard Tab Switcher */}
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             <button
@@ -357,7 +481,6 @@ const Dashboard = ({ setActivePage }) => {
                     </p>
                   ) : (
                     upcomingMyAppts.map(appt => {
-                      // staffId may be a populated object or a plain ID string
                       const staffId = typeof appt.staffId === 'object' ? appt.staffId?._id : appt.staffId;
                       const salonId = typeof appt.salonId === 'object' ? appt.salonId?._id : appt.salonId;
                       const staff = db.staff.find(s => String(s._id) === String(staffId));
@@ -419,7 +542,6 @@ const Dashboard = ({ setActivePage }) => {
         {/* VIEW 2: EXPLORE SALONS LIST */}
         {activeTab === 'explore' && !selectedSalon && (
           <div style={{ marginBottom: '2rem' }}>
-            {/* Search bar */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
               <h2 style={{ fontSize: '1.2rem', color: 'var(--text-primary)' }}>Partner Salons & Spas</h2>
               <input
@@ -467,11 +589,9 @@ const Dashboard = ({ setActivePage }) => {
                         e.currentTarget.style.boxShadow = 'none';
                       }}
                     >
-                      {/* Salon colour band */}
                       <div style={{ height: '6px', background: 'linear-gradient(90deg, var(--gold-primary) 0%, #b38f20 100%)' }} />
 
                       <div style={{ padding: '1.25rem', flex: 1, display: 'flex', flexDirection: 'column' }}>
-                        {/* Name & type */}
                         <div style={{ marginBottom: '0.75rem' }}>
                           <h4 style={{ color: 'var(--gold-primary)', fontSize: '1.1rem', marginBottom: '0.25rem' }}>{salon.name}</h4>
                           <span style={{
@@ -489,7 +609,6 @@ const Dashboard = ({ setActivePage }) => {
                           </span>
                         </div>
 
-                        {/* Location & phone */}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', marginBottom: '1rem' }}>
                           <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.4rem', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
                             <MapPin size={13} style={{ marginTop: '2px', flexShrink: 0, color: 'var(--gold-primary)' }} />
@@ -503,23 +622,19 @@ const Dashboard = ({ setActivePage }) => {
                           )}
                         </div>
 
-                        {/* Quick stats */}
                         <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
-                          <div style={{ textAlign: 'center', flex: 1, minWidth: '60px', padding: '0.5rem', background: 'rgba(255,255,255,0.03)', borderRadius: '6px', border: '1px solid var(--border-light)' }}>
-                            <div style={{ fontSize: '1.1rem', fontWeight: '700', color: 'var(--gold-primary)' }}>{salonServices.length}</div>
-                            <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: '0.1rem' }}>Services</div>
-                          </div>
-                          <div style={{ textAlign: 'center', flex: 1, minWidth: '60px', padding: '0.5rem', background: 'rgba(255,255,255,0.03)', borderRadius: '6px', border: '1px solid var(--border-light)' }}>
-                            <div style={{ fontSize: '1.1rem', fontWeight: '700', color: 'var(--gold-primary)' }}>{salonStaffList.length}</div>
-                            <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: '0.1rem' }}>Stylists</div>
-                          </div>
-                          <div style={{ textAlign: 'center', flex: 1, minWidth: '60px', padding: '0.5rem', background: 'rgba(255,255,255,0.03)', borderRadius: '6px', border: '1px solid var(--border-light)' }}>
-                            <div style={{ fontSize: '1.1rem', fontWeight: '700', color: 'var(--gold-primary)' }}>{salonBranchesList.length}</div>
-                            <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: '0.1rem' }}>Branches</div>
-                          </div>
+                          {[
+                            { label: 'Services', value: salonServices.length },
+                            { label: 'Stylists', value: salonStaffList.length },
+                            { label: 'Branches', value: salonBranchesList.length },
+                          ].map(stat => (
+                            <div key={stat.label} style={{ textAlign: 'center', flex: 1, minWidth: '60px', padding: '0.5rem', background: 'rgba(255,255,255,0.03)', borderRadius: '6px', border: '1px solid var(--border-light)' }}>
+                              <div style={{ fontSize: '1.1rem', fontWeight: '700', color: 'var(--gold-primary)' }}>{stat.value}</div>
+                              <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: '0.1rem' }}>{stat.label}</div>
+                            </div>
+                          ))}
                         </div>
 
-                        {/* CTA */}
                         <div
                           style={{
                             marginTop: 'auto',
@@ -543,7 +658,7 @@ const Dashboard = ({ setActivePage }) => {
           </div>
         )}
 
-        {/* VIEW 3: SALON DETAIL — Full page, NO sidebar booking by default */}
+        {/* VIEW 3: SALON DETAIL */}
         {activeTab === 'explore' && selectedSalon && (() => {
           const salonServices = db.services.filter(s => s.salonId === selectedSalon._id);
           const salonCats = [...new Set(salonServices.map(s => s.category))];
@@ -552,7 +667,6 @@ const Dashboard = ({ setActivePage }) => {
 
           return (
             <div style={{ marginBottom: '2rem' }}>
-              {/* Back nav */}
               <button
                 onClick={() => { setSelectedSalon(null); setSelectedService(null); }}
                 style={{
@@ -565,7 +679,6 @@ const Dashboard = ({ setActivePage }) => {
                 <ChevronLeft size={16} /> Back to All Salons
               </button>
 
-              {/* ── SALON HERO CARD ────────────────────────────── */}
               <div className="glass-card gold-border" style={{ marginBottom: '1.5rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
                   <div style={{ flex: 1, minWidth: '200px' }}>
@@ -617,7 +730,6 @@ const Dashboard = ({ setActivePage }) => {
                 </div>
               </div>
 
-              {/* ── BRANCHES ───────────────────────────────────── */}
               {salonBranchesList.length > 0 && (
                 <div className="glass-card" style={{ marginBottom: '1.5rem' }}>
                   <h3 style={{ fontSize: '1rem', color: 'var(--gold-primary)', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -648,7 +760,6 @@ const Dashboard = ({ setActivePage }) => {
                 </div>
               )}
 
-              {/* ── TEAM / STAFF ────────────────────────────────── */}
               {salonStaffList.length > 0 && (
                 <div className="glass-card" style={{ marginBottom: '1.5rem' }}>
                   <h3 style={{ fontSize: '1rem', color: 'var(--gold-primary)', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -680,7 +791,6 @@ const Dashboard = ({ setActivePage }) => {
                 </div>
               )}
 
-              {/* ── SERVICES CATALOGUE ──────────────────────────── */}
               <div className="glass-card">
                 <h3 style={{ fontSize: '1rem', color: 'var(--gold-primary)', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                   <Sparkles size={16} /> Services & Treatments
@@ -751,7 +861,7 @@ const Dashboard = ({ setActivePage }) => {
           );
         })()}
 
-        {/* ── BOOKING MODAL ────────────────────────────────── */}
+        {/* BOOKING MODAL */}
         {showBookingModal && selectedService && selectedSalon && (
           <div
             className="modal-backdrop-overlay"
@@ -780,7 +890,6 @@ const Dashboard = ({ setActivePage }) => {
                 position: 'relative'
               }}
             >
-              {/* Close button */}
               <button
                 onClick={handleCloseBookingModal}
                 style={{
@@ -811,7 +920,6 @@ const Dashboard = ({ setActivePage }) => {
                 </div>
               ) : (
                 <form onSubmit={handleBookingSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                  {/* Selected service summary */}
                   <div style={{
                     padding: '0.85rem 1rem',
                     background: 'var(--gold-bg)',
@@ -887,6 +995,9 @@ const Dashboard = ({ setActivePage }) => {
     );
   }
 
+  // ════════════════════════════════════════════════════════════════════════════
+  // STAFF DASHBOARD
+  // ════════════════════════════════════════════════════════════════════════════
   if (currentUser.role === 'STAFF') {
     const myStaff = db.staff.find(s => s.name === currentUser.name || s.phone === currentUser.phone)
       || db.staff.find(s => s.name === "Aarav Sharma")
@@ -974,7 +1085,6 @@ const Dashboard = ({ setActivePage }) => {
 
         {/* Staff Lists: Schedule & Commission Ledgers */}
         <div className="grid-split-2-1" style={{ marginBottom: '2rem' }}>
-          {/* Left panel: My Schedule */}
           <div className="glass-card">
             <h3 style={{ fontSize: '1rem', color: 'var(--text-primary)', marginBottom: '1.25rem' }}>My Schedule Today</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -1012,7 +1122,6 @@ const Dashboard = ({ setActivePage }) => {
             </div>
           </div>
 
-          {/* Right panel: Commission Ledgers */}
           <div className="glass-card">
             <h3 style={{ fontSize: '1rem', color: 'var(--text-primary)', marginBottom: '1.25rem' }}>Recent Commission Ledgers</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
@@ -1053,20 +1162,29 @@ const Dashboard = ({ setActivePage }) => {
     );
   }
 
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // OWNER / MANAGER PREMIUM SAAS DASHBOARD
+  // ════════════════════════════════════════════════════════════════════════════
   return (
-    <div className="page-container animated-fade-in">
-      {/* Header Info */}
-      <div className="page-header">
-        <div>
-          <h1 style={{ fontSize: '1.85rem', color: 'var(--text-primary)' }}>Dashboard Overview</h1>
-          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-            Real-time financial analytics and operational desk logs.
-          </p>
+    <div className="page-container animated-fade-in dash-premium">
+
+      {/* ─── HEADER ───────────────────────────────────────────────────────── */}
+      <div className="dash-hero-header">
+        <div className="dash-hero-left">
+          <div className="dash-hero-greeting">
+            <h1>Dashboard</h1>
+            <p>Real-time business analytics & operational insights</p>
+          </div>
+          <div className="dash-hero-date">
+            <Clock size={14} />
+            <span>{new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
+          </div>
         </div>
-        <div className="flex-mobile-column" style={{ gap: '0.75rem' }}>
+        <div className="dash-hero-actions">
           {['SALON_OWNER', 'FRANCHISE_OWNER', 'SALON_MANAGER'].includes(currentUser.role) && (
             <button onClick={() => setActivePage('billing')} className="gold-btn">
-              <CreditCard size={16} /> Open POS Checkout
+              <CreditCard size={16} /> Open POS
             </button>
           )}
           <button onClick={() => setActivePage('appointments')} className="outline-btn">
@@ -1075,171 +1193,158 @@ const Dashboard = ({ setActivePage }) => {
         </div>
       </div>
 
-      {/* KPI Cards Grid */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
-        gap: '1.25rem',
-        marginBottom: '2rem'
-      }}>
-        {/* Card 1 */}
-        <div className="glass-card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)', marginBottom: '0.75rem' }}>
-            <span style={{ fontSize: '0.8rem', fontWeight: '500' }}>Today's Revenue</span>
-            <TrendingUp size={16} style={{ color: 'var(--gold-primary)' }} />
-          </div>
-          <h3 style={{ fontSize: '1.65rem', color: 'var(--gold-primary)' }}>₹{todayRevenue.toLocaleString()}</h3>
-          <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>Updated live</p>
-        </div>
 
-        {/* Card 2 */}
-        <div className="glass-card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)', marginBottom: '0.75rem' }}>
-            <span style={{ fontSize: '0.8rem', fontWeight: '500' }}>Monthly Revenue</span>
-            <FileText size={16} style={{ color: 'var(--gold-primary)' }} />
-          </div>
-          <h3 style={{ fontSize: '1.65rem', color: 'var(--text-primary)' }}>₹{monthlyRevenue.toLocaleString()}</h3>
-          <p style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>Target: ₹3,00,000</p>
-        </div>
+      {/* ─── KPI CARDS GRID ───────────────────────────────────────────────── */}
+      <div className="dash-kpi-grid">
+        <KpiCard
+          title="Today's Revenue"
+          value={`₹${todayRevenue.toLocaleString()}`}
+          subtitle="Updated live"
+          icon={TrendingUp}
+          iconColor="var(--gold-primary)"
+          glowColor="rgba(112,130,56,0.2)"
+          trend={12.5}
+          trendUp={true}
+          accentBorder="var(--gold-primary)"
+          delay={0}
+        />
+        <KpiCard
+          title="Today's Profit"
+          value={`₹${todayProfit.toLocaleString()}`}
+          subtitle={`Net after ₹${todayExpenses.toLocaleString()} expenses`}
+          icon={DollarSign}
+          iconColor="#2ecc71"
+          glowColor="rgba(46,204,113,0.15)"
+          trend={8.3}
+          trendUp={true}
+          accentBorder="#2ecc71"
+          delay={50}
+        />
+        <KpiCard
+          title="Today's Expenses"
+          value={`₹${todayExpenses.toLocaleString()}`}
+          subtitle="Salary, Rent & Utilities"
+          icon={Receipt}
+          iconColor="var(--accent-red)"
+          trend={3.2}
+          trendUp={false}
+          accentBorder="var(--accent-red)"
+          delay={100}
+        />
+        <KpiCard
+          title="Today's Appointments"
+          value={todayAppointmentCount}
+          subtitle={`${todayAppointments.filter(a => a.status === 'Completed').length} completed`}
+          icon={Calendar}
+          iconColor="#3498db"
+          glowColor="rgba(52,152,219,0.15)"
+          trend={15.7}
+          trendUp={true}
+          accentBorder="#3498db"
+          delay={150}
+        />
+        <KpiCard
+          title="Total Customers"
+          value={totalCustomers}
+          subtitle={`${activeMemberships.length} active members`}
+          icon={Users}
+          iconColor="#9b59b6"
+          trend={5.4}
+          trendUp={true}
+          delay={200}
+        />
+        <KpiCard
+          title="New Customers"
+          value={newCustomersThisMonth || totalCustomers}
+          subtitle={`Acquired in ${currentMonthName}`}
+          icon={UserPlus}
+          iconColor="#2ecc71"
+          trend={22.1}
+          trendUp={true}
+          delay={250}
+        />
+        <KpiCard
+          title="Active Staff"
+          value={activeStaffCount}
+          subtitle="Currently on roster"
+          icon={UserCheck}
+          iconColor="var(--gold-primary)"
+          delay={300}
+        />
+        <KpiCard
+          title="Inventory Alerts"
+          value={lowStockAlerts.length}
+          subtitle={lowStockAlerts.length > 0 ? 'Items need restocking' : 'All items fully stocked'}
+          icon={Package}
+          iconColor={lowStockAlerts.length > 0 ? 'var(--accent-red)' : 'var(--accent-green)'}
+          accentBorder={lowStockAlerts.length > 0 ? 'var(--accent-red)' : undefined}
+          delay={350}
+        />
+      </div>
 
-        {/* Card 3 */}
-        <div className="glass-card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)', marginBottom: '0.75rem' }}>
-            <span style={{ fontSize: '0.8rem', fontWeight: '500' }}>Monthly Expenses</span>
-            <AlertTriangle size={16} style={{ color: 'var(--accent-red)' }} />
-          </div>
-          <h3 style={{ fontSize: '1.65rem', color: 'var(--text-primary)' }}>₹{monthlyExpenses.toLocaleString()}</h3>
-          <p style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>Salary, Rent & Utilities</p>
-        </div>
 
-        {/* Card 4 */}
-        <div className="glass-card gold-border" style={{ background: 'var(--gold-bg)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)', marginBottom: '0.75rem' }}>
-            <span style={{ fontSize: '0.8rem', fontWeight: '600', color: 'var(--gold-primary)' }}>Net Profit ({currentMonthName})</span>
-            <Sparkles size={16} style={{ color: 'var(--gold-primary)' }} />
-          </div>
-          <h3 style={{ fontSize: '1.65rem', color: 'var(--gold-primary)' }}>₹{netProfit.toLocaleString()}</h3>
-          <p style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>Material Deductions Incurred</p>
+      {/* ─── CHARTS ROW 1: Revenue vs Expenses + Monthly Profit ──────── */}
+      <div className="dash-charts-row">
+        <div className="dash-chart-card dash-chart-wide">
+          <SectionHeader icon={BarChart3} title="Revenue vs Expenses" action={() => setActivePage('analytics')} actionLabel="View Analytics" actionIcon={ArrowUpRight} />
+          <RevenueExpenseChart />
         </div>
-
-        {/* Card 5 */}
-        <div className="glass-card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)', marginBottom: '0.75rem' }}>
-            <span style={{ fontSize: '0.8rem', fontWeight: '500' }}>Active Members</span>
-            <Users size={16} style={{ color: 'var(--accent-green)' }} />
-          </div>
-          <h3 style={{ fontSize: '1.65rem', color: 'var(--text-primary)' }}>{activeMemberships.length}</h3>
-          <p style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>Silver, Gold & Platinum</p>
-        </div>
-
-        {/* Card 6 */}
-        <div className="glass-card" style={{ border: lowStockAlerts.length > 0 ? '1px solid rgba(231,76,60,0.3)' : '1px solid var(--border-light)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)', marginBottom: '0.75rem' }}>
-            <span style={{ fontSize: '0.8rem', fontWeight: '500' }}>Low Stock Items</span>
-            <AlertTriangle size={16} style={{ color: lowStockAlerts.length > 0 ? 'var(--accent-red)' : 'var(--text-muted)' }} />
-          </div>
-          <h3 style={{ fontSize: '1.65rem', color: lowStockAlerts.length > 0 ? 'var(--accent-red)' : '#fff' }}>
-            {lowStockAlerts.length}
-          </h3>
-          <p style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>Needs restocking</p>
+        <div className="dash-chart-card">
+          <SectionHeader icon={TrendingUp} title="Monthly Profit" />
+          <MonthlyProfitChart />
         </div>
       </div>
 
-      {/* Analytics Charts Panel */}
-      <div className="grid-split-2-1" style={{ marginBottom: '2rem' }}>
-        <div className="glass-card">
-          <h3 style={{ fontSize: '1rem', color: 'var(--text-primary)', marginBottom: '1rem' }}>Revenue Trends (Last 6 Months)</h3>
-          <RevenueLineChart />
+
+      {/* ─── CHARTS ROW 2: Appointment Trend + Customer Growth + Services */}
+      <div className="dash-charts-row-3">
+        <div className="dash-chart-card">
+          <SectionHeader icon={Calendar} title="Appointment Trend" action={() => setActivePage('appointments')} actionLabel="Schedule" actionIcon={ArrowUpRight} />
+          <AppointmentTrendChart />
         </div>
-        <div className="glass-card">
-          <h3 style={{ fontSize: '1rem', color: 'var(--text-primary)', marginBottom: '1.5rem' }}>Service Category Share</h3>
-          <ServiceShareDonut />
+        <div className="dash-chart-card">
+          <SectionHeader icon={Users} title="Customer Growth" action={() => setActivePage('customers')} actionLabel="View All" actionIcon={ArrowUpRight} />
+          <CustomerGrowthChart />
+        </div>
+        <div className="dash-chart-card">
+          <SectionHeader icon={Sparkles} title="Popular Services" />
+          <PopularServicesDonut />
         </div>
       </div>
 
-      {/* Staff Performance Overview */}
-      <div className="glass-card" style={{ marginBottom: '2rem' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-          <h3 style={{ fontSize: '1rem', color: 'var(--text-primary)' }}>Staff Monthly Performance & Salary</h3>
-          <button onClick={() => setActivePage('staff')} style={{ background: 'transparent', border: 'none', color: 'var(--gold-primary)', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-            View Full Roster <ArrowUpRight size={12} />
-          </button>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
-          {salonStaff.map(member => {
-            const staffInvoices = branchInvoices.filter(inv => {
-              const sid = typeof inv.staffId === 'object' ? inv.staffId?._id : inv.staffId;
-              return String(sid) === String(member._id) && inv.createdAt && inv.createdAt >= startOfMonthStr;
-            });
-            const servicesDone = staffInvoices.reduce((sum, inv) => sum + (inv.services?.length || 0), 0);
-            const revenueGenerated = staffInvoices.reduce((sum, inv) => sum + (inv.finalAmount || 0), 0);
-            const commissionEarned = staffInvoices.reduce((sum, inv) => {
-              const servRev = (inv.services || []).reduce((s, item) => s + ((item.price || 0) * (item.quantity || 1)), 0);
-              return sum + Math.round(servRev * ((member.commissionPercentage || 0) / 100));
-            }, 0);
-            return (
-              <div key={member._id} style={{
-                padding: '1rem',
-                background: 'rgba(255,255,255,0.02)',
-                border: '1px solid var(--border-light)',
-                borderRadius: '6px'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
-                  <div style={{
-                    width: '36px', height: '36px', borderRadius: '50%',
-                    background: 'var(--gold-bg)', border: '1px solid var(--gold-border)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: 'var(--gold-primary)', fontWeight: 'bold', fontSize: '0.9rem'
-                  }}>
-                    {member.name[0]}
+
+      {/* ─── BOTTOM PANELS ────────────────────────────────────────────── */}
+      <div className="dash-bottom-grid">
+
+        {/* Recent Activities */}
+        <div className="dash-panel-card">
+          <SectionHeader icon={Activity} title="Recent Activities" />
+          <div className="dash-activity-list">
+            {recentActivities.length === 0 ? (
+              <p className="dash-empty-state">No recent activities to display.</p>
+            ) : (
+              recentActivities.map((act) => (
+                <div key={act.id} className="dash-activity-item">
+                  <div className="dash-activity-icon" style={{ background: `${act.color}15`, color: act.color }}>
+                    <act.icon size={16} />
                   </div>
-                  <div>
-                    <strong style={{ fontSize: '0.85rem', color: 'var(--text-primary)' }}>{member.name}</strong>
-                    <p style={{ fontSize: '0.65rem', color: 'var(--gold-primary)' }}>{member.role}</p>
+                  <div className="dash-activity-content">
+                    <div className="dash-activity-title">{act.title}</div>
+                    <div className="dash-activity-detail">{act.detail}</div>
                   </div>
+                  <div className="dash-activity-time">{act.time}</div>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: '0.75rem' }}>
-                  <div>
-                    <span style={{ color: 'var(--text-muted)' }}>Services Done</span>
-                    <p style={{ fontWeight: 'bold', color: 'var(--text-primary)' }}>{servicesDone}</p>
-                  </div>
-                  <div>
-                    <span style={{ color: 'var(--text-muted)' }}>Revenue</span>
-                    <p style={{ fontWeight: 'bold', color: 'var(--text-primary)' }}>₹{revenueGenerated.toLocaleString()}</p>
-                  </div>
-                  <div>
-                    <span style={{ color: 'var(--text-muted)' }}>Commission</span>
-                    <p style={{ fontWeight: 'bold', color: 'var(--accent-green)' }}>₹{commissionEarned.toLocaleString()}</p>
-                  </div>
-                  <div>
-                    <span style={{ color: 'var(--text-muted)' }}>Base Salary</span>
-                    <p style={{ fontWeight: 'bold', color: 'var(--text-primary)' }}>₹{(member.salary || 0).toLocaleString()}</p>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-          {salonStaff.length === 0 && (
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', padding: '1rem', textAlign: 'center' }}>No staff members registered yet.</p>
-          )}
+              ))
+            )}
+          </div>
         </div>
-      </div>
 
-      {/* Widgets Grid */}
-      <div className="grid-split-1-5-1">
-        
         {/* Upcoming Appointments */}
-        <div className="glass-card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-            <h3 style={{ fontSize: '1rem', color: 'var(--text-primary)' }}>Upcoming Appointments</h3>
-            <button onClick={() => setActivePage('appointments')} style={{ background: 'transparent', border: 'none', color: 'var(--gold-primary)', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-              View Schedule <ArrowUpRight size={12} />
-            </button>
-          </div>
-          
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <div className="dash-panel-card">
+          <SectionHeader icon={Calendar} title="Upcoming Appointments" action={() => setActivePage('appointments')} actionLabel="View All" actionIcon={ArrowUpRight} />
+          <div className="dash-upcoming-list">
             {upcomingAppointments.length === 0 ? (
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textAlign: 'center', padding: '1rem' }}>No upcoming appointments today.</p>
+              <p className="dash-empty-state">No upcoming appointments.</p>
             ) : (
               upcomingAppointments.map((appt) => {
                 const customer = (() => {
@@ -1251,26 +1356,18 @@ const Dashboard = ({ setActivePage }) => {
                   return db.staff.find(s => String(s._id) === String(sid));
                 })();
                 return (
-                  <div key={appt._id} style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    padding: '0.75rem 1rem',
-                    background: 'rgba(255,255,255,0.02)',
-                    border: '1px solid var(--border-light)',
-                    borderRadius: '6px'
-                  }}>
-                    <div>
-                      <h5 style={{ fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: '600' }}>{customer ? customer.name : 'Walk-in Client'}</h5>
-                      <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.15rem' }}>
-                        {appt.services.map(s => s.name).join(', ')} • Stylist: {staffObj ? staffObj.name : 'Any'}
-                      </p>
+                  <div key={appt._id} className="dash-upcoming-item">
+                    <div className="dash-upcoming-avatar">
+                      {customer ? customer.name.charAt(0) : 'W'}
                     </div>
-                    <div style={{ textAlign: 'right', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                      <div>
-                        <p style={{ fontSize: '0.85rem', color: 'var(--gold-primary)', fontWeight: '600' }}>{appt.time}</p>
-                        <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{appt.date}</p>
+                    <div className="dash-upcoming-info">
+                      <div className="dash-upcoming-name">{customer ? customer.name : 'Walk-in Client'}</div>
+                      <div className="dash-upcoming-service">
+                        {appt.services.map(s => s.name).join(', ')} • {staffObj ? staffObj.name : 'Any'}
                       </div>
+                    </div>
+                    <div className="dash-upcoming-meta">
+                      <div className="dash-upcoming-time">{appt.time}</div>
                       <span className={`badge ${appt.status.toLowerCase().replace(' ', '')}`}>{appt.status}</span>
                     </div>
                   </div>
@@ -1280,56 +1377,87 @@ const Dashboard = ({ setActivePage }) => {
           </div>
         </div>
 
-        {/* Inventory & Expense Recaps */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-          
-          {/* Low Stock Alerts */}
-          <div className="glass-card">
-            <h3 style={{ fontSize: '1rem', color: 'var(--text-primary)', marginBottom: '1rem' }}>Low Stock Inventory Warnings</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+        {/* Quick Actions + Inventory Alerts */}
+        <div className="dash-side-stack">
+          {/* Quick Actions */}
+          <div className="dash-panel-card">
+            <SectionHeader icon={Zap} title="Quick Actions" />
+            <div className="dash-quick-actions">
+              <button className="dash-quick-btn" onClick={() => setActivePage('billing')}>
+                <div className="dash-quick-icon" style={{ background: 'rgba(112,130,56,0.12)', color: 'var(--gold-primary)' }}>
+                  <CreditCard size={18} />
+                </div>
+                <span>New Invoice</span>
+              </button>
+              <button className="dash-quick-btn" onClick={() => setActivePage('appointments')}>
+                <div className="dash-quick-icon" style={{ background: 'rgba(52,152,219,0.12)', color: '#3498db' }}>
+                  <PlusCircle size={18} />
+                </div>
+                <span>Add Appointment</span>
+              </button>
+              <button className="dash-quick-btn" onClick={() => setActivePage('customers')}>
+                <div className="dash-quick-icon" style={{ background: 'rgba(46,204,113,0.12)', color: '#2ecc71' }}>
+                  <UserPlus size={18} />
+                </div>
+                <span>Add Customer</span>
+              </button>
+              <button className="dash-quick-btn" onClick={() => setActivePage('inventory')}>
+                <div className="dash-quick-icon" style={{ background: 'rgba(155,89,182,0.12)', color: '#9b59b6' }}>
+                  <ShoppingBag size={18} />
+                </div>
+                <span>Inventory</span>
+              </button>
+              <button className="dash-quick-btn" onClick={() => setActivePage('staff')}>
+                <div className="dash-quick-icon" style={{ background: 'rgba(230,126,34,0.12)', color: '#e67e22' }}>
+                  <Users size={18} />
+                </div>
+                <span>Manage Staff</span>
+              </button>
+              <button className="dash-quick-btn" onClick={() => setActivePage('analytics')}>
+                <div className="dash-quick-icon" style={{ background: 'rgba(231,76,60,0.12)', color: '#e74c3c' }}>
+                  <BarChart3 size={18} />
+                </div>
+                <span>Analytics</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Inventory Alerts */}
+          <div className="dash-panel-card">
+            <SectionHeader icon={AlertTriangle} title="Inventory Alerts" action={() => setActivePage('inventory')} actionLabel="Manage" actionIcon={ArrowUpRight} />
+            <div className="dash-inventory-list">
               {lowStockProductsList.length === 0 ? (
-                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textAlign: 'center' }}>All product items fully stocked.</p>
+                <div className="dash-empty-state" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', padding: '1.5rem' }}>
+                  <CheckCircle2 size={24} style={{ color: 'var(--accent-green)' }} />
+                  <span>All products fully stocked</span>
+                </div>
               ) : (
                 lowStockProductsList.map((prod) => (
-                  <div key={prod._id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px dashed rgba(255,255,255,0.05)', paddingBottom: '0.5rem' }}>
-                    <div>
-                      <h6 style={{ fontSize: '0.8rem', color: 'var(--text-primary)', fontWeight: '500' }}>{prod.name}</h6>
-                      <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>SKU: {prod.sku}</p>
+                  <div key={prod._id} className="dash-inventory-item">
+                    <div className="dash-inventory-info">
+                      <div className="dash-inventory-name">{prod.name}</div>
+                      <div className="dash-inventory-sku">SKU: {prod.sku}</div>
                     </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <span style={{ color: 'var(--accent-red)', fontWeight: 'bold', fontSize: '0.85rem' }}>{prod.quantity} units</span>
-                      <p style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Threshold: {prod.lowStockThreshold}</p>
+                    <div className="dash-inventory-stock">
+                      <span className="dash-inventory-qty" style={{ color: prod.quantity === 0 ? 'var(--accent-red)' : 'var(--accent-orange)' }}>
+                        {prod.quantity} left
+                      </span>
+                      <div className="dash-inventory-bar">
+                        <div
+                          className="dash-inventory-bar-fill"
+                          style={{
+                            width: `${Math.min((prod.quantity / (prod.lowStockThreshold * 2)) * 100, 100)}%`,
+                            background: prod.quantity === 0 ? 'var(--accent-red)' : 'var(--accent-orange)'
+                          }}
+                        />
+                      </div>
                     </div>
                   </div>
                 ))
               )}
             </div>
           </div>
-
-          {/* Recent Payments */}
-          <div className="glass-card">
-            <h3 style={{ fontSize: '1rem', color: 'var(--text-primary)', marginBottom: '1rem' }}>Recent Checkouts</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              {recentPayments.map((inv) => {
-                const client = (() => {
-                  if (inv.customerId && typeof inv.customerId === 'object') return inv.customerId;
-                  return db.customers.find(c => String(c._id) === String(inv.customerId));
-                })();
-                return (
-                  <div key={inv._id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem' }}>
-                    <div>
-                      <span style={{ color: 'var(--text-primary)', fontWeight: '500' }}>{client ? client.name : 'Walk-in Client'}</span>
-                      <p style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{inv.invoiceNumber} • {inv.paymentMethod}</p>
-                    </div>
-                    <span style={{ color: 'var(--gold-primary)', fontWeight: '600' }}>₹{inv.finalAmount}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
         </div>
-
       </div>
     </div>
   );
