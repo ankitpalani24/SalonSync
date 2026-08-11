@@ -893,7 +893,9 @@ export const AppProvider = ({ children }) => {
       // Configurations
       updateSalonDetails, switchBranch, updateSalonSubscription,
       // Marketing
-      addNotification
+      addNotification,
+      // Toast
+      addToast
     }}>
       {children}
     </AppContext.Provider>
