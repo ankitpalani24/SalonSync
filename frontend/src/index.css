@@ -4480,3 +4480,339 @@ button:disabled {
   margin: 0;
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════════
+   DEDICATED STAFF DASHBOARD STYLES
+   ═══════════════════════════════════════════════════════════════════════════════ */
+.staff-dash-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* Hero Header */
+.staff-dash-hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: var(--border-radius);
+  padding: 1.5rem 2rem;
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--shadow-premium);
+}
+
+.staff-dash-hero-info {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+}
+
+.staff-dash-avatar-badge {
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--gold-primary) 0%, #b38f20 100%);
+  color: #000;
+  font-size: 1.5rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 20px var(--gold-glow);
+  flex-shrink: 0;
+}
+
+.staff-dash-hero-info h1 {
+  font-size: 1.75rem;
+  color: var(--text-primary);
+  margin-bottom: 0.2rem;
+}
+
+.staff-dash-role {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+/* Clock In / Out Banner */
+.staff-clock-banner {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--border-light);
+  border-radius: 10px;
+  padding: 0.65rem 1.25rem;
+}
+
+.staff-clock-status {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.staff-status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent-red);
+  box-shadow: 0 0 10px rgba(231,76,60,0.5);
+
+}
+
+.staff-status-dot.active {
+  background: var(--accent-green);
+  box-shadow: 0 0 10px rgba(46,204,113,0.5);
+}
+
+.staff-clock-label {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.staff-clock-sub {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.staff-clock-btn {
+  padding: 0.45rem 1rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+  transition: var(--transition-smooth);
+}
+
+.staff-clock-btn.out {
+  background: rgba(231,76,60,0.15);
+  color: var(--accent-red);
+  border: 1px solid var(--accent-red-bg);
+}
+
+.staff-clock-btn.out:hover {
+  background: var(--accent-red);
+  color: #fff;
+}
+
+.staff-clock-btn.in {
+  background: var(--gold-primary);
+  color: #000;
+}
+
+/* Staff KPI Grid */
+.staff-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.25rem;
+}
+
+/* Staff Middle Grid (Gauge + Trend Chart) */
+.staff-middle-grid {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr;
+  gap: 1.5rem;
+}
+
+.staff-gauge-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.staff-gauge-content {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  gap: 2rem;
+  align-items: center;
+  padding-top: 0.5rem;
+}
+
+.staff-gauge-left {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.75rem;
+}
+
+.staff-gauge-status strong {
+  display: block;
+  font-size: 0.9rem;
+  color: var(--gold-primary);
+}
+
+.staff-gauge-status span {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+}
+
+.staff-progress-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
+.staff-prog-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.staff-prog-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.staff-prog-header strong {
+  color: var(--text-primary);
+}
+
+.staff-prog-track {
+  width: 100%;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.staff-prog-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.8s ease-in-out;
+}
+
+/* Staff Bottom Grid (Reviews + Schedule) */
+.staff-bottom-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 1.5rem;
+}
+
+/* Reviews List */
+.staff-reviews-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.staff-review-card {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-light);
+  border-radius: 10px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  transition: var(--transition-smooth);
+}
+
+.staff-review-card:hover {
+  border-color: var(--gold-primary);
+  background: var(--gold-bg);
+}
+
+.staff-review-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.staff-review-user {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.staff-review-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--gold-bg);
+  border: 1px solid var(--gold-primary);
+  color: var(--gold-primary);
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+}
+
+.staff-review-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.staff-review-service {
+  font-size: 0.72rem;
+  color: var(--gold-primary);
+}
+
+.staff-review-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.2rem;
+}
+
+.staff-review-stars {
+  display: flex;
+  gap: 2px;
+}
+
+.staff-review-date {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.staff-review-comment {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  font-style: italic;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.staff-review-verified {
+  font-size: 0.68rem;
+  color: var(--accent-green);
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-weight: 600;
+}
+
+/* Responsive Staff Dashboard */
+@media (max-width: 1200px) {
+  .staff-kpi-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .staff-middle-grid,
+  .staff-bottom-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .staff-kpi-grid {
+    grid-template-columns: 1fr;
+  }
+  .staff-gauge-content {
+    grid-template-columns: 1fr;
+  }
+  .staff-dash-hero {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+
