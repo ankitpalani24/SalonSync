@@ -172,21 +172,23 @@ button {
 
 /* Glassmorphic Card Style */
 .glass-card {
-  background: var(--bg-card);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--border-light);
+  background: linear-gradient(135deg, rgba(22, 22, 22, 0.78) 0%, rgba(12, 12, 12, 0.88) 100%);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: var(--border-radius);
   padding: 1.5rem;
-  box-shadow: var(--shadow-premium);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.45);
   transition: var(--transition-smooth);
+  box-sizing: border-border;
+  overflow: hidden;
 }
 
 .glass-card:hover {
   transform: translateY(-2px);
-  border-color: var(--olive-primary);
-  background: var(--bg-card-hover);
-  box-shadow: 0 10px 30px var(--olive-glow);
+  border-color: rgba(112, 130, 56, 0.4);
+  background: linear-gradient(135deg, rgba(32, 36, 22, 0.85) 0%, rgba(18, 18, 18, 0.92) 100%);
+  box-shadow: 0 12px 35px rgba(112, 130, 56, 0.18);
 }
 
 .sidebar-link:hover {
@@ -222,7 +224,7 @@ button {
 
 /* Outline Button */
 .outline-btn {
-  background: transparent;
+  background: rgba(255, 255, 255, 0.02);
   color: var(--text-primary);
   border: 1px solid var(--gold-primary);
   padding: 0.75rem 1.5rem;
@@ -233,6 +235,7 @@ button {
   align-items: center;
   gap: 0.5rem;
   font-size: 0.9rem;
+  backdrop-filter: blur(8px);
 }
 
 .outline-btn:hover {
@@ -241,10 +244,13 @@ button {
   color: var(--gold-primary);
 }
 
-/* Layout Classes */
+/* Layout Classes & Grid Responsiveness */
 .app-container {
   display: flex;
   min-height: 100vh;
+  width: 100vw;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 .main-content {
@@ -255,8 +261,8 @@ button {
   overflow-y: auto;
   overflow-x: hidden;
   position: relative;
-  /* Ensure sticky header inside this container works correctly */
   min-height: 0;
+  max-width: 100%;
 }
 
 .page-container {
@@ -264,6 +270,131 @@ button {
   max-width: 1600px;
   width: 100%;
   margin: 0 auto;
+  box-sizing: border-box;
+  overflow-x: hidden;
+}
+
+/* Universal Grid System Safeguards */
+.dash-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.25rem;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 1.5rem;
+}
+
+.dash-charts-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  gap: 1.5rem;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 1.5rem;
+}
+
+.dash-charts-row-3 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 1.5rem;
+}
+
+.dash-bottom-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 1.5rem;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.crm-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.25rem;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 1.5rem;
+}
+
+.crm-main-workspace {
+  display: grid;
+  grid-template-columns: 340px minmax(0, 1fr);
+  gap: 1.5rem;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  align-items: start;
+}
+
+.grid-4-cols {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.25rem;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.grid-3-cols {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1.25rem;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.grid-2-cols {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.25rem;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.grid-2-cols-split {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 1.5rem;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.grid-split-3-1-2 {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  gap: 1.5rem;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+@media (max-width: 1024px) {
+  .crm-main-workspace {
+    grid-template-columns: 1fr;
+  }
+  .grid-split-3-1-2 {
+    grid-template-columns: 1fr;
+  }
+  .dash-charts-row {
+    grid-template-columns: 1fr;
+  }
+  .dash-bottom-grid {
+    grid-template-columns: 1fr;
+  }
+  .page-container {
+    padding: 1.25rem;
+  }
 }
 
 /* Forms & Inputs */
