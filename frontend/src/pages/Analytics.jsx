@@ -6,13 +6,6 @@ import {
   ArrowDownRight, PieChart, Activity, ShoppingBag, CheckCircle2, ChevronRight
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import {
-  RevenueExpenseChart,
-  MonthlyProfitChart,
-  AppointmentTrendChart,
-  CustomerGrowthChart,
-  PopularServicesDonut
-} from '../components/DashboardCharts';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // PEAK HOURS BAR CHART COMPONENT
@@ -389,57 +382,18 @@ const Analytics = () => {
       </div>
 
 
-      {/* ─── 1. P&L FINANCIAL LEDGER SUMMARY ───────────────────────────────── */}
+      {/* ─── 1. P&L FINANCIAL LEDGER STATEMENT ─────────────────────────────── */}
       <div className="glass-card gold-border" style={{ padding: '1.75rem', marginBottom: '1.5rem', background: 'var(--gold-bg)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
           <h3 style={{ fontSize: '1.05rem', color: 'var(--gold-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <DollarSign size={18} /> Profit & Loss Statement (P&L Ledger) — [{dateRange}]
+            <DollarSign size={18} /> Financial P&L Operating Statement — [{dateRange}]
           </h3>
           <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', background: 'rgba(255,255,255,0.05)', padding: '0.2rem 0.6rem', borderRadius: '12px', border: '1px solid var(--border-light)' }}>
-            Margin: <strong style={{ color: 'var(--gold-primary)' }}>{profitMargin}%</strong>
+            Operating Profit Margin: <strong style={{ color: 'var(--gold-primary)' }}>{profitMargin}%</strong>
           </span>
         </div>
 
         <div className="dash-kpi-grid">
-          {/* Revenue */}
-          <div className="dash-kpi-card" style={{ borderLeft: '3px solid var(--gold-primary)' }}>
-            <div className="dash-kpi-header">
-              <div className="dash-kpi-icon" style={{ background: 'var(--gold-bg)', color: 'var(--gold-primary)' }}>
-                <TrendingUp size={20} />
-              </div>
-              <span className="dash-kpi-trend up">+14.2%</span>
-            </div>
-            <div className="dash-kpi-value" style={{ color: 'var(--gold-primary)' }}>₹{totalRevenue.toLocaleString()}</div>
-            <div className="dash-kpi-title">Gross Revenue</div>
-            <div className="dash-kpi-subtitle">Completed checkouts total</div>
-          </div>
-
-          {/* Material Cost */}
-          <div className="dash-kpi-card" style={{ borderLeft: '3px solid #e67e22' }}>
-            <div className="dash-kpi-header">
-              <div className="dash-kpi-icon" style={{ background: 'rgba(230,126,34,0.12)', color: '#e67e22' }}>
-                <Scissors size={20} />
-              </div>
-              <span className="dash-kpi-trend down">Treatment Stock</span>
-            </div>
-            <div className="dash-kpi-value">₹{totalMaterialCost.toLocaleString()}</div>
-            <div className="dash-kpi-title">Material Cost</div>
-            <div className="dash-kpi-subtitle">Product consumption cost</div>
-          </div>
-
-          {/* Operating Expenses */}
-          <div className="dash-kpi-card" style={{ borderLeft: '3px solid var(--accent-red)' }}>
-            <div className="dash-kpi-header">
-              <div className="dash-kpi-icon" style={{ background: 'rgba(231,76,60,0.12)', color: 'var(--accent-red)' }}>
-                <DollarSign size={20} />
-              </div>
-              <span className="dash-kpi-trend down">Rent & Salaries</span>
-            </div>
-            <div className="dash-kpi-value">₹{totalExpenses.toLocaleString()}</div>
-            <div className="dash-kpi-title">Operating Expenses</div>
-            <div className="dash-kpi-subtitle">Salaries, Rent & Utilities</div>
-          </div>
-
           {/* Net Operating Profit */}
           <div className="dash-kpi-card" style={{ borderLeft: '3px solid #2ecc71' }}>
             <div className="dash-kpi-header">
@@ -452,91 +406,61 @@ const Analytics = () => {
             <div className="dash-kpi-title">Net Operating Profit</div>
             <div className="dash-kpi-subtitle">Revenue - Expenses - Material</div>
           </div>
+
+          {/* Material Cost */}
+          <div className="dash-kpi-card" style={{ borderLeft: '3px solid #e67e22' }}>
+            <div className="dash-kpi-header">
+              <div className="dash-kpi-icon" style={{ background: 'rgba(230,126,34,0.12)', color: '#e67e22' }}>
+                <Scissors size={20} />
+              </div>
+              <span className="dash-kpi-trend down">Treatment Consumables</span>
+            </div>
+            <div className="dash-kpi-value">₹{totalMaterialCost.toLocaleString()}</div>
+            <div className="dash-kpi-title">Material Cost</div>
+            <div className="dash-kpi-subtitle">Product consumption cost</div>
+          </div>
+
+          {/* Repeat Customer Rate */}
+          <div className="dash-kpi-card" style={{ borderLeft: '3px solid #9b59b6' }}>
+            <div className="dash-kpi-header">
+              <div className="dash-kpi-icon" style={{ background: 'rgba(155,89,182,0.12)', color: '#9b59b6' }}>
+                <RefreshCw size={20} />
+              </div>
+              <span className="dash-kpi-trend up">{repeatCustomerCount} Loyal Clients</span>
+            </div>
+            <div className="dash-kpi-value" style={{ color: '#9b59b6' }}>{repeatRate}% Retention</div>
+            <div className="dash-kpi-title">Repeat Customer Rate</div>
+            <div className="dash-kpi-subtitle">Clients returned 2+ times</div>
+          </div>
+
+          {/* Average Order Value (AOV) */}
+          <div className="dash-kpi-card" style={{ borderLeft: '3px solid var(--gold-primary)' }}>
+            <div className="dash-kpi-header">
+              <div className="dash-kpi-icon" style={{ background: 'var(--gold-bg)', color: 'var(--gold-primary)' }}>
+                <ShoppingBag size={20} />
+              </div>
+              <span className="dash-kpi-trend up">{invoices.length} Receipts</span>
+            </div>
+            <div className="dash-kpi-value" style={{ color: 'var(--gold-primary)' }}>₹{averageBill.toLocaleString()}</div>
+            <div className="dash-kpi-title">Average Bill Value (AOV)</div>
+            <div className="dash-kpi-subtitle">Per checkout average</div>
+          </div>
         </div>
       </div>
 
 
-      {/* ─── 2. SECONDARY KPI INDICATORS GRID ─────────────────────────────── */}
-      <div className="dash-kpi-grid" style={{ marginBottom: '1.5rem' }}>
-        
-        {/* Customer Growth */}
-        <div className="dash-kpi-card" style={{ borderLeft: '3px solid #3498db' }}>
-          <div className="dash-kpi-header">
-            <div className="dash-kpi-icon" style={{ background: 'rgba(52,152,219,0.12)', color: '#3498db' }}>
-              <Users size={20} />
-            </div>
-            <span className="dash-kpi-trend up">Total: {totalCustomersCount}</span>
+      {/* ─── 2. PEAK HOURS CAPACITY UTILIZATION CHART ──────────────────────── */}
+      <div className="dash-chart-card" style={{ marginBottom: '1.5rem' }}>
+        <div className="dash-section-header">
+          <div className="dash-section-title">
+            <Clock size={18} style={{ color: 'var(--gold-primary)' }} />
+            <h3>Peak Hours Checkout & Salon Capacity Distribution</h3>
           </div>
-          <div className="dash-kpi-value">+{newCustomersCount} New</div>
-          <div className="dash-kpi-title">Customer Growth</div>
-          <div className="dash-kpi-subtitle">Acquired in this period</div>
+          <span style={{ fontSize: '0.75rem', color: 'var(--gold-primary)', fontWeight: '600' }}>
+            Busiest Time Slot: {peakHourSlot} ({maxHourVal} checkouts)
+          </span>
         </div>
-
-        {/* Repeat Customer Rate */}
-        <div className="dash-kpi-card" style={{ borderLeft: '3px solid #9b59b6' }}>
-          <div className="dash-kpi-header">
-            <div className="dash-kpi-icon" style={{ background: 'rgba(155,89,182,0.12)', color: '#9b59b6' }}>
-              <RefreshCw size={20} />
-            </div>
-            <span className="dash-kpi-trend up">{repeatCustomerCount} Clients</span>
-          </div>
-          <div className="dash-kpi-value" style={{ color: '#9b59b6' }}>{repeatRate}% Retention</div>
-          <div className="dash-kpi-title">Repeat Customers</div>
-          <div className="dash-kpi-subtitle">Returned 2+ times</div>
-        </div>
-
-        {/* Average Order Value (AOV) */}
-        <div className="dash-kpi-card" style={{ borderLeft: '3px solid var(--gold-primary)' }}>
-          <div className="dash-kpi-header">
-            <div className="dash-kpi-icon" style={{ background: 'var(--gold-bg)', color: 'var(--gold-primary)' }}>
-              <ShoppingBag size={20} />
-            </div>
-            <span className="dash-kpi-trend up">{invoices.length} Bills</span>
-          </div>
-          <div className="dash-kpi-value" style={{ color: 'var(--gold-primary)' }}>₹{averageBill.toLocaleString()}</div>
-          <div className="dash-kpi-title">Average Bill Value (AOV)</div>
-          <div className="dash-kpi-subtitle">Per checkout average</div>
-        </div>
-
-        {/* Peak Hours Indicator */}
-        <div className="dash-kpi-card" style={{ borderLeft: '3px solid #1abc9c' }}>
-          <div className="dash-kpi-header">
-            <div className="dash-kpi-icon" style={{ background: 'rgba(26,188,156,0.12)', color: '#1abc9c' }}>
-              <Clock size={20} />
-            </div>
-            <span className="dash-kpi-trend up">High Footfall</span>
-          </div>
-          <div className="dash-kpi-value" style={{ color: '#1abc9c' }}>{peakHourSlot}</div>
-          <div className="dash-kpi-title">Peak Business Slot</div>
-          <div className="dash-kpi-subtitle">Busiest salon checkout hour</div>
-        </div>
-
-      </div>
-
-
-      {/* ─── 3. CHARTS ROW 1: REVENUE vs EXPENSES & PEAK HOURS ─────────────── */}
-      <div className="dash-charts-row" style={{ marginBottom: '1.5rem' }}>
-        {/* Chart 1: Revenue vs Expenses */}
-        <div className="dash-chart-card">
-          <div className="dash-section-header">
-            <div className="dash-section-title">
-              <BarChart3 size={18} style={{ color: 'var(--gold-primary)' }} />
-              <h3>Revenue vs Expenses Comparison</h3>
-            </div>
-          </div>
-          <RevenueExpenseChart />
-        </div>
-
-        {/* Chart 2: Peak Hours Distribution */}
-        <div className="dash-chart-card">
-          <div className="dash-section-header">
-            <div className="dash-section-title">
-              <Clock size={18} style={{ color: 'var(--gold-primary)' }} />
-              <h3>Peak Hours Checkout Distribution</h3>
-            </div>
-          </div>
-          <PeakHoursChart hourlyData={hourlyData} />
-        </div>
+        <PeakHoursChart hourlyData={hourlyData} />
       </div>
 
 
