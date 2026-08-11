@@ -1,8 +1,7 @@
 // ──────────────────────────────────────────────────────────────
-// SalonSync PWA Service Worker — Auto-Update Enabled
-// Bump CACHE_VERSION on every deploy to trigger update cycle
+// SalonSync PWA Service Worker — Network-First Live Updates
 // ──────────────────────────────────────────────────────────────
-const CACHE_VERSION = 'salonsync-cache-v3';
+const CACHE_VERSION = 'salonsync-live-v12';
 
 const ASSETS_TO_PRECACHE = [
   '/',
@@ -16,7 +15,7 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_VERSION)
       .then((cache) => cache.addAll(ASSETS_TO_PRECACHE))
-      .then(() => self.skipWaiting()) // Activate new SW immediately, don't wait for tabs to close
+      .then(() => self.skipWaiting())
   );
 });
 
@@ -34,15 +33,15 @@ self.addEventListener('activate', (event) => {
           })
         );
       })
-      .then(() => self.clients.claim()) // Take control of all open pages immediately
+      .then(() => self.clients.claim())
   );
 });
 
-// ── FETCH: Network-first for pages, cache-first for static assets ──
+// ── FETCH: NETWORK-FIRST strategy to guarantee fresh code on every deploy ──
 self.addEventListener('fetch', (event) => {
   const { request } = event;
 
-  // Skip non-GET, API calls, and external requests entirely
+  // Skip non-GET, API calls, and external requests
   if (
     request.method !== 'GET' ||
     request.url.includes('/api/') ||
@@ -51,48 +50,23 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Navigation requests (HTML pages): NETWORK-FIRST
-  // Always try to fetch the latest version from the server
-  if (request.mode === 'navigate') {
-    event.respondWith(
-      fetch(request)
-        .then((response) => {
-          // Cache the latest page for offline fallback
-          const clone = response.clone();
-          caches.open(CACHE_VERSION).then((cache) => cache.put(request, clone));
-          return response;
-        })
-        .catch(() => {
-          // Offline fallback: serve cached index.html
-          return caches.match('/index.html');
-        })
-    );
-    return;
-  }
-
-  // Static assets (JS, CSS, images, fonts): CACHE-FIRST with network fallback
+  // Network-First for ALL requests (HTML, JS, CSS) to prevent stale cache issues
   event.respondWith(
-    caches.match(request).then((cachedResponse) => {
-      if (cachedResponse) {
-        return cachedResponse;
-      }
-      return fetch(request)
-        .then((response) => {
-          if (!response || response.status !== 200 || response.type !== 'basic') {
-            return response;
-          }
+    fetch(request)
+      .then((response) => {
+        if (response && response.status === 200) {
           const clone = response.clone();
           caches.open(CACHE_VERSION).then((cache) => cache.put(request, clone));
-          return response;
-        })
-        .catch(() => {
-          // Asset not available offline — fail silently
-        });
-    })
+        }
+        return response;
+      })
+      .catch(() => {
+        // Fallback to cache if network is completely offline
+        return caches.match(request).then((cached) => cached || caches.match('/index.html'));
+      })
   );
 });
 
-// ── MESSAGE: Listen for skip-waiting command from the client ──
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();

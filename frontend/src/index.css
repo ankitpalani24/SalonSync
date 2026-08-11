@@ -4967,8 +4967,105 @@ button:disabled {
   }
 }
 
-/* Business Intelligence Page Styles */
-.bi-container {
-  display: flex;
-  flex-direction: column;
+/* Mobile Sidebar Drawer & Backdrop Controls */
+.hamburger-btn {
+  display: flex !important;
+}
+
+@media (min-width: 1025px) {
+  .hamburger-btn {
+    display: none !important;
+  }
+}
+
+.sidebar-container {
+  display: block;
+  height: 100vh;
+}
+
+@media (max-width: 1024px) {
+  .sidebar-container {
+    position: fixed;
+    top: 0;
+    left: -280px;
+    height: 100vh;
+    z-index: 1000;
+    transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  }
+
+  .sidebar-container.open {
+    transform: translateX(280px);
+    box-shadow: 10px 0 30px rgba(0, 0, 0, 0.85);
+  }
+
+  .sidebar-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    z-index: 999;
+    animation: fadeIn 0.2s ease-out;
+  }
+
+  .page-container {
+    padding: 1rem 0.75rem !important;
+  }
+
+  .main-header {
+    padding: 0 1rem !important;
+  }
+
+  .header-brand-title {
+    font-size: 1rem !important;
+  }
+
+  .hide-mobile {
+    display: none !important;
+  }
+
+  .flex-mobile-column {
+    flex-direction: column !important;
+    width: 100% !important;
+  }
+
+  .table-responsive {
+    width: 100% !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    display: block !important;
+  }
+
+  .modal-scrollable-content {
+    max-width: 95vw !important;
+    width: 95vw !important;
+    padding: 1.25rem !important;
+    margin: 0 auto !important;
+  }
+}
+
+@media (max-width: 600px) {
+  .dash-kpi-grid,
+  .crm-summary-grid,
+  .grid-4-cols,
+  .grid-3-cols,
+  .grid-2-cols,
+  .grid-2-cols-split,
+  .dash-charts-row,
+  .dash-charts-row-3,
+  .dash-bottom-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .header-user-details p {
+    font-size: 0.75rem !important;
+  }
+
+  .gold-btn, .outline-btn {
+    width: 100% !important;
+    justify-content: center !important;
+  }
 }
