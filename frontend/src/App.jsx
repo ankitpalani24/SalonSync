@@ -43,6 +43,15 @@ function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  // Scroll to top on page change and initial load/refresh
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    document.body.scrollTop = 0;
+    document.documentElement.scrollTop = 0;
+    const mainContent = document.querySelector('.main-content');
+    if (mainContent) mainContent.scrollTop = 0;
+  }, [activePage]);
+
   // Transfer state for checking out appointments
   const [selectedApptForCheckout, setSelectedApptForCheckout] = useState(null);
 

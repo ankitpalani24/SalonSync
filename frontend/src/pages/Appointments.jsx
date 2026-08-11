@@ -82,7 +82,7 @@ const Appointments = ({ setActivePage, setSelectedApptForCheckout }) => {
   const customerProfile = currentUser?.role === 'CLIENT' ? db.customers.find(c => c.email === currentUser.email) : null;
 
   // View States
-  const [viewType, setViewType] = useState('week'); // 'day', 'week', 'month', 'staff'
+  const [viewType, setViewType] = useState('month'); // Default to month view
   const [currentDate, setCurrentDate] = useState(new Date());
 
   // Search & Filters
