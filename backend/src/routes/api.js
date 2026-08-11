@@ -8,7 +8,8 @@ const { protect, authorize, restrictToTenant } = require('../middleware/auth');
 
 // Database connection readiness check middleware
 router.use((req, res, next) => {
-  if (mongoose.connection.readyState !== 1) {
+  // 0: disconnected, 1: connected, 2: connecting, 3: disconnecting
+  if (mongoose.connection.readyState === 0) {
     return res.status(503).json({
       success: false,
       message: 'Database connection is offline. Please authorize your IP in MongoDB Atlas or switch to Demo Mode on the client.'
@@ -23,6 +24,27 @@ const generateToken = (id) => {
     expiresIn: '30d',
   });
 };
+
+// Public Endpoints (accessible without login)
+// @route   GET /api/salons
+router.get('/salons', async (req, res) => {
+  try {
+    const salons = await models.Salon.find({});
+    res.json({ success: true, data: salons });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// @route   GET /api/public/services
+router.get('/public/services', async (req, res) => {
+  try {
+    const services = await models.Service.find({});
+    res.json({ success: true, data: services });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
 
 // ----------------------------------------------------
 // AUTHENTICATION SYSTEM
@@ -201,17 +223,6 @@ router.post('/auth/reset-password', (req, res) => {
 // MULTI-TENANT MIDDLEWARES ON CORE ROUTES
 // ----------------------------------------------------
 router.use(protect);
-
-// @route   GET /api/salons
-// @desc    Get all salons (accessible to all authenticated users, e.g. clients)
-router.get('/salons', async (req, res) => {
-  try {
-    const salons = await models.Salon.find({});
-    res.json({ success: true, data: salons });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
 
 router.use(restrictToTenant);
 
@@ -872,8 +883,15 @@ router.put('/superadmin/salons/:id/subscription', authorize('SUPER_ADMIN'), asyn
 // @route   GET /api/salons/mine
 router.get('/salons/mine', async (req, res) => {
   try {
+    if (!req.user.salonId) {
+      const salon = await models.Salon.findOne({});
+      return res.json({ success: true, data: salon });
+    }
     const salon = await models.Salon.findById(req.user.salonId);
-    if (!salon) return res.status(404).json({ success: false, message: 'Salon not found' });
+    if (!salon) {
+      const fallback = await models.Salon.findOne({});
+      return res.json({ success: true, data: fallback });
+    }
     res.json({ success: true, data: salon });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

@@ -98,138 +98,144 @@ export const AppProvider = ({ children }) => {
     }
   }, [darkMode]);
 
+  // Fetch public data for unauthenticated guests
+  const syncPublicData = async () => {
+    try {
+      const [salonsRes, servicesRes] = await Promise.allSettled([
+        fetch(`${API_URL}/salons`),
+        fetch(`${API_URL}/public/services`)
+      ]);
+      
+      let fetchedSalons = null;
+      let fetchedServices = null;
+
+      if (salonsRes.status === 'fulfilled') {
+        const data = await salonsRes.value.json();
+        if (data.success && Array.isArray(data.data)) fetchedSalons = data.data;
+      }
+      if (servicesRes.status === 'fulfilled') {
+        const data = await servicesRes.value.json();
+        if (data.success && Array.isArray(data.data)) fetchedServices = data.data;
+      }
+
+      if (fetchedSalons || fetchedServices) {
+        setDb(prev => {
+          const updated = {
+            ...prev,
+            salons: fetchedSalons || prev.salons,
+            services: fetchedServices || prev.services
+          };
+          if (fetchedSalons) localStorage.setItem('sf_salons', JSON.stringify(fetchedSalons));
+          if (fetchedServices) localStorage.setItem('sf_services', JSON.stringify(fetchedServices));
+          return updated;
+        });
+      }
+    } catch (err) {
+      console.error('Failed to sync public backend data:', err);
+    }
+  };
+
   // Sync all collection data from backend DB
   const syncBackendData = async (token = localStorage.getItem('token'), user = currentUser) => {
     if (!token) return;
     try {
       const headers = { 'Authorization': `Bearer ${token}` };
       
-      // Fetch active salon
-      const salonRes = await fetch(`${API_URL}/salons/mine`, { headers });
-      const salonData = await salonRes.json();
-      if (salonData.success) {
-        setCurrentSalon(salonData.data);
-        localStorage.setItem('salon', JSON.stringify(salonData.data));
+      // Fetch active salon safely
+      try {
+        const salonRes = await fetch(`${API_URL}/salons/mine`, { headers });
+        const salonData = await salonRes.json();
+        if (salonData.success && salonData.data) {
+          setCurrentSalon(salonData.data);
+          localStorage.setItem('salon', JSON.stringify(salonData.data));
+        }
+      } catch (e) {
+        console.warn('Could not fetch salon details:', e.message);
       }
 
-      // Fetch branches
-      const branchRes = await fetch(`${API_URL}/branches`, { headers });
-      const branchData = await branchRes.json();
+      // Fetch branches safely
       let activeBranches = [];
-      if (branchData.success) {
-        activeBranches = branchData.data;
-        const local = localStorage.getItem('branch');
-        let validLocalBranch = null;
+      try {
+        const branchRes = await fetch(`${API_URL}/branches`, { headers });
+        const branchData = await branchRes.json();
+        if (branchData.success && Array.isArray(branchData.data)) {
+          activeBranches = branchData.data;
+          const local = localStorage.getItem('branch');
+          let validLocalBranch = null;
 
-        if (local) {
-          try {
-            const parsed = safeParse(local);
-            const userSalonId = user ? (typeof user.salonId === 'object' ? user.salonId?._id : user.salonId) : null;
-            const branchSalonId = parsed ? (typeof parsed.salonId === 'object' ? parsed.salonId?._id : parsed.salonId) : null;
-            
-            // Verify branch belongs to the logged-in salon and exists in fetched branches
-            if (userSalonId && String(branchSalonId) === String(userSalonId) && activeBranches.some(b => String(b._id) === String(parsed._id))) {
-              validLocalBranch = parsed;
+          if (local) {
+            try {
+              const parsed = safeParse(local);
+              const userSalonId = user ? (typeof user.salonId === 'object' ? user.salonId?._id : user.salonId) : null;
+              const branchSalonId = parsed ? (typeof parsed.salonId === 'object' ? parsed.salonId?._id : parsed.salonId) : null;
+              
+              if (userSalonId && String(branchSalonId) === String(userSalonId) && activeBranches.some(b => String(b._id) === String(parsed._id))) {
+                validLocalBranch = parsed;
+              }
+            } catch (e) {
+              console.error('Error parsing branch from localStorage:', e);
             }
-          } catch (e) {
-            console.error('Error parsing branch from localStorage:', e);
           }
-        }
 
-        if (validLocalBranch) {
-          setCurrentBranch(validLocalBranch);
-        } else {
-          // Clear stale localStorage branch
-          localStorage.removeItem('branch');
-
-          // Fallback to user's assigned branch or first branch in active list
-          const targetBranchId = user ? (typeof user.branchId === 'object' ? user.branchId?._id : user.branchId) : null;
-          const userB = targetBranchId ? activeBranches.find(b => String(b._id) === String(targetBranchId)) : null;
-
-          if (userB) {
-            setCurrentBranch(userB);
-            localStorage.setItem('branch', JSON.stringify(userB));
-          } else if (activeBranches.length > 0) {
-            setCurrentBranch(activeBranches[0]);
-            localStorage.setItem('branch', JSON.stringify(activeBranches[0]));
+          if (validLocalBranch) {
+            setCurrentBranch(validLocalBranch);
           } else {
-            setCurrentBranch(null);
+            localStorage.removeItem('branch');
+            const targetBranchId = user ? (typeof user.branchId === 'object' ? user.branchId?._id : user.branchId) : null;
+            const userB = targetBranchId ? activeBranches.find(b => String(b._id) === String(targetBranchId)) : null;
+
+            if (userB) {
+              setCurrentBranch(userB);
+              localStorage.setItem('branch', JSON.stringify(userB));
+            } else if (activeBranches.length > 0) {
+              setCurrentBranch(activeBranches[0]);
+              localStorage.setItem('branch', JSON.stringify(activeBranches[0]));
+            } else {
+              setCurrentBranch(null);
+            }
           }
         }
+      } catch (e) {
+        console.warn('Could not fetch branches:', e.message);
       }
 
-      // Fetch other collections
-      const [
-        customersRes,
-        appointmentsRes,
-        servicesRes,
-        packagesRes,
-        expensesRes,
-        invoicesRes,
-        productsRes,
-        suppliersRes,
-        staffRes,
-        attendanceRes,
-        commissionsRes,
-        salonsRes
-      ] = await Promise.all([
-        fetch(`${API_URL}/customers`, { headers }),
-        fetch(`${API_URL}/appointments`, { headers }),
-        fetch(`${API_URL}/services`, { headers }),
-        fetch(`${API_URL}/packages`, { headers }),
-        fetch(`${API_URL}/expenses`, { headers }),
-        fetch(`${API_URL}/invoices`, { headers }),
-        fetch(`${API_URL}/products`, { headers }),
-        fetch(`${API_URL}/suppliers`, { headers }),
-        fetch(`${API_URL}/staff`, { headers }),
-        fetch(`${API_URL}/attendance`, { headers }),
-        fetch(`${API_URL}/commissions`, { headers }),
-        fetch(`${API_URL}/salons`, { headers })
-      ]);
+      // Fetch other collections with Promise.allSettled for maximum fault tolerance
+      const endpointKeys = [
+        ['customers', 'sf_customers'],
+        ['appointments', 'sf_appointments'],
+        ['services', 'sf_services'],
+        ['packages', 'sf_packages'],
+        ['expenses', 'sf_expenses'],
+        ['invoices', 'sf_invoices'],
+        ['products', 'sf_products'],
+        ['suppliers', 'sf_suppliers'],
+        ['staff', 'sf_staff'],
+        ['attendance', 'sf_attendance'],
+        ['commissions', 'sf_commissions'],
+        ['salons', 'sf_salons']
+      ];
 
-      const [
-        customers,
-        appointments,
-        services,
-        packages,
-        expenses,
-        invoices,
-        products,
-        suppliers,
-        staff,
-        attendance,
-        commissions,
-        salons
-      ] = await Promise.all([
-        customersRes.json(),
-        appointmentsRes.json(),
-        servicesRes.json(),
-        packagesRes.json(),
-        expensesRes.json(),
-        invoicesRes.json(),
-        productsRes.json(),
-        suppliersRes.json(),
-        staffRes.json(),
-        attendanceRes.json(),
-        commissionsRes.json(),
-        salonsRes.json()
-      ]);
+      const results = await Promise.allSettled(
+        endpointKeys.map(([ep]) => fetch(`${API_URL}/${ep}`, { headers }).then(r => r.json()))
+      );
+
+      const updates = {};
+      results.forEach((res, index) => {
+        const [epKey, storageKey] = endpointKeys[index];
+        if (res.status === 'fulfilled' && res.value && res.value.success && Array.isArray(res.value.data)) {
+          updates[epKey] = res.value.data;
+          localStorage.setItem(storageKey, JSON.stringify(res.value.data));
+        }
+      });
+
+      if (activeBranches.length > 0) {
+        updates['branches'] = activeBranches;
+        localStorage.setItem('sf_branches', JSON.stringify(activeBranches));
+      }
 
       setDb(prev => ({
         ...prev,
-        branches: activeBranches.length > 0 ? activeBranches : prev.branches,
-        customers: customers.success ? customers.data : prev.customers,
-        appointments: appointments.success ? appointments.data : prev.appointments,
-        services: services.success ? services.data : prev.services,
-        packages: packages.success ? packages.data : prev.packages,
-        expenses: expenses.success ? expenses.data : prev.expenses,
-        invoices: invoices.success ? invoices.data : prev.invoices,
-        products: products.success ? products.data : prev.products,
-        suppliers: suppliers.success ? suppliers.data : prev.suppliers,
-        staff: staff.success ? staff.data : prev.staff,
-        attendance: attendance.success ? attendance.data : prev.attendance,
-        commissions: commissions.success ? commissions.data : prev.commissions,
-        salons: salons.success ? salons.data : prev.salons
+        ...updates
       }));
     } catch (err) {
       console.error('Failed to sync backend data:', err);
@@ -241,6 +247,8 @@ export const AppProvider = ({ children }) => {
     const token = localStorage.getItem('token');
     if (token && currentUser) {
       syncBackendData(token);
+    } else {
+      syncPublicData();
     }
   }, [currentUser]);
 
@@ -295,6 +303,12 @@ export const AppProvider = ({ children }) => {
     localStorage.removeItem('salon');
     localStorage.removeItem('branch');
     localStorage.removeItem('token');
+    [
+      'sf_salons', 'sf_branches', 'sf_users', 'sf_customers', 
+      'sf_services', 'sf_packages', 'sf_memberships', 'sf_staff', 
+      'sf_products', 'sf_suppliers', 'sf_expenses', 'sf_appointments', 
+      'sf_invoices', 'sf_attendance', 'sf_commissions', 'sf_notifications'
+    ].forEach(k => localStorage.removeItem(k));
   };
 
   // Helper filter by tenant (salonId)
@@ -302,7 +316,7 @@ export const AppProvider = ({ children }) => {
     if (!items) return [];
     if (!currentUser || currentUser.role === 'SUPER_ADMIN' || currentUser.role === 'CLIENT') return items;
     let filtered = items.filter(item => {
-      if (!item.salonId) return false;
+      if (!item.salonId) return true; // Don't drop global / unpopulated records
       const itemSalonId = typeof item.salonId === 'object' ? item.salonId?._id : item.salonId;
       const userSalonId = typeof currentUser.salonId === 'object' ? currentUser.salonId?._id : currentUser.salonId;
       return String(itemSalonId) === String(userSalonId);

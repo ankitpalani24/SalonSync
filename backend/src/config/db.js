@@ -2,9 +2,6 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
 const connectDB = async () => {
-  // Set bufferCommands to false so Mongoose fails quickly instead of buffering and timing out
-  mongoose.set('bufferCommands', false);
-
   const primaryURI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/salonsync';
   const fallbackURI = 'mongodb://127.0.0.1:27017/salonsync';
 
