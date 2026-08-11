@@ -389,6 +389,24 @@ const seedDatabase = async () => {
         branchId: bandraBranch._id
       },
       {
+        name: "Emma Watson",
+        email: "9876500001@salonsync.com",
+        phone: "9876500001",
+        password: defaultPassword,
+        role: "STAFF",
+        salonId: luxeSalon._id,
+        branchId: bandraBranch._id
+      },
+      {
+        name: "Brad Pitt",
+        email: "9876500002@salonsync.com",
+        phone: "9876500002",
+        password: defaultPassword,
+        role: "STAFF",
+        salonId: luxeSalon._id,
+        branchId: bandraBranch._id
+      },
+      {
         name: "Rachel Green",
         email: "rachel@luxegold.com",
         phone: "+91 98765 43212",

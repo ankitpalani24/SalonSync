@@ -108,6 +108,24 @@ export const mockUsers = [
   },
   // Staff
   {
+    _id: "user_emma_staff",
+    name: "Emma Watson",
+    email: "9876500001@salonsync.com",
+    phone: "9876500001",
+    role: "STAFF",
+    salonId: "salon_luxe_123",
+    branchId: "branch_mumbai_1"
+  },
+  {
+    _id: "user_brad_staff",
+    name: "Brad Pitt",
+    email: "9876500002@salonsync.com",
+    phone: "9876500002",
+    role: "STAFF",
+    salonId: "salon_luxe_123",
+    branchId: "branch_mumbai_1"
+  },
+  {
     _id: "user_luxe_staff",
     name: "Daniel Craig",
     email: "daniel@luxegold.com",
