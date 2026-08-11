@@ -216,6 +216,7 @@ const StaffSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // Linked user account if they can log in
   name: { type: String, required: true },
   phone: { type: String, required: true },
+  email: { type: String },
   role: { type: String, default: 'Stylist' },
   salary: { type: Number, default: 0 },
   commissionPercentage: { type: Number, default: 10 }, // e.g. 10%

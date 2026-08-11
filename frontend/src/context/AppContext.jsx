@@ -646,25 +646,10 @@ export const AppProvider = ({ children }) => {
       });
       const data = await res.json();
       if (data.success) {
-        try {
-          await fetch(`${API_URL}/auth/create-user`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({
-              name: member.name,
-              email: `${member.phone}@salonsync.com`,
-              phone: member.phone,
-              password: 'password123',
-              role: 'STAFF'
-            })
-          });
-        } catch (userErr) {
-          console.error('Failed to create staff user credentials:', userErr);
-        }
+        const creds = data.credentials || { email: member.email || `${member.phone}@salonsync.com`, password: member.password || 'password123' };
+        addToast(`✅ Staff registered! Login Email/Phone: ${member.email || member.phone} | Password: ${creds.password}`, 'success', 10000);
         await syncBackendData(token);
+        return data;
       }
     } catch (err) {
       console.error('Error adding staff:', err);

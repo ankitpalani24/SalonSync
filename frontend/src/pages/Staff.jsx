@@ -34,15 +34,20 @@ const Staff = () => {
   // Form states - Staff
   const [staffName, setStaffName] = useState('');
   const [staffPhone, setStaffPhone] = useState('');
+  const [staffEmail, setStaffEmail] = useState('');
+  const [staffPassword, setStaffPassword] = useState('password123');
   const [staffRole, setStaffRole] = useState('Hair Stylist');
   const [staffSalary, setStaffSalary] = useState(20000);
   const [staffComm, setStaffComm] = useState(10); // 10% default
+  const [createdCredentials, setCreatedCredentials] = useState(null);
 
-  const handleStaffSubmit = (e) => {
+  const handleStaffSubmit = async (e) => {
     e.preventDefault();
     const payload = {
       name: staffName,
       phone: staffPhone,
+      email: staffEmail || `${staffPhone}@salonsync.com`,
+      password: staffPassword || 'password123',
       role: staffRole,
       salary: Number(staffSalary),
       commissionPercentage: Number(staffComm)
@@ -51,7 +56,10 @@ const Staff = () => {
     if (editingStaff) {
       updateStaff(editingStaff._id, payload);
     } else {
-      addStaff(payload);
+      const res = await addStaff(payload);
+      if (res && res.credentials) {
+        setCreatedCredentials(res.credentials);
+      }
     }
 
     setShowStaffModal(false);
@@ -60,6 +68,8 @@ const Staff = () => {
     // reset
     setStaffName('');
     setStaffPhone('');
+    setStaffEmail('');
+    setStaffPassword('password123');
     setStaffRole('Hair Stylist');
     setStaffSalary(20000);
     setStaffComm(10);
@@ -347,10 +357,25 @@ const Staff = () => {
                 <label>Stylist Name *</label>
                 <input type="text" required placeholder="Emma Watson" className="form-control" value={staffName} onChange={(e) => setStaffName(e.target.value)} />
               </div>
-              <div className="form-group">
-                <label>Mobile Number *</label>
-                <input type="text" required placeholder="9876500001" className="form-control" value={staffPhone} onChange={(e) => setStaffPhone(e.target.value)} />
+              <div className="grid-2-cols">
+                <div className="form-group">
+                  <label>Mobile Number *</label>
+                  <input type="text" required placeholder="9876500001" className="form-control" value={staffPhone} onChange={(e) => setStaffPhone(e.target.value)} />
+                </div>
+                <div className="form-group">
+                  <label>Login Email (Optional)</label>
+                  <input type="email" placeholder="emma@salonsync.com" className="form-control" value={staffEmail} onChange={(e) => setStaffEmail(e.target.value)} />
+                </div>
               </div>
+              {!editingStaff && (
+                <div className="form-group">
+                  <label>Set Staff Login Password (Default: password123)</label>
+                  <input type="text" className="form-control" value={staffPassword} onChange={(e) => setStaffPassword(e.target.value)} placeholder="password123" />
+                  <p style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+                    Staff member can log in using their Phone or Email + this password.
+                  </p>
+                </div>
+              )}
               <div className="form-group">
                 <label>Professional Role / Title</label>
                 <input type="text" placeholder="Senior Hair Stylist" className="form-control" value={staffRole} onChange={(e) => setStaffRole(e.target.value)} />
@@ -366,9 +391,32 @@ const Staff = () => {
                 </div>
               </div>
               <button type="submit" className="gold-btn" style={{ width: '100%', justifyContent: 'center' }}>
-                {editingStaff ? 'Update Employee File' : 'Save Employee File'}
+                {editingStaff ? 'Update Employee File' : 'Save Employee File & Create Login'}
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Created Credentials Modal */}
+      {createdCredentials && (
+        <div className="modal-backdrop-overlay" onClick={() => setCreatedCredentials(null)}>
+          <div className="modal-scrollable-content" style={{ maxWidth: '420px', background: 'var(--bg-secondary)', border: '1px solid var(--gold-primary)', borderRadius: '12px', padding: '1.75rem', textAlign: 'center' }}>
+            <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'var(--gold-bg)', color: 'var(--gold-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem auto' }}>
+              <UserCheck size={24} />
+            </div>
+            <h3 style={{ color: 'var(--text-primary)', fontSize: '1.15rem', marginBottom: '0.5rem' }}>Staff Login Account Created!</h3>
+            <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginBottom: '1.25rem' }}>Provide these login credentials to your staff member to log in to their Staff Dashboard:</p>
+
+            <div style={{ background: '#0b141a', border: '1px solid var(--gold-border)', borderRadius: '8px', padding: '1rem', textAlign: 'left', fontSize: '0.82rem', fontFamily: 'monospace', color: '#fff', marginBottom: '1.25rem' }}>
+              <div style={{ marginBottom: '0.4rem' }}>📱 <strong>Login Phone:</strong> {createdCredentials.phone}</div>
+              <div style={{ marginBottom: '0.4rem' }}>✉️ <strong>Login Email:</strong> {createdCredentials.email}</div>
+              <div>🔑 <strong>Password:</strong> <span style={{ color: 'var(--gold-primary)', fontWeight: 'bold' }}>{createdCredentials.password}</span></div>
+            </div>
+
+            <button onClick={() => setCreatedCredentials(null)} className="gold-btn" style={{ width: '100%', justifyContent: 'center' }}>
+              Got It
+            </button>
           </div>
         </div>
       )}

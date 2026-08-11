@@ -203,13 +203,13 @@ const AuthPages = ({ defaultView = 'login', onAuthSuccess, onBackToLanding }) =>
         {view === 'login' && (
           <form onSubmit={handleLoginSubmit}>
             <div className="form-group">
-              <label>Email Address</label>
+              <label>Email Address or Mobile Number</label>
               <div style={{ position: 'relative' }}>
-                <Mail size={16} style={{ position: 'absolute', left: '12px', top: '12px', color: 'var(--text-muted)' }} />
+                <User size={16} style={{ position: 'absolute', left: '12px', top: '12px', color: 'var(--text-muted)' }} />
                 <input
-                  type="email"
+                  type="text"
                   required
-                  placeholder="alex@luxegold.com"
+                  placeholder="Email or Mobile (e.g., 9876500001)"
                   className="form-control"
                   style={{ paddingLeft: '2.5rem' }}
                   value={email}

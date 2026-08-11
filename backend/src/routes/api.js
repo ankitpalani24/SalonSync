@@ -185,8 +185,14 @@ router.post('/auth/signup', async (req, res) => {
 router.post('/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body;
+    const cleanInput = (email || '').trim();
 
-    const user = await models.User.findOne({ email });
+    const user = await models.User.findOne({
+      $or: [
+        { email: cleanInput.toLowerCase() },
+        { phone: cleanInput }
+      ]
+    });
     if (user && (await bcrypt.compare(password, user.password))) {
       res.json({
         success: true,
@@ -195,13 +201,14 @@ router.post('/auth/login', async (req, res) => {
           id: user._id,
           name: user.name,
           email: user.email,
+          phone: user.phone,
           role: user.role,
           salonId: user.salonId,
           branchId: user.branchId
         }
       });
     } else {
-      res.status(401).json({ success: false, message: 'Invalid email or password' });
+      res.status(401).json({ success: false, message: 'Invalid email/phone or password' });
     }
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -692,12 +699,53 @@ router.get('/staff', async (req, res) => {
 
 router.post('/staff', async (req, res) => {
   try {
+    const { name, phone, email, role, salary, commissionPercentage, password } = req.body;
+    
+    // 1. Create Staff document
     const staff = await models.Staff.create({
-      ...req.body,
       salonId: req.user.salonId,
-      branchId: req.user.branchId
+      branchId: req.body.branchId || req.user.branchId,
+      name,
+      phone,
+      email: email || `${phone}@salonsync.com`,
+      role: role || 'Stylist',
+      salary: salary || 0,
+      commissionPercentage: commissionPercentage || 10
     });
-    res.status(201).json({ success: true, data: staff });
+
+    // 2. Create User Login Account for Staff
+    const staffEmail = (email || `${phone}@salonsync.com`).toLowerCase();
+    let user = await models.User.findOne({ $or: [{ email: staffEmail }, { phone }] });
+    const defaultPassword = password || 'password123';
+    
+    if (!user) {
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(defaultPassword, salt);
+      user = await models.User.create({
+        name,
+        email: staffEmail,
+        phone,
+        password: hashedPassword,
+        role: 'STAFF',
+        salonId: req.user.salonId,
+        branchId: req.body.branchId || req.user.branchId
+      });
+    }
+
+    if (user) {
+      staff.userId = user._id;
+      await staff.save();
+    }
+
+    res.status(201).json({
+      success: true,
+      data: staff,
+      credentials: {
+        email: staffEmail,
+        phone,
+        password: defaultPassword
+      }
+    });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
   }
