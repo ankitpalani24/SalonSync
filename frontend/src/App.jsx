@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from './context/AppContext';
-import { Bell, LogOut, MapPin } from 'lucide-react';
+import { Bell, LogOut, MapPin, Plus, Sparkles, Calendar, Users, CreditCard, DollarSign } from 'lucide-react';
 
 // Import components
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import ToastContainer from './components/ToastContainer';
+import CommandPalette from './components/CommandPalette';
+import AIAssistantModal from './components/AIAssistantModal';
 
 // Import Pages
 import LandingPage from './pages/LandingPage';
@@ -28,6 +30,21 @@ function App() {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [showAlerts, setShowAlerts] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showCommandPalette, setShowCommandPalette] = useState(false);
+  const [showAIAssistant, setShowAIAssistant] = useState(false);
+  const [showQuickActionMenu, setShowQuickActionMenu] = useState(false);
+
+  // Global Ctrl + K Keyboard Shortcut Listener
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setShowCommandPalette(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   // Transfer state for checking out appointments
   const [selectedApptForCheckout, setSelectedApptForCheckout] = useState(null);
@@ -205,11 +222,25 @@ function App() {
         />
       </div>
 
+      {/* Command Palette & AI Assistant */}
+      <CommandPalette
+        isOpen={showCommandPalette}
+        onClose={() => setShowCommandPalette(false)}
+        setActivePage={setActivePage}
+      />
+
+      <AIAssistantModal
+        isOpen={showAIAssistant}
+        onClose={() => setShowAIAssistant(false)}
+      />
+
       {/* Main workplace pane */}
       <div className="main-content" style={{ position: 'relative' }}>
         <Header 
           toggleMobileSidebar={() => setMobileSidebarOpen(!mobileSidebarOpen)} 
           onOpenProfile={() => setShowProfileModal(true)} 
+          onOpenCommandPalette={() => setShowCommandPalette(true)}
+          onOpenAI={() => setShowAIAssistant(true)}
         />
         
         {/* Render page */}

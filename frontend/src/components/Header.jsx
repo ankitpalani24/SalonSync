@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { Sun, Moon, MapPin, ShieldAlert, Award, Menu, LogOut } from 'lucide-react';
+import { Sun, Moon, MapPin, ShieldAlert, Award, Menu, LogOut, Search, Bot, Command } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
-const Header = ({ toggleMobileSidebar, onOpenProfile }) => {
+const Header = ({ toggleMobileSidebar, onOpenProfile, onOpenCommandPalette, onOpenAI }) => {
   const {
     darkMode, setDarkMode,
     demoMode, setDemoMode,
@@ -61,34 +61,56 @@ const Header = ({ toggleMobileSidebar, onOpenProfile }) => {
           )}
         </div>
 
-        {/* Branch Selector for Owners/Managers */}
-        {['SALON_OWNER', 'FRANCHISE_OWNER', 'SALON_MANAGER'].includes(currentUser?.role) && branches.length > 1 && (
-          <select
-            value={currentBranch?._id || ''}
-            onChange={(e) => switchBranch(e.target.value)}
-            className="hide-mobile"
-            style={{
-              background: 'rgba(255,255,255,0.03)',
-              border: '1px solid var(--gold-border)',
-              color: 'var(--gold-primary)',
-              borderRadius: '4px',
-              padding: '0.25rem 0.5rem',
-              fontSize: '0.75rem',
-              outline: 'none'
-            }}
-          >
-            {branches.map(b => (
-              <option key={b._id} value={b._id}>
-                {b.name}
-              </option>
-            ))}
-          </select>
-        )}
+        {/* Global Search Bar Trigger */}
+        <div
+          onClick={onOpenCommandPalette}
+          className="hide-mobile"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.6rem',
+            background: 'rgba(255,255,255,0.03)',
+            border: '1px solid var(--border-light)',
+            borderRadius: '20px',
+            padding: '0.35rem 0.85rem',
+            color: 'var(--text-muted)',
+            fontSize: '0.78rem',
+            cursor: 'pointer',
+            marginLeft: '1rem',
+            transition: 'var(--transition-smooth)'
+          }}
+        >
+          <Search size={14} style={{ color: 'var(--gold-primary)' }} />
+          <span>Global Search...</span>
+          <span style={{ fontSize: '0.65rem', background: 'rgba(255,255,255,0.06)', padding: '0.1rem 0.4rem', borderRadius: '4px', border: '1px solid var(--border-light)' }}>
+            Ctrl + K
+          </span>
+        </div>
       </div>
 
       {/* Control Actions */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
         
+        {/* AI Assistant Trigger */}
+        <button
+          onClick={onOpenAI}
+          style={{
+            background: 'var(--gold-bg)',
+            border: '1px solid var(--border-gold)',
+            color: 'var(--gold-primary)',
+            borderRadius: '20px',
+            padding: '0.35rem 0.75rem',
+            fontSize: '0.75rem',
+            fontWeight: '600',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.35rem',
+            cursor: 'pointer'
+          }}
+        >
+          <Bot size={15} /> AI Copilot
+        </button>
+
         {/* Theme Switcher */}
         <button
           onClick={() => setDarkMode(!darkMode)}

@@ -1022,14 +1022,22 @@ const Dashboard = ({ setActivePage }) => {
             <span>{new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
           </div>
         </div>
-        <div className="dash-hero-actions">
+        <div className="dash-hero-actions" style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
           {['SALON_OWNER', 'FRANCHISE_OWNER', 'SALON_MANAGER'].includes(currentUser.role) && (
-            <button onClick={() => setActivePage('billing')} className="gold-btn">
-              <CreditCard size={16} /> Open POS
-            </button>
+            <>
+              <button onClick={() => setActivePage('billing')} className="gold-btn">
+                <CreditCard size={15} /> POS Invoice
+              </button>
+              <button onClick={() => setActivePage('customers')} className="outline-btn">
+                <Users size={15} /> + Client
+              </button>
+              <button onClick={() => setActivePage('inventory')} className="outline-btn hide-mobile">
+                <Package size={15} /> + Product
+              </button>
+            </>
           )}
           <button onClick={() => setActivePage('appointments')} className="outline-btn">
-            <Calendar size={16} /> Book Appointment
+            <Calendar size={15} /> Book Appt
           </button>
         </div>
       </div>

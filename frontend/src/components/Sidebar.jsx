@@ -8,34 +8,39 @@ import {
 import { useApp } from '../context/AppContext';
 
 const Sidebar = ({ activePage, setActivePage, collapsed, setCollapsed, user, logout, closeMobileSidebar }) => {
-  // Navigation mapping according to role
-  const menuItems = [
-    { id: 'dashboard', label: 'Overview', icon: LayoutDashboard, roles: ['SALON_OWNER', 'SALON_MANAGER', 'FRANCHISE_OWNER', 'STAFF', 'CLIENT'] },
-    { id: 'customers', label: 'Customer CRM', icon: Users, roles: ['SALON_OWNER', 'SALON_MANAGER', 'FRANCHISE_OWNER'] },
-    { id: 'appointments', label: 'Calendar Bookings', icon: Calendar, roles: ['SALON_OWNER', 'SALON_MANAGER', 'FRANCHISE_OWNER', 'STAFF'] },
-    { id: 'services', label: 'Services & Packages', icon: Scissors, roles: ['SALON_OWNER', 'SALON_MANAGER', 'FRANCHISE_OWNER'] },
-    { id: 'billing', label: 'POS Billing', icon: CreditCard, roles: ['SALON_OWNER', 'SALON_MANAGER', 'FRANCHISE_OWNER'] },
-    { id: 'inventory', label: 'Inventory', icon: Package, roles: ['SALON_OWNER', 'SALON_MANAGER', 'FRANCHISE_OWNER'] },
-    { id: 'staff', label: 'Staff & Roster', icon: UserCheck, roles: ['SALON_OWNER', 'SALON_MANAGER', 'FRANCHISE_OWNER', 'STAFF'] },
-    { id: 'analytics', label: 'BI Analytics', icon: BarChart3, roles: ['SALON_OWNER', 'SALON_MANAGER', 'FRANCHISE_OWNER'] },
-    { id: 'marketing', label: 'Marketing Auto', icon: MessageSquare, roles: ['SALON_OWNER', 'FRANCHISE_OWNER'] },
-    { id: 'super-admin', label: 'Super Admin', icon: Crown, roles: ['SUPER_ADMIN'] }
+  // Categorized Navigation mapping according to role
+  const menuSections = [
+    {
+      title: 'OPERATIONS',
+      items: [
+        { id: 'dashboard', label: 'Overview', icon: LayoutDashboard, roles: ['SALON_OWNER', 'SALON_MANAGER', 'FRANCHISE_OWNER', 'STAFF', 'CLIENT'] },
+        { id: 'appointments', label: 'Calendar Bookings', icon: Calendar, roles: ['SALON_OWNER', 'SALON_MANAGER', 'FRANCHISE_OWNER', 'STAFF'] },
+        { id: 'customers', label: 'Customer CRM', icon: Users, roles: ['SALON_OWNER', 'SALON_MANAGER', 'FRANCHISE_OWNER'] },
+        { id: 'services', label: 'Services & Packages', icon: Scissors, roles: ['SALON_OWNER', 'SALON_MANAGER', 'FRANCHISE_OWNER'] },
+        { id: 'inventory', label: 'Inventory & Stock', icon: Package, roles: ['SALON_OWNER', 'SALON_MANAGER', 'FRANCHISE_OWNER'] },
+      ]
+    },
+    {
+      title: 'BUSINESS',
+      items: [
+        { id: 'billing', label: 'POS Billing', icon: CreditCard, roles: ['SALON_OWNER', 'SALON_MANAGER', 'FRANCHISE_OWNER'] },
+        { id: 'staff', label: 'Staff & Roster', icon: UserCheck, roles: ['SALON_OWNER', 'SALON_MANAGER', 'FRANCHISE_OWNER', 'STAFF'] },
+        { id: 'analytics', label: 'BI Analytics', icon: BarChart3, roles: ['SALON_OWNER', 'SALON_MANAGER', 'FRANCHISE_OWNER'] },
+      ]
+    },
+    {
+      title: 'GROWTH',
+      items: [
+        { id: 'marketing', label: 'Marketing Auto', icon: MessageSquare, roles: ['SALON_OWNER', 'FRANCHISE_OWNER'] },
+      ]
+    },
+    {
+      title: 'ENTERPRISE',
+      items: [
+        { id: 'super-admin', label: 'Super Admin', icon: Crown, roles: ['SUPER_ADMIN'] }
+      ]
+    }
   ];
-
-  const {
-    currentBranch, switchBranch,
-    demoMode, setDemoMode,
-    setCurrentUser,
-    db,
-    darkMode, setDarkMode
-  } = useApp();
-
-  const branches = db.branches.filter(b => b.salonId === user?.salonId);
-
-  const filteredMenu = menuItems.filter(item => {
-    if (user.role === 'SUPER_ADMIN') return item.id === 'super-admin';
-    return item.roles.includes(user.role);
-  });
 
   const touchRef = React.useRef({ startX: 0 });
 
@@ -113,42 +118,60 @@ const Sidebar = ({ activePage, setActivePage, collapsed, setCollapsed, user, log
       <div style={{
         flex: 1,
         minHeight: 0,
-        padding: '1rem 0.5rem',
+        padding: '0.75rem 0.5rem',
         display: 'flex',
         flexDirection: 'column',
-        gap: '0.25rem',
+        gap: '0.85rem',
         overflowY: 'auto'
       }}>
-        {filteredMenu.map((item) => {
-          const Icon = item.icon;
-          const isActive = activePage === item.id;
+        {menuSections.map((sec) => {
+          const visibleItems = sec.items.filter(item => {
+            if (user?.role === 'SUPER_ADMIN') return item.id === 'super-admin';
+            return item.roles.includes(user?.role);
+          });
+
+          if (visibleItems.length === 0) return null;
 
           return (
-            <button
-              key={item.id}
-              onClick={() => setActivePage(item.id)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '1rem',
-                padding: '0.85rem 1rem',
-                width: '100%',
-                background: isActive ? 'var(--sidebar-active-bg)' : 'transparent',
-                color: isActive ? 'var(--gold-primary)' : 'var(--sidebar-text-inactive)',
-                border: 'none',
-                borderLeft: isActive ? '3px solid var(--gold-primary)' : '3px solid transparent',
-                borderRadius: '4px',
-                textAlign: 'left',
-                fontSize: '0.9rem',
-                fontWeight: isActive ? '600' : '400',
-                transition: 'var(--transition-smooth)',
-                whiteSpace: 'nowrap'
-              }}
-              className="sidebar-link"
-            >
-              <Icon size={18} style={{ flexShrink: 0, color: isActive ? 'var(--gold-primary)' : 'inherit' }} />
-              {!collapsed && <span>{item.label}</span>}
-            </button>
+            <div key={sec.title} style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+              {!collapsed && (
+                <div style={{ fontSize: '0.62rem', fontWeight: '800', color: 'var(--text-muted)', letterSpacing: '0.8px', padding: '0.25rem 0.75rem', textTransform: 'uppercase' }}>
+                  {sec.title}
+                </div>
+              )}
+              {visibleItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = activePage === item.id;
+
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => setActivePage(item.id)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.85rem',
+                      padding: '0.7rem 0.85rem',
+                      width: '100%',
+                      background: isActive ? 'var(--sidebar-active-bg)' : 'transparent',
+                      color: isActive ? 'var(--gold-primary)' : 'var(--sidebar-text-inactive)',
+                      border: 'none',
+                      borderLeft: isActive ? '3px solid var(--gold-primary)' : '3px solid transparent',
+                      borderRadius: '4px',
+                      textAlign: 'left',
+                      fontSize: '0.85rem',
+                      fontWeight: isActive ? '600' : '400',
+                      transition: 'var(--transition-smooth)',
+                      whiteSpace: 'nowrap'
+                    }}
+                    className="sidebar-link"
+                  >
+                    <Icon size={17} style={{ flexShrink: 0, color: isActive ? 'var(--gold-primary)' : 'inherit' }} />
+                    {!collapsed && <span>{item.label}</span>}
+                  </button>
+                );
+              })}
+            </div>
           );
         })}
       </div>
