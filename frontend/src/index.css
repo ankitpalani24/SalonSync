@@ -5282,6 +5282,84 @@ button:disabled {
   }
 }
 
+/* ─── LANDING PAGE & GLOBAL PAGE MOBILE RESPONSIVENESS (768px & 480px) ───── */
+@media (max-width: 768px) {
+  .landing-nav {
+    padding: 0.85rem 1.25rem !important;
+  }
+
+  .landing-nav-actions button {
+    padding: 0.4rem 0.85rem !important;
+    font-size: 0.78rem !important;
+  }
+
+  .landing-hero {
+    padding: 7rem 1.25rem 3rem 1.25rem !important;
+  }
+
+  .landing-hero-h1 {
+    font-size: clamp(2rem, 7vw, 3rem) !important;
+    line-height: 1.2 !important;
+    margin-bottom: 1.25rem !important;
+  }
+
+  .landing-hero-p {
+    font-size: 1rem !important;
+    line-height: 1.5 !important;
+    margin-bottom: 2rem !important;
+  }
+
+  .landing-hero-ctas {
+    flex-direction: column !important;
+    width: 100% !important;
+    gap: 0.75rem !important;
+  }
+
+  .landing-hero-ctas button {
+    width: 100% !important;
+    justify-content: center !important;
+    padding: 0.85rem 1.5rem !important;
+  }
+
+  .landing-hero-stats {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 1rem !important;
+    padding: 1rem !important;
+  }
+
+  .landing-demo-grid-2,
+  .landing-demo-grid-3,
+  .landing-demo-grid-4,
+  .landing-grid-3,
+  .landing-grid-4,
+  .landing-contact-grid,
+  .landing-footer-grid {
+    grid-template-columns: 1fr !important;
+    gap: 1.5rem !important;
+  }
+
+  .landing-section-title {
+    font-size: 1.8rem !important;
+  }
+
+  .landing-preview-tabs {
+    width: 100% !important;
+  }
+
+  .landing-preview-tabs button {
+    flex: 1 1 45% !important;
+    text-align: center !important;
+  }
+
+  section {
+    padding: 4rem 1.25rem !important;
+  }
+
+  footer {
+    padding: 3rem 1.25rem 1.5rem 1.25rem !important;
+  }
+}
+
 @media (max-width: 600px) {
   .dash-kpi-grid,
   .crm-summary-grid,
@@ -5295,6 +5373,10 @@ button:disabled {
     grid-template-columns: 1fr !important;
   }
 
+  .landing-hero-stats {
+    grid-template-columns: 1fr !important;
+  }
+
   .header-user-details p {
     font-size: 0.75rem !important;
   }
@@ -5302,5 +5384,9 @@ button:disabled {
   .gold-btn, .outline-btn {
     width: 100% !important;
     justify-content: center !important;
+  }
+
+  .modal-container, .modal-backdrop-overlay {
+    padding: 0.5rem !important;
   }
 }

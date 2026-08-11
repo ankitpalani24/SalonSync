@@ -56,7 +56,7 @@ const LandingPage = ({ onStartTrial, onLogin }) => {
     <div style={{ background: '#050505', color: '#ffffff', minHeight: '100vh', fontFamily: "'Montserrat', sans-serif" }}>
       
       {/* ─── 1. NAVIGATION BAR ─────────────────────────────────────────────── */}
-      <nav style={{
+      <nav className="landing-nav" style={{
         position: 'fixed', top: 0, left: 0, right: 0, zIndex: 1000,
         background: 'rgba(5, 5, 5, 0.85)', backdropFilter: 'blur(16px)',
         borderBottom: '1px solid rgba(212,175,55,0.15)', padding: '1rem 3rem',
@@ -91,8 +91,8 @@ const LandingPage = ({ onStartTrial, onLogin }) => {
         </div>
 
         {/* Nav Actions */}
-        <div style={{ display: 'flex', gap: '0.85rem', alignItems: 'center' }}>
-          <button onClick={onLogin} style={{ background: 'transparent', border: 'none', color: '#fff', fontSize: '0.85rem', fontWeight: '600', cursor: 'pointer', padding: '0.5rem 1rem' }}>
+        <div className="landing-nav-actions" style={{ display: 'flex', gap: '0.85rem', alignItems: 'center' }}>
+          <button onClick={onLogin} style={{ background: 'transparent', border: 'none', color: '#fff', fontSize: '0.85rem', fontWeight: '600', cursor: 'pointer', padding: '0.5rem 0.75rem' }}>
             Sign In
           </button>
           <button onClick={onStartTrial} className="gold-btn" style={{ padding: '0.6rem 1.4rem', fontSize: '0.85rem', fontWeight: '600' }}>
@@ -102,7 +102,7 @@ const LandingPage = ({ onStartTrial, onLogin }) => {
       </nav>
 
       {/* ─── 2. HERO SECTION ────────────────────────────────────────────────── */}
-      <section style={{
+      <section className="landing-hero" style={{
         padding: '11rem 2rem 5rem 2rem',
         textAlign: 'center',
         background: 'radial-gradient(ellipse at 50% 20%, rgba(212,175,55,0.15) 0%, rgba(5,5,5,0) 70%)',
@@ -121,7 +121,7 @@ const LandingPage = ({ onStartTrial, onLogin }) => {
           </div>
 
           {/* Headline */}
-          <h1 style={{
+          <h1 className="landing-hero-h1" style={{
             fontSize: '3.8rem', fontWeight: '800', lineHeight: '1.15', marginBottom: '1.75rem',
             background: 'linear-gradient(135deg, #ffffff 40%, var(--gold-primary) 100%)',
             WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
@@ -131,7 +131,7 @@ const LandingPage = ({ onStartTrial, onLogin }) => {
           </h1>
 
           {/* Subheadline */}
-          <p style={{
+          <p className="landing-hero-p" style={{
             fontSize: '1.2rem', color: '#aaaaaa', lineHeight: '1.65',
             maxWidth: '780px', margin: '0 auto 2.75rem auto'
           }}>
@@ -139,7 +139,7 @@ const LandingPage = ({ onStartTrial, onLogin }) => {
           </p>
 
           {/* Hero CTAs */}
-          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap', marginBottom: '4rem' }}>
+          <div className="landing-hero-ctas" style={{ display: 'flex', gap: '1rem', justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap', marginBottom: '4rem' }}>
             <button onClick={onStartTrial} className="gold-btn" style={{ padding: '1rem 2.5rem', fontSize: '1rem', fontWeight: '700', borderRadius: '8px' }}>
               Start 14-Day Free Trial <ArrowRight size={18} />
             </button>
@@ -149,7 +149,7 @@ const LandingPage = ({ onStartTrial, onLogin }) => {
           </div>
 
           {/* Stats Bar */}
-          <div style={{
+          <div className="landing-hero-stats" style={{
             display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.5rem',
             maxWidth: '850px', margin: '0 auto', padding: '1.5rem',
             background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)',
@@ -180,7 +180,7 @@ const LandingPage = ({ onStartTrial, onLogin }) => {
             <p style={{ color: '#888888', fontSize: '1rem' }}>Click below to explore interactive live feature previews.</p>
 
             {/* Preview Tabs */}
-            <div style={{ display: 'inline-flex', gap: '0.5rem', marginTop: '1.5rem', background: 'rgba(255,255,255,0.03)', padding: '0.35rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)' }}>
+            <div className="landing-preview-tabs" style={{ display: 'inline-flex', gap: '0.5rem', marginTop: '1.5rem', background: 'rgba(255,255,255,0.03)', padding: '0.35rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)', flexWrap: 'wrap', justifyContent: 'center' }}>
               {[
                 { id: 'pos', label: 'POS Billing Desk' },
                 { id: 'calendar', label: 'Smart Calendar' },
@@ -224,7 +224,7 @@ const LandingPage = ({ onStartTrial, onLogin }) => {
             {/* Window Body Preview Content */}
             <div style={{ padding: '2rem', minHeight: '380px', background: '#0e0e0e' }}>
               {activePreviewTab === 'pos' && (
-                <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '1.5rem' }}>
+                <div className="landing-demo-grid-2" style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '1.5rem' }}>
                   <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '10px', padding: '1.25rem' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '0.5rem' }}>
                       <strong style={{ color: 'var(--gold-primary)', fontSize: '0.9rem' }}>✂️ Selected Cart Treatments</strong>
@@ -252,7 +252,7 @@ const LandingPage = ({ onStartTrial, onLogin }) => {
               )}
 
               {activePreviewTab === 'calendar' && (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
+                <div className="landing-demo-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
                   {[{ time: '10:00 AM', client: 'Priya Mehta', service: 'Hydra Facial', stylist: 'Sanya' }, { time: '11:30 AM', client: 'Rohan Kapoor', service: 'Beard Sculpt & Haircut', stylist: 'Vikram' }, { time: '02:00 PM', client: 'Sneha Roy', service: 'Keratin Hair Treatment', stylist: 'Rahul' }].map((slot, i) => (
                     <div key={i} style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '10px', padding: '1.25rem', borderLeft: '4px solid var(--gold-primary)' }}>
                       <div style={{ fontSize: '0.75rem', color: 'var(--gold-primary)', fontWeight: '700', marginBottom: '0.4rem' }}>{slot.time}</div>
@@ -266,7 +266,7 @@ const LandingPage = ({ onStartTrial, onLogin }) => {
 
               {activePreviewTab === 'analytics' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem' }}>
+                  <div className="landing-demo-grid-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem' }}>
                     {[{ title: 'Today Revenue', val: '₹24,500' }, { title: 'Net Profit', val: '₹18,200' }, { title: 'Material Costs', val: '₹3,400' }, { title: 'Total Visits', val: '18 Clients' }].map((k, i) => (
                       <div key={i} style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '1rem' }}>
                         <div style={{ fontSize: '0.7rem', color: '#888' }}>{k.title}</div>
@@ -302,7 +302,7 @@ const LandingPage = ({ onStartTrial, onLogin }) => {
       <section id="features" style={{ padding: '7rem 2rem', background: '#050505', borderTop: '1px solid rgba(255,255,255,0.04)' }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: '4.5rem' }}>
-            <h2 style={{ fontSize: '2.5rem', fontWeight: '800', marginBottom: '1rem' }}>
+            <h2 className="landing-section-title" style={{ fontSize: '2.5rem', fontWeight: '800', marginBottom: '1rem' }}>
               Everything Needed to Run Your Salon Empire
             </h2>
             <p style={{ color: '#888888', maxWidth: '650px', margin: '0 auto', fontSize: '1rem' }}>
@@ -342,13 +342,13 @@ const LandingPage = ({ onStartTrial, onLogin }) => {
       <section id="how-it-works" style={{ padding: '7rem 2rem', background: '#080808' }}>
         <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: '4.5rem' }}>
-            <h2 style={{ fontSize: '2.5rem', fontWeight: '800', marginBottom: '1rem' }}>
+            <h2 className="landing-section-title" style={{ fontSize: '2.5rem', fontWeight: '800', marginBottom: '1rem' }}>
               Simple 4-Step Setup Process
             </h2>
             <p style={{ color: '#888888', fontSize: '1rem' }}>Get your salon up and running in less than 5 minutes.</p>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: '1.5rem' }}>
+          <div className="landing-grid-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: '1.5rem' }}>
             {[
               { step: '01', title: 'Register Profile', desc: 'Create your salon account, set your logo, address, and branches.' },
               { step: '02', title: 'Add Services & Team', desc: 'Input treatments, prices, retail products, and assign staff stylists.' },
@@ -369,7 +369,7 @@ const LandingPage = ({ onStartTrial, onLogin }) => {
       <section id="pricing" style={{ padding: '7rem 2rem', background: '#050505', borderTop: '1px solid rgba(255,255,255,0.04)' }}>
         <div style={{ maxWidth: '1150px', margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: '3.5rem' }}>
-            <h2 style={{ fontSize: '2.5rem', fontWeight: '800', marginBottom: '1rem' }}>
+            <h2 className="landing-section-title" style={{ fontSize: '2.5rem', fontWeight: '800', marginBottom: '1rem' }}>
               Transparent Enterprise Pricing
             </h2>
             <p style={{ color: '#888888', fontSize: '1rem', marginBottom: '2rem' }}>No hidden setup fees. Switch or cancel your subscription anytime.</p>
@@ -395,7 +395,7 @@ const LandingPage = ({ onStartTrial, onLogin }) => {
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem' }}>
+          <div className="landing-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem' }}>
             {[
               {
                 name: 'Starter Salon',
@@ -463,13 +463,13 @@ const LandingPage = ({ onStartTrial, onLogin }) => {
       <section id="testimonials" style={{ padding: '7rem 2rem', background: '#080808' }}>
         <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: '4.5rem' }}>
-            <h2 style={{ fontSize: '2.5rem', fontWeight: '800', marginBottom: '1rem' }}>
+            <h2 className="landing-section-title" style={{ fontSize: '2.5rem', fontWeight: '800', marginBottom: '1rem' }}>
               Loved by Top Salon & Spa Leaders
             </h2>
             <p style={{ color: '#888888', fontSize: '1rem' }}>See how SalonSync transforms daily salon operations.</p>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem' }}>
+          <div className="landing-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem' }}>
             {[
               { name: 'Ananya Mehta', role: 'Owner, Luxe Blossom Salon', quote: 'SalonSync replaced 4 separate tools. Our checkout speed increased 3x and WhatsApp reminders reduced no-shows by 40%.' },
               { name: 'Vikram Malhotra', role: 'Director, Groom & Co Barber Franchise', quote: 'The multi-branch financial comparisons are a game changer. I can monitor Mumbai & Delhi location revenues live on my phone.' },
@@ -496,7 +496,7 @@ const LandingPage = ({ onStartTrial, onLogin }) => {
       <section id="faq" style={{ padding: '7rem 2rem', background: '#050505', borderTop: '1px solid rgba(255,255,255,0.04)' }}>
         <div style={{ maxWidth: '850px', margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: '4rem' }}>
-            <h2 style={{ fontSize: '2.5rem', fontWeight: '800', marginBottom: '1rem' }}>
+            <h2 className="landing-section-title" style={{ fontSize: '2.5rem', fontWeight: '800', marginBottom: '1rem' }}>
               Frequently Asked Questions
             </h2>
             <p style={{ color: '#888888', fontSize: '1rem' }}>Everything you need to know about SalonSync.</p>
@@ -530,10 +530,10 @@ const LandingPage = ({ onStartTrial, onLogin }) => {
       {/* ─── 9. CONTACT SECTION ────────────────────────────────────────────── */}
       <section id="contact" style={{ padding: '7rem 2rem', background: '#080808' }}>
         <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: '3rem', alignItems: 'start' }}>
+          <div className="landing-contact-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: '3rem', alignItems: 'start' }}>
             <div>
               <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '1.5px', color: 'var(--gold-primary)', fontWeight: '700' }}>Get In Touch</span>
-              <h2 style={{ fontSize: '2.5rem', fontWeight: '800', marginTop: '0.5rem', marginBottom: '1rem' }}>Let’s Upgrade Your Salon Operations</h2>
+              <h2 className="landing-section-title" style={{ fontSize: '2.5rem', fontWeight: '800', marginTop: '0.5rem', marginBottom: '1rem' }}>Let’s Upgrade Your Salon Operations</h2>
               <p style={{ color: '#888', fontSize: '0.9rem', lineHeight: '1.6', marginBottom: '2.5rem' }}>
                 Have questions about pricing, custom franchise integrations, or data migration? Our team is available 24/7 to assist.
               </p>
@@ -600,7 +600,7 @@ const LandingPage = ({ onStartTrial, onLogin }) => {
         padding: '4rem 3rem 2rem 3rem', background: '#030303',
         borderTop: '1px solid rgba(255,255,255,0.05)', fontSize: '0.82rem', color: '#777777'
       }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: '3rem', marginBottom: '3rem' }}>
+        <div className="landing-footer-grid" style={{ maxWidth: '1200px', margin: '0 auto', display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: '3rem', marginBottom: '3rem' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
               <div style={{ width: '30px', height: '30px', borderRadius: '8px', background: 'var(--gold-primary)', color: '#000', fontWeight: '800', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>SS</div>
