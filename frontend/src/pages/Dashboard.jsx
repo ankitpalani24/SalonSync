@@ -1090,8 +1090,10 @@ const Dashboard = ({ setActivePage }) => {
           subtitle={`${activeMemberships.length} active members`}
           icon={Users}
           iconColor="#9b59b6"
+          glowColor="rgba(155,89,182,0.15)"
           trend={5.4}
           trendUp={true}
+          accentBorder="#9b59b6"
           delay={200}
         />
         <KpiCard
@@ -1100,8 +1102,10 @@ const Dashboard = ({ setActivePage }) => {
           subtitle={`Acquired in ${currentMonthName}`}
           icon={UserPlus}
           iconColor="#2ecc71"
+          glowColor="rgba(46,204,113,0.15)"
           trend={22.1}
           trendUp={true}
+          accentBorder="#2ecc71"
           delay={250}
         />
         <KpiCard
@@ -1110,6 +1114,10 @@ const Dashboard = ({ setActivePage }) => {
           subtitle="Currently on roster"
           icon={UserCheck}
           iconColor="var(--gold-primary)"
+          glowColor="rgba(112,130,56,0.15)"
+          trend={4.2}
+          trendUp={true}
+          accentBorder="var(--gold-primary)"
           delay={300}
         />
         <KpiCard
@@ -1118,7 +1126,10 @@ const Dashboard = ({ setActivePage }) => {
           subtitle={lowStockAlerts.length > 0 ? 'Items need restocking' : 'All items fully stocked'}
           icon={Package}
           iconColor={lowStockAlerts.length > 0 ? 'var(--accent-red)' : 'var(--accent-green)'}
-          accentBorder={lowStockAlerts.length > 0 ? 'var(--accent-red)' : undefined}
+          glowColor={lowStockAlerts.length > 0 ? 'rgba(231,76,60,0.15)' : 'rgba(46,204,113,0.15)'}
+          trend={lowStockAlerts.length > 0 ? 12.0 : 0.0}
+          trendUp={lowStockAlerts.length === 0}
+          accentBorder={lowStockAlerts.length > 0 ? 'var(--accent-red)' : 'var(--accent-green)'}
           delay={350}
         />
       </div>
