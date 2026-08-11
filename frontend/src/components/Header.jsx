@@ -51,7 +51,11 @@ const Header = ({ toggleMobileSidebar, onOpenProfile, onOpenCommandPalette }) =>
         </button>
         <div>
           <h2 style={{ fontSize: '1.2rem', color: 'var(--text-primary)' }} className="header-brand-title">
-            {currentUser?.role === 'SUPER_ADMIN' ? 'SalonSync SuperAdmin' : (currentSalon?.name || 'SalonSync Platform')}
+            {(() => {
+              if (currentUser?.role === 'SUPER_ADMIN') return 'SalonSync SuperAdmin';
+              if (currentUser?.role === 'CLIENT') return currentUser?.name || 'Client Workspace';
+              return currentSalon?.name || 'SalonSync Platform';
+            })()}
           </h2>
           {currentUser?.role !== 'SUPER_ADMIN' && currentUser?.role !== 'CLIENT' && currentBranch && (
             <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.25rem' }} className="header-brand-location">
