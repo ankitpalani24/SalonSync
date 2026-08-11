@@ -1,20 +1,31 @@
 import React from 'react';
-import { View, StyleSheet, ViewStyle } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, StyleProp, ViewStyle } from 'react-native';
 import { COLORS } from '../constants/theme';
 
 interface GlassCardProps {
   children: React.ReactNode;
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
   goldBorder?: boolean;
+  onPress?: () => void;
 }
 
-export const GlassCard: React.FC<GlassCardProps> = ({ children, style, goldBorder }) => {
+export const GlassCard: React.FC<GlassCardProps> = ({ children, style, goldBorder, onPress }) => {
+  const containerStyle = [
+    styles.card,
+    goldBorder && styles.goldBorderStyle,
+    style
+  ];
+
+  if (onPress) {
+    return (
+      <TouchableOpacity activeOpacity={0.85} onPress={onPress} style={containerStyle}>
+        {children}
+      </TouchableOpacity>
+    );
+  }
+
   return (
-    <View style={[
-      styles.card,
-      goldBorder && styles.goldBorderStyle,
-      style
-    ]}>
+    <View style={containerStyle}>
       {children}
     </View>
   );
