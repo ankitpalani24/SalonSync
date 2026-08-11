@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, Package, Truck, AlertTriangle, ArrowUpRight, ArrowDownRight, Edit, Search, X } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { EmptyState, DataGridHeader } from '../components/UIComponents';
 
 const Inventory = () => {
   const { tenantFilter, db, addProduct, updateProduct, updateProductQuantity, addSupplier } = useApp();
@@ -110,153 +111,205 @@ const Inventory = () => {
   return (
     <div className="page-container animated-fade-in">
       {/* Header */}
-      <div className="page-header">
+      <div className="page-header" style={{ marginBottom: '2rem' }}>
         <div>
-          <h1 style={{ fontSize: '1.85rem', color: 'var(--text-primary)' }}>Inventory Control</h1>
-          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Track retail stocks, log item thresholds, and organize vendor list databases.</p>
-        </div>
-
-        <div style={{ display: 'flex', gap: '0.25rem', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-light)', padding: '0.2rem', borderRadius: '4px' }}>
-          <button onClick={() => setActivePane('stock')} style={{ border: 'none', background: activePane === 'stock' ? 'var(--gold-primary)' : 'transparent', color: activePane === 'stock' ? '#000' : '#aaa', fontSize: '0.75rem', fontWeight: '600', padding: '0.35rem 0.75rem', borderRadius: '3px' }}>
-            Products Inventory
-          </button>
-          <button onClick={() => setActivePane('suppliers')} style={{ border: 'none', background: activePane === 'suppliers' ? 'var(--gold-primary)' : 'transparent', color: activePane === 'suppliers' ? '#000' : '#aaa', fontSize: '0.75rem', fontWeight: '600', padding: '0.35rem 0.75rem', borderRadius: '3px' }}>
-            Supplier Vendors
-          </button>
+          <h1 style={{ fontSize: '1.85rem', color: 'var(--text-primary)' }}>Inventory & Product Logistics</h1>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Track retail stock levels, material treatment supplies, and vendor purchase orders.</p>
         </div>
       </div>
 
-      {/* 1. STOCK MANAGER PANEL */}
+      {/* KPI Cards */}
+      <div className="grid-3-cols" style={{ marginBottom: '2rem' }}>
+        <div className="glass-card">
+          <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Total SKU Products</span>
+          <h3 style={{ fontSize: '1.5rem', color: 'var(--text-primary)', marginTop: '0.25rem' }}>{products.length} Items</h3>
+        </div>
+        <div className="glass-card" style={{ borderLeft: '3px solid var(--accent-red)' }}>
+          <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Stock Alerts</span>
+          <h3 style={{ fontSize: '1.5rem', color: 'var(--accent-red)', marginTop: '0.25rem' }}>
+            {lowStockProducts.length} Reorders Needed
+          </h3>
+        </div>
+        <div className="glass-card">
+          <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Active Suppliers</span>
+          <h3 style={{ fontSize: '1.5rem', color: 'var(--gold-primary)', marginTop: '0.25rem' }}>{suppliers.length} Vendors</h3>
+        </div>
+      </div>
+
+      {/* Pane Toggles */}
+      <div style={{ display: 'flex', gap: '1rem', borderBottom: '1px solid rgba(255,255,255,0.05)', marginBottom: '1.5rem' }}>
+        <button
+          onClick={() => setActivePane('stock')}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            borderBottom: activePane === 'stock' ? '2px solid var(--gold-primary)' : '2px solid transparent',
+            color: activePane === 'stock' ? 'var(--gold-primary)' : 'var(--text-secondary)',
+            fontWeight: '600',
+            padding: '0.5rem 1rem',
+            cursor: 'pointer'
+          }}
+        >
+          Product Catalog & Stock ({products.length})
+        </button>
+        <button
+          onClick={() => setActivePane('suppliers')}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            borderBottom: activePane === 'suppliers' ? '2px solid var(--gold-primary)' : '2px solid transparent',
+            color: activePane === 'suppliers' ? 'var(--gold-primary)' : 'var(--text-secondary)',
+            fontWeight: '600',
+            padding: '0.5rem 1rem',
+            cursor: 'pointer'
+          }}
+        >
+          Suppliers & Vendors ({suppliers.length})
+        </button>
+      </div>
+
+      {/* 1. STOCK PANEL */}
       {activePane === 'stock' && (
         <div className="glass-card">
-          <div className="page-header" style={{ marginBottom: '1.5rem' }}>
-            <div style={{ position: 'relative', width: '300px' }}>
-              <Search size={16} style={{ position: 'absolute', left: '10px', top: '10px', color: 'var(--text-muted)' }} />
-              <input
-                type="text"
-                placeholder="Search products by SKU / name..."
-                className="form-control"
-                style={{ paddingLeft: '2.3rem', paddingTop: '0.5rem', paddingBottom: '0.5rem' }}
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-            
-            <button onClick={() => setShowProdModal(true)} className="gold-btn" style={{ padding: '0.5rem 1rem' }}>
-              <Plus size={16} /> Add Product
-            </button>
-          </div>
+          <DataGridHeader
+            searchTerm={searchTerm}
+            onSearchChange={setSearchTerm}
+            searchPlaceholder="Search product name or SKU..."
+            actionButtonLabel="Add Product SKU"
+            onActionButtonClick={() => setShowProdModal(true)}
+            actionButtonIcon={Plus}
+          />
 
-          <div className="table-responsive">
-            <table className="premium-table">
-              <thead>
-                <tr>
-                  <th>Product Details</th>
-                  <th>SKU</th>
-                  <th>Quantity</th>
-                  <th>Cost / Retail Price</th>
-                  <th>Supplier</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredProducts.map(p => {
-                  const isLow = p.quantity <= p.lowStockThreshold;
-                  const supp = suppliers.find(s => s._id === p.supplierId);
-                  return (
-                    <tr key={p._id} style={{ borderLeft: isLow ? '3px solid var(--accent-red)' : '3px solid transparent' }}>
-                      <td>
-                        <div>
-                          <span style={{ fontWeight: '500', color: 'var(--text-primary)' }}>{p.name}</span>
-                          <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{p.category}</p>
-                        </div>
-                      </td>
-                      <td>{p.sku}</td>
-                      <td>
-                        <span style={{ color: isLow ? 'var(--accent-red)' : '#fff', fontWeight: 'bold' }}>{p.quantity} units</span>
-                        {isLow && (
-                          <span style={{ display: 'flex', alignItems: 'center', gap: '0.1rem', fontSize: '0.65rem', color: 'var(--accent-red)', marginTop: '0.15rem' }}>
-                            <AlertTriangle size={10} /> Low Stock alert
-                          </span>
-                        )}
-                      </td>
-                      <td>
-                        <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>₹{p.sellingPrice}</span>
-                        <p style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Buy: ₹{p.purchasePrice}</p>
-                      </td>
-                      <td>{supp ? supp.name : 'Unknown Vendor'}</td>
-                      <td>
-                        <div style={{ display: 'flex', gap: '0.5rem' }}>
-                          <button onClick={() => handleOpenStockAdjust(p)} className="outline-btn" style={{ padding: '0.25rem 0.5rem', fontSize: '0.7rem' }}>
-                            Stock +/-
-                          </button>
-                          <button
-                            onClick={() => {
-                              setEditingProduct(p);
-                              setProdName(p.name);
-                              setProdSku(p.sku);
-                              setProdCat(p.category);
-                              setProdQty(p.quantity);
-                              setProdBuyPrice(p.purchasePrice);
-                              setProdSellPrice(p.sellingPrice);
-                              setProdSuppId(p.supplierId || '');
-                              setProdThreshold(p.lowStockThreshold || 5);
-                              setShowProdModal(true);
-                            }}
-                            className="outline-btn"
-                            style={{ padding: '0.25rem 0.5rem', fontSize: '0.7rem', borderColor: 'var(--gold-primary)', color: 'var(--gold-primary)' }}
-                          >
-                            Edit
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          {filteredProducts.length === 0 ? (
+            <EmptyState
+              icon={Package}
+              title="No Products Found"
+              description="There are no inventory items matching your search. Create a new product SKU to get started."
+              actionLabel="Add Product SKU"
+              onAction={() => setShowProdModal(true)}
+            />
+          ) : (
+            <div className="table-responsive">
+              <table className="premium-table">
+                <thead>
+                  <tr>
+                    <th>Product Details</th>
+                    <th>SKU</th>
+                    <th>Quantity</th>
+                    <th>Cost / Retail Price</th>
+                    <th>Supplier</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredProducts.map(p => {
+                    const isLow = p.quantity <= (p.lowStockThreshold || 5);
+                    const supp = suppliers.find(s => s._id === p.supplierId);
+                    return (
+                      <tr key={p._id} style={{ borderLeft: isLow ? '3px solid var(--accent-red)' : '3px solid transparent' }}>
+                        <td>
+                          <div>
+                            <span style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{p.name}</span>
+                            <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{p.category}</p>
+                          </div>
+                        </td>
+                        <td><span className="gcal-tag">{p.sku}</span></td>
+                        <td>
+                          <span style={{ color: isLow ? 'var(--accent-red)' : '#fff', fontWeight: 'bold' }}>{p.quantity} units</span>
+                          {isLow && (
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '0.2rem', fontSize: '0.65rem', color: 'var(--accent-red)', marginTop: '0.15rem' }}>
+                              <AlertTriangle size={10} /> Low Stock alert
+                            </span>
+                          )}
+                        </td>
+                        <td>
+                          <span style={{ fontSize: '0.8rem', color: 'var(--gold-primary)', fontWeight: 'bold' }}>₹{p.sellingPrice}</span>
+                          <p style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Buy: ₹{p.purchasePrice}</p>
+                        </td>
+                        <td>{supp ? supp.name : 'Direct Vendor'}</td>
+                        <td>
+                          <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            <button onClick={() => handleOpenStockAdjust(p)} className="outline-btn" style={{ padding: '0.25rem 0.5rem', fontSize: '0.7rem' }}>
+                              Stock +/-
+                            </button>
+                            <button
+                              onClick={() => {
+                                setEditingProduct(p);
+                                setProdName(p.name);
+                                setProdSku(p.sku);
+                                setProdCat(p.category);
+                                setProdQty(p.quantity);
+                                setProdBuyPrice(p.purchasePrice);
+                                setProdSellPrice(p.sellingPrice);
+                                setProdSuppId(p.supplierId || '');
+                                setProdThreshold(p.lowStockThreshold || 5);
+                                setShowProdModal(true);
+                              }}
+                              className="outline-btn"
+                              style={{ padding: '0.25rem 0.5rem', fontSize: '0.7rem', borderColor: 'var(--gold-primary)', color: 'var(--gold-primary)' }}
+                            >
+                              Edit
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 
       {/* 2. SUPPLIERS PANEL */}
       {activePane === 'suppliers' && (
         <div className="glass-card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
             <h3 style={{ fontSize: '1rem', color: 'var(--text-primary)' }}>Vendor Supplier Ledger</h3>
-            <button onClick={() => setShowSuppModal(true)} className="gold-btn" style={{ padding: '0.5rem 1rem' }}>
-              <Truck size={16} /> Add Supplier
+            <button onClick={() => setShowSuppModal(true)} className="gold-btn" style={{ padding: '0.45rem 1rem', fontSize: '0.8rem' }}>
+              <Truck size={15} /> Add Supplier
             </button>
           </div>
 
-          <div className="table-responsive">
-            <table className="premium-table">
-              <thead>
-                <tr>
-                  <th>Vendor Name</th>
-                  <th>Contact</th>
-                  <th>Email</th>
-                  <th>Address</th>
-                  <th>Outstanding Dues</th>
-                </tr>
-              </thead>
-              <tbody>
-                {suppliers.map(supp => (
-                  <tr key={supp._id}>
-                    <td>
-                      <span style={{ fontWeight: '500', color: 'var(--text-primary)' }}>{supp.name}</span>
-                    </td>
-                    <td>{supp.phone || 'N/A'}</td>
-                    <td>{supp.email || 'N/A'}</td>
-                    <td>{supp.address || 'N/A'}</td>
-                    <td>
-                      <span style={{ color: 'var(--gold-primary)', fontWeight: 'bold' }}>₹{(supp.outstandingDues || 0).toLocaleString()}</span>
-                    </td>
+          {suppliers.length === 0 ? (
+            <EmptyState
+              icon={Truck}
+              title="No Suppliers Registered"
+              description="Keep track of wholesale beauty vendors, distributors, and purchase orders by adding your first supplier."
+              actionLabel="Add Supplier"
+              onAction={() => setShowSuppModal(true)}
+            />
+          ) : (
+            <div className="table-responsive">
+              <table className="premium-table">
+                <thead>
+                  <tr>
+                    <th>Vendor Name</th>
+                    <th>Contact</th>
+                    <th>Email</th>
+                    <th>Address</th>
+                    <th>Outstanding Dues</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {suppliers.map(supp => (
+                    <tr key={supp._id}>
+                      <td>
+                        <span style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{supp.name}</span>
+                      </td>
+                      <td>{supp.phone || 'N/A'}</td>
+                      <td>{supp.email || 'N/A'}</td>
+                      <td>{supp.address || 'N/A'}</td>
+                      <td>
+                        <span style={{ color: 'var(--gold-primary)', fontWeight: 'bold' }}>₹{(supp.outstandingDues || 0).toLocaleString()}</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 

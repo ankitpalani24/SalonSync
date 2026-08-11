@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, Scissors, Sparkles, Clock, Calculator, Percent, Tag, X } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { EmptyState } from '../components/UIComponents';
 
 const Services = () => {
   const { tenantFilter, db, addService, updateService, addPackage } = useApp();
@@ -147,74 +148,84 @@ const Services = () => {
             </div>
           </div>
 
-          <div className="table-responsive">
-            <table className="premium-table">
-              <thead>
-                <tr>
-                  <th>Service</th>
-                  <th>Category</th>
-                  <th>Duration</th>
-                  <th>Cost Parameters</th>
-                  <th>Profit Margin</th>
-                  <th style={{ textAlign: 'center' }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredServices.map(srv => {
-                  const profitVal = srv.price - (srv.materialCost || 0);
-                  const marginPct = Math.round((profitVal / srv.price) * 100);
-                  return (
-                    <tr key={srv._id}>
-                      <td>
-                        <div>
-                          <span style={{ fontWeight: '500', color: 'var(--text-primary)' }}>{srv.name}</span>
-                          <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{srv.description || 'No description'}</p>
-                        </div>
-                      </td>
-                      <td>
-                        <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{srv.category}</span>
-                      </td>
-                      <td>
-                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.8rem' }}>
-                          <Clock size={12} style={{ color: 'var(--gold-primary)' }} /> {srv.duration} mins
-                        </span>
-                      </td>
-                      <td>
-                        <div style={{ fontSize: '0.8rem' }}>
-                          <span style={{ color: 'var(--text-primary)' }}>₹{srv.price}</span>
-                          <p style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Material: ₹{srv.materialCost || 0}</p>
-                        </div>
-                      </td>
-                      <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                          <span style={{ color: 'var(--accent-green)', fontWeight: 'bold', fontSize: '0.85rem' }}>₹{profitVal}</span>
-                          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>({marginPct}%)</span>
-                        </div>
-                      </td>
-                      <td style={{ textAlign: 'center' }}>
-                        <button
-                          onClick={() => {
-                            setEditingService(srv);
-                            setSrvName(srv.name);
-                            setSrvCat(srv.category);
-                            setSrvDuration(srv.duration);
-                            setSrvPrice(srv.price);
-                            setSrvCost(srv.materialCost || 0);
-                            setSrvDesc(srv.description || '');
-                            setShowSrvModal(true);
-                          }}
-                          className="outline-btn"
-                          style={{ padding: '0.25rem 0.65rem', fontSize: '0.7rem' }}
-                        >
-                          Edit
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          {filteredServices.length === 0 ? (
+            <EmptyState
+              icon={Scissors}
+              title="No Treatments Found"
+              description="There are no services configured in this category. Click create service to add new treatments."
+              actionLabel="Create Service"
+              onAction={() => setShowSrvModal(true)}
+            />
+          ) : (
+            <div className="table-responsive">
+              <table className="premium-table">
+                <thead>
+                  <tr>
+                    <th>Service</th>
+                    <th>Category</th>
+                    <th>Duration</th>
+                    <th>Cost Parameters</th>
+                    <th>Profit Margin</th>
+                    <th style={{ textAlign: 'center' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredServices.map(srv => {
+                    const profitVal = srv.price - (srv.materialCost || 0);
+                    const marginPct = Math.round((profitVal / srv.price) * 100);
+                    return (
+                      <tr key={srv._id}>
+                        <td>
+                          <div>
+                            <span style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{srv.name}</span>
+                            <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{srv.description || 'No description'}</p>
+                          </div>
+                        </td>
+                        <td>
+                          <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{srv.category}</span>
+                        </td>
+                        <td>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.8rem' }}>
+                            <Clock size={12} style={{ color: 'var(--gold-primary)' }} /> {srv.duration} mins
+                          </span>
+                        </td>
+                        <td>
+                          <div style={{ fontSize: '0.8rem' }}>
+                            <span style={{ color: 'var(--gold-primary)', fontWeight: 'bold' }}>₹{srv.price}</span>
+                            <p style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Material: ₹{srv.materialCost || 0}</p>
+                          </div>
+                        </td>
+                        <td>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <span style={{ color: 'var(--accent-green)', fontWeight: 'bold', fontSize: '0.85rem' }}>₹{profitVal}</span>
+                            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>({marginPct}%)</span>
+                          </div>
+                        </td>
+                        <td style={{ textAlign: 'center' }}>
+                          <button
+                            onClick={() => {
+                              setEditingService(srv);
+                              setSrvName(srv.name);
+                              setSrvCat(srv.category);
+                              setSrvDuration(srv.duration);
+                              setSrvPrice(srv.price);
+                              setSrvCost(srv.materialCost || 0);
+                              setSrvDesc(srv.description || '');
+                              setShowSrvModal(true);
+                            }}
+                            className="outline-btn"
+                            style={{ padding: '0.25rem 0.65rem', fontSize: '0.7rem' }}
+                          >
+                            Edit
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
 
         {/* Right Side: Packages Bundles */}
@@ -223,7 +234,13 @@ const Services = () => {
           
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             {packages.length === 0 ? (
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textAlign: 'center', padding: '1rem' }}>No service packages configured yet.</p>
+              <EmptyState
+                icon={Sparkles}
+                title="No Bundles Created"
+                description="Bundle multiple services together into discounted packages."
+                actionLabel="Bundle Package"
+                onAction={() => setShowPkgModal(true)}
+              />
             ) : (
               packages.map((pkg) => (
                 <div key={pkg._id} style={{

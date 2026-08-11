@@ -5,6 +5,7 @@ import {
   CheckCircle2, XCircle, CreditCard, Sparkles, Phone, UserCheck, MessageSquare
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { EmptyState, DataGridPagination } from '../components/UIComponents';
 
 // ─── SERVICE COLOR PALETTE ENGINE ───────────────────────────────────────────
 const SERVICE_COLORS = [
