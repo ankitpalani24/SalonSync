@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, ActivityIndicator } from 'react-native';
-import { createStackNavigator } from '@react-navigation/stack';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
 import { LoginScreen } from '../screens/auth/LoginScreen';
 import { SignupScreen } from '../screens/auth/SignupScreen';
@@ -16,7 +16,7 @@ import { ReviewSubmissionModal } from '../screens/client/ReviewSubmissionModal';
 import { StaffReviewsScreen } from '../screens/staff/StaffReviewsScreen';
 import { COLORS } from '../constants/theme';
 
-const Stack = createStackNavigator();
+const Stack = createNativeStackNavigator();
 
 export const RootNavigator = () => {
   const { user, isLoading, role } = useAuth();
