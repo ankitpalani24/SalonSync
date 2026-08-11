@@ -4815,4 +4815,8 @@ button:disabled {
   }
 }
 
-
+/* Business Intelligence Page Styles */
+.bi-container {
+  display: flex;
+  flex-direction: column;
+}

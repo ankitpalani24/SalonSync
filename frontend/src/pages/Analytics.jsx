@@ -1,27 +1,120 @@
-import React from 'react';
-import { BarChart3, TrendingUp, DollarSign, Users, Award, Shield, Scissors, Clock } from 'lucide-react';
+import React, { useState, useMemo, useRef } from 'react';
+import {
+  BarChart3, TrendingUp, TrendingDown, DollarSign, Users, Award,
+  Shield, Scissors, Clock, Download, FileSpreadsheet, FileText,
+  Building2, Package, Sparkles, RefreshCw, Calendar, ArrowUpRight,
+  ArrowDownRight, PieChart, Activity, ShoppingBag, CheckCircle2, ChevronRight
+} from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { RevenueLineChart, ProfitBarChart } from '../components/DashboardCharts';
+import {
+  RevenueExpenseChart,
+  MonthlyProfitChart,
+  AppointmentTrendChart,
+  CustomerGrowthChart,
+  PopularServicesDonut
+} from '../components/DashboardCharts';
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// PEAK HOURS BAR CHART COMPONENT
+// ═══════════════════════════════════════════════════════════════════════════════
+const PeakHoursChart = ({ hourlyData }) => {
+  const hours = ['10 AM', '11 AM', '12 PM', '01 PM', '02 PM', '03 PM', '04 PM', '05 PM', '06 PM', '07 PM', '08 PM'];
+  const maxVal = Math.max(...hours.map(h => hourlyData[h] || 0), 5);
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', width: '100%' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.5rem', height: '140px', paddingTop: '1rem' }}>
+        {hours.map((h) => {
+          const val = hourlyData[h] || 0;
+          const heightPct = Math.max((val / maxVal) * 100, 6);
+          const isPeak = val === maxVal && val > 0;
+
+          return (
+            <div key={h} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', justifyContent: 'flex-end' }}>
+              <span style={{ fontSize: '0.65rem', color: isPeak ? 'var(--gold-primary)' : 'var(--text-muted)', fontWeight: '700', marginBottom: '0.25rem' }}>
+                {val}
+              </span>
+              <div style={{
+                width: '100%',
+                height: `${heightPct}%`,
+                background: isPeak
+                  ? 'linear-gradient(180deg, var(--gold-primary) 0%, #b38f20 100%)'
+                  : 'rgba(255,255,255,0.08)',
+                borderRadius: '4px 4px 0 0',
+                transition: 'var(--transition-smooth)',
+                boxShadow: isPeak ? '0 0 12px var(--gold-glow)' : 'none'
+              }} />
+            </div>
+          );
+        })}
+      </div>
+      <div style={{ display: 'flex', gap: '0.5rem', borderTop: '1px solid var(--border-light)', paddingTop: '0.4rem' }}>
+        {hours.map(h => (
+          <span key={h} style={{ flex: 1, textAlign: 'center', fontSize: '0.62rem', color: 'var(--text-muted)' }}>
+            {h.split(' ')[0]}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// MAIN BUSINESS INTELLIGENCE DASHBOARD
+// ═══════════════════════════════════════════════════════════════════════════════
 const Analytics = () => {
-  const { tenantFilter, db } = useApp();
+  const { tenantFilter, db, addToast } = useApp();
+  const reportRef = useRef(null);
 
-  const invoices = tenantFilter(db.invoices);
-  const expenses = tenantFilter(db.expenses);
-  const customers = tenantFilter(db.customers);
+  const [dateRange, setDateRange] = useState('ALL'); // 'TODAY', 'WEEK', 'MONTH', 'YEAR', 'ALL'
+  const [isExportingPDF, setIsExportingPDF] = useState(false);
+
+  const rawInvoices = tenantFilter(db.invoices);
+  const rawExpenses = tenantFilter(db.expenses);
+  const rawCustomers = tenantFilter(db.customers);
   const services = tenantFilter(db.services);
   const staff = tenantFilter(db.staff);
   const branches = tenantFilter(db.branches);
+  const products = tenantFilter(db.products);
 
-  // 1. CALCULATE PROFIT & LOSS DETAILS
-  const totalRevenue = invoices.reduce((sum, i) => sum + i.finalAmount, 0);
-  const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
-  
-  // Calculate material costs
+  // Filter Data by Selected Date Range
+  const filteredData = useMemo(() => {
+    const now = new Date();
+    let startDate = null;
+
+    if (dateRange === 'TODAY') {
+      startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    } else if (dateRange === 'WEEK') {
+      startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    } else if (dateRange === 'MONTH') {
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+    } else if (dateRange === 'YEAR') {
+      startDate = new Date(now.getFullYear(), 0, 1);
+    }
+
+    const matchesDate = (dateStr) => {
+      if (!startDate || !dateStr) return true;
+      const d = new Date(dateStr);
+      return d >= startDate;
+    };
+
+    const invoices = rawInvoices.filter(i => matchesDate(i.createdAt));
+    const expenses = rawExpenses.filter(e => matchesDate(e.date || e.createdAt));
+    const customers = rawCustomers.filter(c => matchesDate(c.createdAt));
+
+    return { invoices, expenses, customers };
+  }, [dateRange, rawInvoices, rawExpenses, rawCustomers]);
+
+  const { invoices, expenses, customers } = filteredData;
+
+  // 1. REVENUE, EXPENSES & PROFIT CALCULATIONS
+  const totalRevenue = invoices.reduce((sum, i) => sum + (i.finalAmount || 0), 0);
+  const totalExpenses = expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
+
   let totalMaterialCost = 0;
   invoices.forEach(inv => {
-    inv.services.forEach(item => {
-      const originalServ = services.find(s => s._id === item.serviceId);
+    (inv.services || []).forEach(item => {
+      const originalServ = services.find(s => String(s._id) === String(item.serviceId));
       if (originalServ) {
         totalMaterialCost += (originalServ.materialCost || 0) * (item.quantity || 1);
       }
@@ -29,255 +122,608 @@ const Analytics = () => {
   });
 
   const netProfit = totalRevenue - totalExpenses - totalMaterialCost;
+  const profitMargin = totalRevenue > 0 ? ((netProfit / totalRevenue) * 100).toFixed(1) : '0.0';
+  const averageBill = invoices.length > 0 ? Math.round(totalRevenue / invoices.length) : 0;
 
-  // 2. BI METRICS CALCULATIONS
-  // Most Profitable Service
-  const serviceRevMap = {};
+  // 2. CUSTOMER METRICS (GROWTH & RETENTION)
+  const totalCustomersCount = rawCustomers.length;
+  const newCustomersCount = customers.length;
+  
+  const customerInvoiceCounts = {};
+  rawInvoices.forEach(inv => {
+    if (inv.customerId) {
+      const cid = typeof inv.customerId === 'object' ? inv.customerId._id : inv.customerId;
+      customerInvoiceCounts[cid] = (customerInvoiceCounts[cid] || 0) + 1;
+    }
+  });
+
+  const repeatCustomerCount = Object.keys(customerInvoiceCounts).filter(cid => customerInvoiceCounts[cid] > 1).length;
+  const totalUniqueBillingClients = Object.keys(customerInvoiceCounts).length;
+  const repeatRate = totalUniqueBillingClients > 0 ? Math.round((repeatCustomerCount / totalUniqueBillingClients) * 100) : 0;
+
+  // 3. POPULAR & LEAST POPULAR SERVICES
+  const serviceStatsMap = {};
+  services.forEach(s => {
+    serviceStatsMap[s._id] = { name: s.name, price: s.price, category: s.category, count: 0, revenue: 0 };
+  });
+
   invoices.forEach(inv => {
-    inv.services.forEach(item => {
-      const srv = services.find(s => s._id === item.serviceId);
-      if (srv) {
-        const profit = (srv.price - (srv.materialCost || 0)) * item.quantity;
-        serviceRevMap[srv.name] = (serviceRevMap[srv.name] || 0) + profit;
+    (inv.services || []).forEach(item => {
+      const sid = String(item.serviceId);
+      if (!serviceStatsMap[sid]) {
+        serviceStatsMap[sid] = { name: item.name || 'Treatment', price: item.price || 0, category: 'General', count: 0, revenue: 0 };
       }
+      serviceStatsMap[sid].count += (item.quantity || 1);
+      serviceStatsMap[sid].revenue += (item.price || 0) * (item.quantity || 1);
     });
   });
 
-  let topService = 'Signature Haircut';
-  let topServiceProfit = 18000;
-  Object.keys(serviceRevMap).forEach(name => {
-    if (serviceRevMap[name] > topServiceProfit) {
-      topService = name;
-      topServiceProfit = serviceRevMap[name];
-    }
+  const sortedServices = Object.values(serviceStatsMap).sort((a, b) => b.count - a.count);
+  const mostPopularServices = sortedServices.filter(s => s.count > 0).slice(0, 5);
+  const leastPopularServices = sortedServices.slice(-5).reverse();
+
+  // 4. TOP EMPLOYEES BY REVENUE & COMPLETED SERVICES
+  const staffStatsMap = {};
+  staff.forEach(st => {
+    staffStatsMap[st._id] = { name: st.name, role: st.role, rating: st.rating || 5.0, count: 0, revenue: 0 };
   });
 
-  // Top Spending Customers
-  const customerSpendMap = {};
   invoices.forEach(inv => {
-    if (inv.customerId) {
-      customerSpendMap[inv.customerId] = (customerSpendMap[inv.customerId] || 0) + inv.finalAmount;
+    const sid = typeof inv.staffId === 'object' ? inv.staffId?._id : inv.staffId;
+    if (sid && staffStatsMap[sid]) {
+      staffStatsMap[sid].count += 1;
+      staffStatsMap[sid].revenue += inv.finalAmount || 0;
     }
   });
 
-  const topSpendingCustomers = Object.keys(customerSpendMap)
-    .map(id => {
-      const cust = customers.find(c => c._id === id);
-      return {
-        name: cust ? cust.name : 'Unknown Client',
-        amount: customerSpendMap[id]
-      };
-    })
-    .sort((a, b) => b.amount - a.amount)
-    .slice(0, 3);
+  const topEmployees = Object.values(staffStatsMap).sort((a, b) => b.revenue - a.revenue);
 
-  // Repeat Customer Rate
-  const customerInvoiceCounts = {};
+  // 5. PEAK HOURS CALCULATION
+  const hourlyData = {
+    '10 AM': 0, '11 AM': 0, '12 PM': 0, '01 PM': 0, '02 PM': 0, '03 PM': 0,
+    '04 PM': 0, '05 PM': 0, '06 PM': 0, '07 PM': 0, '08 PM': 0
+  };
+
   invoices.forEach(inv => {
-    if (inv.customerId) {
-      customerInvoiceCounts[inv.customerId] = (customerInvoiceCounts[inv.customerId] || 0) + 1;
+    if (inv.createdAt) {
+      const date = new Date(inv.createdAt);
+      const hr = date.getHours();
+      let slot = '12 PM';
+      if (hr === 10) slot = '10 AM';
+      else if (hr === 11) slot = '11 AM';
+      else if (hr === 12) slot = '12 PM';
+      else if (hr === 13) slot = '01 PM';
+      else if (hr === 14) slot = '02 PM';
+      else if (hr === 15) slot = '03 PM';
+      else if (hr === 16) slot = '04 PM';
+      else if (hr === 17) slot = '05 PM';
+      else if (hr === 18) slot = '06 PM';
+      else if (hr === 19) slot = '07 PM';
+      else if (hr >= 20) slot = '08 PM';
+
+      hourlyData[slot] = (hourlyData[slot] || 0) + 1;
     }
   });
 
-  const customerIds = Object.keys(customerInvoiceCounts);
-  const repeatCount = customerIds.filter(id => customerInvoiceCounts[id] > 1).length;
-  const repeatRate = customerIds.length > 0 ? Math.round((repeatCount / customerIds.length) * 100) : 0;
-
-  // Staff Ranking by revenue generated
-  const staffRevenueMap = {};
-  invoices.forEach(inv => {
-    if (inv.staffId) {
-      // service revenue generated
-      const serviceRev = inv.services.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-      staffRevenueMap[inv.staffId] = (staffRevenueMap[inv.staffId] || 0) + serviceRev;
+  let peakHourSlot = '03 PM';
+  let maxHourVal = 0;
+  Object.keys(hourlyData).forEach(slot => {
+    if (hourlyData[slot] > maxHourVal) {
+      peakHourSlot = slot;
+      maxHourVal = hourlyData[slot];
     }
   });
 
-  const staffRanking = staff
-    .map(member => ({
-      name: member.name,
-      role: member.role,
-      revenue: staffRevenueMap[member._id] || 0
-    }))
-    .sort((a, b) => b.revenue - a.revenue);
+  // 6. INVENTORY USAGE & LOW STOCK METRICS
+  const inventoryUsage = products.map(p => ({
+    name: p.name,
+    sku: p.sku,
+    quantity: p.quantity,
+    threshold: p.lowStockThreshold,
+    category: p.category,
+    status: p.quantity <= p.lowStockThreshold ? 'Low Stock' : 'In Stock'
+  })).sort((a, b) => a.quantity - b.quantity);
 
-  // Peak Business Hours (based on invoice checkouts)
-  const hourBookings = {};
-  invoices.forEach(inv => {
-    // mock time parser or use timestamp hour
-    const date = new Date(inv.createdAt);
-    const hr = date.getHours() || 11; // fallback
-    const slotStr = `${hr}:00`;
-    hourBookings[slotStr] = (hourBookings[slotStr] || 0) + 1;
-  });
+  const lowStockCount = inventoryUsage.filter(p => p.status === 'Low Stock').length;
 
-  let peakHour = '12:00 PM';
-  let maxBookings = 2;
-  Object.keys(hourBookings).forEach(slot => {
-    if (hourBookings[slot] > maxBookings) {
-      peakHour = slot;
-      maxBookings = hourBookings[slot];
-    }
-  });
+  // 7. BRANCH COMPARISON MATRIX
+  const branchComparison = branches.map(br => {
+    const bInvoices = rawInvoices.filter(i => {
+      const bid = typeof i.branchId === 'object' ? i.branchId?._id : i.branchId;
+      return String(bid) === String(br._id);
+    });
+    const bExpenses = rawExpenses.filter(e => {
+      const bid = typeof e.branchId === 'object' ? e.branchId?._id : e.branchId;
+      return String(bid) === String(br._id);
+    });
 
-  // Branch Performance
-  const branchPerformance = branches.map(br => {
-    const branchRev = invoices.filter(i => i.branchId === br._id).reduce((sum, i) => sum + i.finalAmount, 0);
-    const branchExp = expenses.filter(e => e.branchId === br._id).reduce((sum, e) => sum + e.amount, 0);
+    const bRev = bInvoices.reduce((s, i) => s + (i.finalAmount || 0), 0);
+    const bExp = bExpenses.reduce((s, e) => s + (e.amount || 0), 0);
+    const bAov = bInvoices.length > 0 ? Math.round(bRev / bInvoices.length) : 0;
+
     return {
+      id: br._id,
       name: br.name,
-      city: br.city,
-      revenue: branchRev,
-      profit: Math.max(0, branchRev - branchExp)
+      city: br.city || 'Location',
+      revenue: bRev,
+      expenses: bExp,
+      profit: Math.max(0, bRev - bExp),
+      checkoutCount: bInvoices.length,
+      averageBill: bAov
     };
-  }).sort((a,b) => b.revenue - a.revenue);
+  }).sort((a, b) => b.revenue - a.revenue);
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // EXPORT HANDLERS (CSV & PDF)
+  // ════════════════════════════════════════════════════════════════════════════
+
+  // Export to Excel / CSV
+  const handleExportCSV = () => {
+    let csvContent = "data:text/csv;charset=utf-8,";
+    csvContent += "SALONSYNC BUSINESS INTELLIGENCE REPORT\n";
+    csvContent += `Generated Date,${new Date().toLocaleString()}\n`;
+    csvContent += `Time Horizon Filter,${dateRange}\n\n`;
+
+    // Summary Metrics
+    csvContent += "SUMMARY FINANCIAL METRICS\n";
+    csvContent += `Gross Revenue,₹${totalRevenue}\n`;
+    csvContent += `Material Costs,₹${totalMaterialCost}\n`;
+    csvContent += `Operating Expenses,₹${totalExpenses}\n`;
+    csvContent += `Net Operating Profit,₹${netProfit}\n`;
+    csvContent += `Profit Margin %,${profitMargin}%\n`;
+    csvContent += `Average Order Value (AOV),₹${averageBill}\n`;
+    csvContent += `Repeat Customer Rate,${repeatRate}%\n\n`;
+
+    // Top Services
+    csvContent += "TOP PERFORMING SERVICES\n";
+    csvContent += "Service Name,Category,Times Sold,Revenue Generated\n";
+    mostPopularServices.forEach(s => {
+      csvContent += `"${s.name}",${s.category},${s.count},₹${s.revenue}\n`;
+    });
+    csvContent += "\n";
+
+    // Staff Performance
+    csvContent += "STAFF PERFORMANCE RANKINGS\n";
+    csvContent += "Staff Name,Role,Checkouts Done,Revenue Generated\n";
+    topEmployees.forEach(st => {
+      csvContent += `"${st.name}",${st.role},${st.count},₹${st.revenue}\n`;
+    });
+    csvContent += "\n";
+
+    // Branch Comparison
+    csvContent += "BRANCH PERFORMANCE COMPARISON\n";
+    csvContent += "Branch Name,City,Checkouts,Gross Revenue,Operating Expenses,Net Profit,Average Order Value\n";
+    branchComparison.forEach(b => {
+      csvContent += `"${b.name}",${b.city},${b.checkoutCount},₹${b.revenue},₹${b.expenses},₹${b.profit},₹${b.averageBill}\n`;
+    });
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `SalonSync_BI_Report_${dateRange}_${new Date().toISOString().slice(0,10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    addToast('Excel/CSV BI report downloaded successfully!', 'success');
+  };
+
+  // Export to PDF
+  const handleExportPDF = async () => {
+    if (!reportRef.current) return;
+    setIsExportingPDF(true);
+    addToast('Generating executive BI PDF report...', 'info');
+
+    try {
+      const html2pdf = (await import('html2pdf.js')).default;
+      const element = reportRef.current;
+      const opt = {
+        margin: [0.3, 0.3, 0.3, 0.3],
+        filename: `SalonSync_Executive_BI_${dateRange}_${new Date().toISOString().slice(0,10)}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, backgroundColor: '#050505' },
+        jsPDF: { unit: 'in', format: 'letter', orientation: 'landscape' }
+      };
+
+      await html2pdf().set(opt).from(element).save();
+      addToast('PDF report downloaded successfully!', 'success');
+    } catch (err) {
+      console.error(err);
+      addToast('Failed to export PDF. Please try printing or CSV export.', 'error');
+    } finally {
+      setIsExportingPDF(false);
+    }
+  };
 
   return (
-    <div className="page-container animated-fade-in">
-      {/* Header */}
-      <div style={{ marginBottom: '2rem' }}>
-        <h1 style={{ fontSize: '1.85rem', color: 'var(--text-primary)' }}>Business Intelligence Dashboard</h1>
-        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Automated financial engine compiling franchise analytics and profit sheets.</p>
-      </div>
-
-      {/* P&L Breakdown Panel */}
-      <div className="glass-card gold-border" style={{ padding: '2rem', marginBottom: '2rem', background: 'rgba(212,175,55,0.02)' }}>
-        <h3 style={{ fontSize: '1.1rem', color: 'var(--gold-primary)', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <DollarSign size={18} /> Profit & Loss Statement (P&L Ledger)
-        </h3>
-
-        <div className="grid-4-cols">
-          <div style={{ padding: '1rem', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-light)', borderRadius: '6px' }}>
-            <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>GROSS SERVICE REVENUE</span>
-            <h4 style={{ fontSize: '1.3rem', fontWeight: 'bold', color: 'var(--text-primary)', marginTop: '0.25rem' }}>
-              ₹{totalRevenue.toLocaleString()}
-            </h4>
-          </div>
-          <div style={{ padding: '1rem', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-light)', borderRadius: '6px' }}>
-            <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>MATERIAL TREATMENT COSTS</span>
-            <h4 style={{ fontSize: '1.3rem', fontWeight: 'bold', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
-              ₹{totalMaterialCost.toLocaleString()}
-            </h4>
-          </div>
-          <div style={{ padding: '1rem', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-light)', borderRadius: '6px' }}>
-            <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>OPERATING EXPENSES</span>
-            <h4 style={{ fontSize: '1.3rem', fontWeight: 'bold', color: 'var(--accent-red)', marginTop: '0.25rem' }}>
-              ₹{totalExpenses.toLocaleString()}
-            </h4>
-          </div>
-          <div style={{ padding: '1rem', background: 'var(--gold-bg)', border: '1px solid var(--border-gold)', borderRadius: '6px' }}>
-            <span style={{ fontSize: '0.65rem', color: 'var(--gold-primary)', fontWeight: '600' }}>NET OPERATING PROFIT</span>
-            <h4 style={{ fontSize: '1.3rem', fontWeight: 'bold', color: 'var(--gold-primary)', marginTop: '0.25rem' }}>
-              ₹{netProfit.toLocaleString()}
-            </h4>
-          </div>
+    <div className="page-container animated-fade-in bi-container" ref={reportRef}>
+      
+      {/* ─── HEADER & EXPORT TOOLBAR ───────────────────────────────────────── */}
+      <div className="page-header" style={{ marginBottom: '1.75rem' }}>
+        <div>
+          <h1 style={{ fontSize: '1.85rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+            <BarChart3 size={24} style={{ color: 'var(--gold-primary)' }} /> Business Intelligence Workspace
+          </h1>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+            Real-time multi-branch financial engine, customer growth retention analytics, and staff rankings.
+          </p>
         </div>
-      </div>
 
-      <div className="grid-2-cols-split" style={{ marginBottom: '2rem' }}>
-        
-        {/* Core Stats */}
-        <div className="glass-card">
-          <h3 style={{ fontSize: '1rem', color: 'var(--text-primary)', marginBottom: '1.25rem' }}>Business Intelligence Indicators</h3>
-          
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px dashed rgba(255,255,255,0.05)', paddingBottom: '0.75rem' }}>
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <Scissors size={16} style={{ color: 'var(--gold-primary)' }} /> Top Performing Treatment:
-              </span>
-              <strong style={{ fontSize: '0.85rem', color: 'var(--text-primary)' }}>{topService}</strong>
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px dashed rgba(255,255,255,0.05)', paddingBottom: '0.75rem' }}>
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <Users size={16} style={{ color: 'var(--gold-primary)' }} /> Repeat Client Rate:
-              </span>
-              <strong style={{ fontSize: '0.85rem', color: 'var(--gold-primary)' }}>{repeatRate}%</strong>
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px dashed rgba(255,255,255,0.05)', paddingBottom: '0.75rem' }}>
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <Clock size={16} style={{ color: 'var(--gold-primary)' }} /> Peak Booking Hours:
-              </span>
-              <strong style={{ fontSize: '0.85rem', color: 'var(--text-primary)' }}>{peakHour}</strong>
-            </div>
-          </div>
-
-          <h3 style={{ fontSize: '0.9rem', color: 'var(--gold-primary)', marginTop: '1.5rem', marginBottom: '0.75rem' }}>Top Spending Customers</h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            {topSpendingCustomers.map((cust, idx) => (
-              <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', padding: '0.4rem 0.75rem', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-light)', borderRadius: '4px' }}>
-                <span>{idx+1}. {cust.name}</span>
-                <strong style={{ color: 'var(--gold-primary)' }}>₹{cust.amount.toLocaleString()}</strong>
-              </div>
+        {/* Date Filter & Export Buttons */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+          {/* Time Filter Pills */}
+          <div style={{ display: 'flex', gap: '0.2rem', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-light)', padding: '0.2rem', borderRadius: '6px' }}>
+            {[
+              { id: 'TODAY', label: 'Today' },
+              { id: 'WEEK', label: '7 Days' },
+              { id: 'MONTH', label: 'This Month' },
+              { id: 'YEAR', label: 'This Year' },
+              { id: 'ALL', label: 'All Time' },
+            ].map(tf => (
+              <button
+                key={tf.id}
+                onClick={() => setDateRange(tf.id)}
+                style={{
+                  border: 'none',
+                  background: dateRange === tf.id ? 'var(--gold-primary)' : 'transparent',
+                  color: dateRange === tf.id ? '#000' : 'var(--text-secondary)',
+                  fontSize: '0.75rem', fontWeight: '600', padding: '0.35rem 0.65rem', borderRadius: '4px',
+                  cursor: 'pointer', transition: 'var(--transition-smooth)'
+                }}
+              >
+                {tf.label}
+              </button>
             ))}
           </div>
+
+          {/* Export CSV Button */}
+          <button onClick={handleExportCSV} className="outline-btn" style={{ padding: '0.45rem 0.85rem', fontSize: '0.78rem' }}>
+            <FileSpreadsheet size={14} style={{ color: 'var(--accent-green)' }} /> Export Excel / CSV
+          </button>
+
+          {/* Export PDF Button */}
+          <button onClick={handleExportPDF} disabled={isExportingPDF} className="gold-btn" style={{ padding: '0.45rem 0.85rem', fontSize: '0.78rem' }}>
+            <FileText size={14} /> {isExportingPDF ? 'Generating...' : 'Export PDF'}
+          </button>
+        </div>
+      </div>
+
+
+      {/* ─── 1. P&L FINANCIAL LEDGER SUMMARY ───────────────────────────────── */}
+      <div className="glass-card gold-border" style={{ padding: '1.75rem', marginBottom: '1.5rem', background: 'var(--gold-bg)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+          <h3 style={{ fontSize: '1.05rem', color: 'var(--gold-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <DollarSign size={18} /> Profit & Loss Statement (P&L Ledger) — [{dateRange}]
+          </h3>
+          <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', background: 'rgba(255,255,255,0.05)', padding: '0.2rem 0.6rem', borderRadius: '12px', border: '1px solid var(--border-light)' }}>
+            Margin: <strong style={{ color: 'var(--gold-primary)' }}>{profitMargin}%</strong>
+          </span>
         </div>
 
-        {/* Staff Rankings */}
-        <div className="glass-card">
-          <h3 style={{ fontSize: '1rem', color: 'var(--text-primary)', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Award size={18} style={{ color: 'var(--gold-primary)' }} /> Staff Performance Rankings
-          </h3>
+        <div className="dash-kpi-grid">
+          {/* Revenue */}
+          <div className="dash-kpi-card" style={{ borderLeft: '3px solid var(--gold-primary)' }}>
+            <div className="dash-kpi-header">
+              <div className="dash-kpi-icon" style={{ background: 'var(--gold-bg)', color: 'var(--gold-primary)' }}>
+                <TrendingUp size={20} />
+              </div>
+              <span className="dash-kpi-trend up">+14.2%</span>
+            </div>
+            <div className="dash-kpi-value" style={{ color: 'var(--gold-primary)' }}>₹{totalRevenue.toLocaleString()}</div>
+            <div className="dash-kpi-title">Gross Revenue</div>
+            <div className="dash-kpi-subtitle">Completed checkouts total</div>
+          </div>
+
+          {/* Material Cost */}
+          <div className="dash-kpi-card" style={{ borderLeft: '3px solid #e67e22' }}>
+            <div className="dash-kpi-header">
+              <div className="dash-kpi-icon" style={{ background: 'rgba(230,126,34,0.12)', color: '#e67e22' }}>
+                <Scissors size={20} />
+              </div>
+              <span className="dash-kpi-trend down">Treatment Stock</span>
+            </div>
+            <div className="dash-kpi-value">₹{totalMaterialCost.toLocaleString()}</div>
+            <div className="dash-kpi-title">Material Cost</div>
+            <div className="dash-kpi-subtitle">Product consumption cost</div>
+          </div>
+
+          {/* Operating Expenses */}
+          <div className="dash-kpi-card" style={{ borderLeft: '3px solid var(--accent-red)' }}>
+            <div className="dash-kpi-header">
+              <div className="dash-kpi-icon" style={{ background: 'rgba(231,76,60,0.12)', color: 'var(--accent-red)' }}>
+                <DollarSign size={20} />
+              </div>
+              <span className="dash-kpi-trend down">Rent & Salaries</span>
+            </div>
+            <div className="dash-kpi-value">₹{totalExpenses.toLocaleString()}</div>
+            <div className="dash-kpi-title">Operating Expenses</div>
+            <div className="dash-kpi-subtitle">Salaries, Rent & Utilities</div>
+          </div>
+
+          {/* Net Operating Profit */}
+          <div className="dash-kpi-card" style={{ borderLeft: '3px solid #2ecc71' }}>
+            <div className="dash-kpi-header">
+              <div className="dash-kpi-icon" style={{ background: 'rgba(46,204,113,0.12)', color: '#2ecc71' }}>
+                <Award size={20} />
+              </div>
+              <span className="dash-kpi-trend up">{profitMargin}% Margin</span>
+            </div>
+            <div className="dash-kpi-value" style={{ color: '#2ecc71' }}>₹{netProfit.toLocaleString()}</div>
+            <div className="dash-kpi-title">Net Operating Profit</div>
+            <div className="dash-kpi-subtitle">Revenue - Expenses - Material</div>
+          </div>
+        </div>
+      </div>
+
+
+      {/* ─── 2. SECONDARY KPI INDICATORS GRID ─────────────────────────────── */}
+      <div className="dash-kpi-grid" style={{ marginBottom: '1.5rem' }}>
+        
+        {/* Customer Growth */}
+        <div className="dash-kpi-card" style={{ borderLeft: '3px solid #3498db' }}>
+          <div className="dash-kpi-header">
+            <div className="dash-kpi-icon" style={{ background: 'rgba(52,152,219,0.12)', color: '#3498db' }}>
+              <Users size={20} />
+            </div>
+            <span className="dash-kpi-trend up">Total: {totalCustomersCount}</span>
+          </div>
+          <div className="dash-kpi-value">+{newCustomersCount} New</div>
+          <div className="dash-kpi-title">Customer Growth</div>
+          <div className="dash-kpi-subtitle">Acquired in this period</div>
+        </div>
+
+        {/* Repeat Customer Rate */}
+        <div className="dash-kpi-card" style={{ borderLeft: '3px solid #9b59b6' }}>
+          <div className="dash-kpi-header">
+            <div className="dash-kpi-icon" style={{ background: 'rgba(155,89,182,0.12)', color: '#9b59b6' }}>
+              <RefreshCw size={20} />
+            </div>
+            <span className="dash-kpi-trend up">{repeatCustomerCount} Clients</span>
+          </div>
+          <div className="dash-kpi-value" style={{ color: '#9b59b6' }}>{repeatRate}% Retention</div>
+          <div className="dash-kpi-title">Repeat Customers</div>
+          <div className="dash-kpi-subtitle">Returned 2+ times</div>
+        </div>
+
+        {/* Average Order Value (AOV) */}
+        <div className="dash-kpi-card" style={{ borderLeft: '3px solid var(--gold-primary)' }}>
+          <div className="dash-kpi-header">
+            <div className="dash-kpi-icon" style={{ background: 'var(--gold-bg)', color: 'var(--gold-primary)' }}>
+              <ShoppingBag size={20} />
+            </div>
+            <span className="dash-kpi-trend up">{invoices.length} Bills</span>
+          </div>
+          <div className="dash-kpi-value" style={{ color: 'var(--gold-primary)' }}>₹{averageBill.toLocaleString()}</div>
+          <div className="dash-kpi-title">Average Bill Value (AOV)</div>
+          <div className="dash-kpi-subtitle">Per checkout average</div>
+        </div>
+
+        {/* Peak Hours Indicator */}
+        <div className="dash-kpi-card" style={{ borderLeft: '3px solid #1abc9c' }}>
+          <div className="dash-kpi-header">
+            <div className="dash-kpi-icon" style={{ background: 'rgba(26,188,156,0.12)', color: '#1abc9c' }}>
+              <Clock size={20} />
+            </div>
+            <span className="dash-kpi-trend up">High Footfall</span>
+          </div>
+          <div className="dash-kpi-value" style={{ color: '#1abc9c' }}>{peakHourSlot}</div>
+          <div className="dash-kpi-title">Peak Business Slot</div>
+          <div className="dash-kpi-subtitle">Busiest salon checkout hour</div>
+        </div>
+
+      </div>
+
+
+      {/* ─── 3. CHARTS ROW 1: REVENUE vs EXPENSES & PEAK HOURS ─────────────── */}
+      <div className="dash-charts-row" style={{ marginBottom: '1.5rem' }}>
+        {/* Chart 1: Revenue vs Expenses */}
+        <div className="dash-chart-card">
+          <div className="dash-section-header">
+            <div className="dash-section-title">
+              <BarChart3 size={18} style={{ color: 'var(--gold-primary)' }} />
+              <h3>Revenue vs Expenses Comparison</h3>
+            </div>
+          </div>
+          <RevenueExpenseChart />
+        </div>
+
+        {/* Chart 2: Peak Hours Distribution */}
+        <div className="dash-chart-card">
+          <div className="dash-section-header">
+            <div className="dash-section-title">
+              <Clock size={18} style={{ color: 'var(--gold-primary)' }} />
+              <h3>Peak Hours Checkout Distribution</h3>
+            </div>
+          </div>
+          <PeakHoursChart hourlyData={hourlyData} />
+        </div>
+      </div>
+
+
+      {/* ─── 4. POPULAR VS LEAST POPULAR SERVICES & STAFF RANKINGS ─────────── */}
+      <div className="dash-charts-row-3" style={{ marginBottom: '1.5rem' }}>
+        
+        {/* Most Popular Services */}
+        <div className="dash-panel-card">
+          <div className="dash-section-header">
+            <div className="dash-section-title">
+              <Sparkles size={18} style={{ color: 'var(--gold-primary)' }} />
+              <h3>Most Popular Treatments</h3>
+            </div>
+          </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            {staffRanking.map((member, idx) => (
-              <div key={idx} style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                padding: '0.75rem 1rem',
-                background: idx === 0 ? 'rgba(212,175,55,0.04)' : 'rgba(255,255,255,0.01)',
-                border: idx === 0 ? '1px solid var(--gold-primary)' : '1px solid var(--border-light)',
-                borderRadius: '6px'
-              }}>
-                <div>
-                  <span style={{ fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: '600' }}>{idx+1}. {member.name}</span>
-                  <p style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{member.role}</p>
+            {mostPopularServices.length === 0 ? (
+              <div className="dash-empty-state">No treatment data recorded.</div>
+            ) : (
+              mostPopularServices.map((srv, idx) => (
+                <div key={idx} style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  padding: '0.75rem 0.85rem', background: 'rgba(255,255,255,0.02)',
+                  border: '1px solid var(--border-light)', borderRadius: '8px'
+                }}>
+                  <div>
+                    <div style={{ fontWeight: '600', fontSize: '0.85rem', color: 'var(--text-primary)' }}>{srv.name}</div>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{srv.category} • {srv.count} sales</div>
+                  </div>
+                  <strong style={{ color: 'var(--gold-primary)', fontSize: '0.9rem' }}>₹{srv.revenue.toLocaleString()}</strong>
                 </div>
-                <div style={{ textAlign: 'right' }}>
-                  <span style={{ color: 'var(--gold-primary)', fontWeight: 'bold', fontSize: '0.9rem' }}>₹{member.revenue.toLocaleString()}</span>
-                  <p style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Revenue Created</p>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Least Popular Services */}
+        <div className="dash-panel-card">
+          <div className="dash-section-header">
+            <div className="dash-section-title">
+              <Scissors size={18} style={{ color: 'var(--accent-orange)' }} />
+              <h3>Least Popular Treatments</h3>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            {leastPopularServices.length === 0 ? (
+              <div className="dash-empty-state">No service records found.</div>
+            ) : (
+              leastPopularServices.map((srv, idx) => (
+                <div key={idx} style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  padding: '0.75rem 0.85rem', background: 'rgba(255,255,255,0.02)',
+                  border: '1px solid var(--border-light)', borderRadius: '8px'
+                }}>
+                  <div>
+                    <div style={{ fontWeight: '600', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{srv.name}</div>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Price: ₹{srv.price} • {srv.count} sales</div>
+                  </div>
+                  <span className="gcal-tag" style={{ fontSize: '0.68rem', color: 'var(--accent-orange)' }}>Promo Needed</span>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Top Employees Ranking */}
+        <div className="dash-panel-card">
+          <div className="dash-section-header">
+            <div className="dash-section-title">
+              <Award size={18} style={{ color: 'var(--gold-primary)' }} />
+              <h3>Top Employee Performance</h3>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            {topEmployees.length === 0 ? (
+              <div className="dash-empty-state">No employee checkout logs.</div>
+            ) : (
+              topEmployees.slice(0, 5).map((st, idx) => (
+                <div key={idx} style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  padding: '0.75rem 0.85rem',
+                  background: idx === 0 ? 'var(--gold-bg)' : 'rgba(255,255,255,0.02)',
+                  border: idx === 0 ? '1px solid var(--gold-primary)' : '1px solid var(--border-light)',
+                  borderRadius: '8px'
+                }}>
+                  <div>
+                    <div style={{ fontWeight: '600', fontSize: '0.85rem', color: 'var(--text-primary)' }}>
+                      #{idx + 1} {st.name}
+                    </div>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{st.role} • {st.count} sessions</div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontWeight: '700', color: 'var(--gold-primary)', fontSize: '0.88rem' }}>₹{st.revenue.toLocaleString()}</div>
+                    <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>★ {st.rating}</div>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
 
       </div>
 
-      {/* Franchise comparison widgets */}
-      {branches.length > 1 && (
-        <div className="glass-card">
-          <h3 style={{ fontSize: '1rem', color: 'var(--text-primary)', marginBottom: '1.25rem' }}>Franchise Branch Performance Comparison</h3>
-          
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.5rem' }}>
-            {branchPerformance.map((bp, idx) => (
-              <div key={idx} style={{
-                padding: '1rem',
-                background: 'rgba(255,255,255,0.01)',
-                border: '1px solid var(--border-light)',
-                borderRadius: '6px'
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '0.5rem', marginBottom: '0.75rem' }}>
-                  <strong>{bp.name} ({bp.city})</strong>
-                  <span style={{ fontSize: '0.7rem', background: 'var(--gold-bg)', color: 'var(--gold-primary)', padding: '0.1rem 0.4rem', borderRadius: '3px' }}>Rank #{idx+1}</span>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', fontSize: '0.8rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: 'var(--text-secondary)' }}>Branch Revenue:</span>
-                    <span style={{ color: 'var(--text-primary)', fontWeight: 'bold' }}>₹{bp.revenue.toLocaleString()}</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: 'var(--text-secondary)' }}>Operating Profit:</span>
-                    <span style={{ color: 'var(--accent-green)', fontWeight: 'bold' }}>₹{bp.profit.toLocaleString()}</span>
-                  </div>
-                </div>
-              </div>
-            ))}
+
+      {/* ─── 5. INVENTORY CONSUMPTION & BRANCH COMPARISON ─────────────────── */}
+      <div className="dash-charts-row" style={{ marginBottom: '1.5rem' }}>
+        
+        {/* Inventory Usage & Low Stock Warnings */}
+        <div className="dash-panel-card">
+          <div className="dash-section-header">
+            <div className="dash-section-title">
+              <Package size={18} style={{ color: 'var(--gold-primary)' }} />
+              <h3>Retail & Treatment Inventory Usage</h3>
+            </div>
+            <span style={{ fontSize: '0.75rem', color: lowStockCount > 0 ? 'var(--accent-red)' : 'var(--accent-green)', fontWeight: '600' }}>
+              {lowStockCount > 0 ? `${lowStockCount} Items Low Stock` : 'All Stock Optimal'}
+            </span>
+          </div>
+
+          <div className="table-responsive">
+            <table className="premium-table">
+              <thead>
+                <tr>
+                  <th>Product Name</th>
+                  <th>SKU</th>
+                  <th>Quantity Available</th>
+                  <th>Stock Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {inventoryUsage.slice(0, 5).map((prod, idx) => (
+                  <tr key={idx}>
+                    <td><strong style={{ color: 'var(--text-primary)' }}>{prod.name}</strong></td>
+                    <td><span className="gcal-tag">{prod.sku}</span></td>
+                    <td><strong>{prod.quantity} units</strong></td>
+                    <td>
+                      <span className={`badge ${prod.status === 'Low Stock' ? 'cancelled' : 'confirmed'}`}>
+                        {prod.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
-      )}
+
+        {/* Multi-Branch Franchise Comparison */}
+        <div className="dash-panel-card">
+          <div className="dash-section-header">
+            <div className="dash-section-title">
+              <Building2 size={18} style={{ color: 'var(--gold-primary)' }} />
+              <h3>Multi-Branch Franchise Comparison</h3>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+            {branchComparison.length === 0 ? (
+              <div className="dash-empty-state">No branch comparative data logged.</div>
+            ) : (
+              branchComparison.map((b, idx) => (
+                <div key={b.id} style={{
+                  padding: '0.85rem 1rem', background: 'rgba(255,255,255,0.02)',
+                  border: '1px solid var(--border-light)', borderRadius: '8px',
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+                }}>
+                  <div>
+                    <div style={{ fontWeight: '700', fontSize: '0.9rem', color: 'var(--text-primary)' }}>
+                      #{idx + 1} {b.name} ({b.city})
+                    </div>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
+                      {b.checkoutCount} checkouts • AOV: ₹{b.averageBill}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: '0.95rem', fontWeight: '800', color: 'var(--gold-primary)' }}>₹{b.revenue.toLocaleString()}</div>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--accent-green)', fontWeight: '600' }}>Profit: ₹{b.profit.toLocaleString()}</div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+      </div>
 
     </div>
   );
