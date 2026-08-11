@@ -7,7 +7,6 @@ import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import ToastContainer from './components/ToastContainer';
 import CommandPalette from './components/CommandPalette';
-import AIAssistantModal from './components/AIAssistantModal';
 
 // Import Pages
 import LandingPage from './pages/LandingPage';
@@ -31,8 +30,6 @@ function App() {
   const [showAlerts, setShowAlerts] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
-  const [showAIAssistant, setShowAIAssistant] = useState(false);
-  const [showQuickActionMenu, setShowQuickActionMenu] = useState(false);
 
   // Global Ctrl + K Keyboard Shortcut Listener
   useEffect(() => {
@@ -222,16 +219,11 @@ function App() {
         />
       </div>
 
-      {/* Command Palette & AI Assistant */}
+      {/* Command Palette */}
       <CommandPalette
         isOpen={showCommandPalette}
         onClose={() => setShowCommandPalette(false)}
         setActivePage={setActivePage}
-      />
-
-      <AIAssistantModal
-        isOpen={showAIAssistant}
-        onClose={() => setShowAIAssistant(false)}
       />
 
       {/* Main workplace pane */}
@@ -240,7 +232,6 @@ function App() {
           toggleMobileSidebar={() => setMobileSidebarOpen(!mobileSidebarOpen)} 
           onOpenProfile={() => setShowProfileModal(true)} 
           onOpenCommandPalette={() => setShowCommandPalette(true)}
-          onOpenAI={() => setShowAIAssistant(true)}
         />
         
         {/* Render page */}

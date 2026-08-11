@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { Sun, Moon, MapPin, ShieldAlert, Award, Menu, LogOut, Search, Bot, Command } from 'lucide-react';
+import { Sun, Moon, MapPin, ShieldAlert, Award, Menu, LogOut, Search, Command } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
-const Header = ({ toggleMobileSidebar, onOpenProfile, onOpenCommandPalette, onOpenAI }) => {
+const Header = ({ toggleMobileSidebar, onOpenProfile, onOpenCommandPalette }) => {
   const {
     darkMode, setDarkMode,
     demoMode, setDemoMode,
@@ -91,26 +91,6 @@ const Header = ({ toggleMobileSidebar, onOpenProfile, onOpenCommandPalette, onOp
       {/* Control Actions */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
         
-        {/* AI Assistant Trigger */}
-        <button
-          onClick={onOpenAI}
-          style={{
-            background: 'var(--gold-bg)',
-            border: '1px solid var(--border-gold)',
-            color: 'var(--gold-primary)',
-            borderRadius: '20px',
-            padding: '0.35rem 0.75rem',
-            fontSize: '0.75rem',
-            fontWeight: '600',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.35rem',
-            cursor: 'pointer'
-          }}
-        >
-          <Bot size={15} /> AI Copilot
-        </button>
-
         {/* Theme Switcher */}
         <button
           onClick={() => setDarkMode(!darkMode)}
