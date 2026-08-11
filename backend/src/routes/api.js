@@ -186,13 +186,45 @@ router.post('/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body;
     const cleanInput = (email || '').trim();
+    const inputPhone = cleanInput.replace(/[\s+-]/g, '');
 
-    const user = await models.User.findOne({
+    let user = await models.User.findOne({
       $or: [
         { email: cleanInput.toLowerCase() },
-        { phone: cleanInput }
+        { phone: cleanInput },
+        { phone: inputPhone },
+        { phone: `+91 ${cleanInput}` }
       ]
     });
+
+    // Auto-create missing User account if Staff record exists in database
+    if (!user) {
+      const staffMember = await models.Staff.findOne({
+        $or: [
+          { phone: cleanInput },
+          { phone: inputPhone },
+          { email: cleanInput.toLowerCase() },
+          { phone: `+91 ${cleanInput}` }
+        ]
+      });
+
+      if (staffMember) {
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password || 'password123', salt);
+        user = await models.User.create({
+          name: staffMember.name,
+          email: staffMember.email || `${staffMember.phone}@salonsync.com`,
+          phone: staffMember.phone,
+          password: hashedPassword,
+          role: 'STAFF',
+          salonId: staffMember.salonId,
+          branchId: staffMember.branchId
+        });
+        staffMember.userId = user._id;
+        await staffMember.save();
+      }
+    }
+
     if (user && (await bcrypt.compare(password, user.password))) {
       res.json({
         success: true,
