@@ -42,6 +42,15 @@ const Sidebar = ({ activePage, setActivePage, collapsed, setCollapsed, user, log
     }
   ];
 
+  const {
+    currentBranch, switchBranch,
+    demoMode, setDemoMode,
+    db,
+    darkMode, setDarkMode
+  } = useApp();
+
+  const branches = (db && db.branches) ? db.branches.filter(b => b.salonId === user?.salonId) : [];
+
   const touchRef = React.useRef({ startX: 0 });
 
   const handleTouchStart = (e) => {
