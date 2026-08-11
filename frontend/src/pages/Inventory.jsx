@@ -9,6 +9,7 @@ const Inventory = () => {
 
   const products = tenantFilter(db.products);
   const suppliers = tenantFilter(db.suppliers);
+  const lowStockProducts = products.filter(p => p.quantity <= (p.lowStockThreshold || 5));
 
   const [activePane, setActivePane] = useState('stock'); // 'stock', 'suppliers'
   const [searchTerm, setSearchTerm] = useState('');
