@@ -267,6 +267,17 @@ const NotificationSchema = new mongoose.Schema({
   sentAt: { type: Date, default: Date.now }
 }, { timestamps: true });
 
+// 19. Review Schema
+const ReviewSchema = new mongoose.Schema({
+  salonId: { type: mongoose.Schema.Types.ObjectId, ref: 'Salon', required: true },
+  staffId: { type: mongoose.Schema.Types.ObjectId, ref: 'Staff' },
+  customerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Customer' },
+  customerName: { type: String, required: true },
+  rating: { type: Number, required: true, min: 1, max: 5 },
+  comment: { type: String },
+  date: { type: Date, default: Date.now }
+}, { timestamps: true });
+
 // Export all models
 module.exports = {
   User: mongoose.model('User', UserSchema),
@@ -286,5 +297,6 @@ module.exports = {
   Attendance: mongoose.model('Attendance', AttendanceSchema),
   Commission: mongoose.model('Commission', CommissionSchema),
   Subscription: mongoose.model('Subscription', SubscriptionSchema),
-  Notification: mongoose.model('Notification', NotificationSchema)
+  Notification: mongoose.model('Notification', NotificationSchema),
+  Review: mongoose.model('Review', ReviewSchema)
 };

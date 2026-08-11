@@ -1037,4 +1037,40 @@ router.post('/auth/create-user', authorize('SUPER_ADMIN', 'SALON_OWNER', 'SALON_
   }
 });
 
+// @route   GET /api/reviews
+router.get('/reviews', async (req, res) => {
+  try {
+    const reviews = await models.Review.find(req.tenantFilter).sort({ createdAt: -1 });
+    res.json({ success: true, count: reviews.length, data: reviews });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// @route   POST /api/reviews
+router.post('/reviews', async (req, res) => {
+  try {
+    const { salonId, staffId, rating, comment } = req.body;
+    const review = await models.Review.create({
+      salonId: salonId || req.user.salonId,
+      staffId: staffId || null,
+      customerId: req.user._id,
+      customerName: req.user.name,
+      rating: Number(rating) || 5,
+      comment: comment || ''
+    });
+
+    // Recalculate average rating for Staff if staffId provided
+    if (staffId && mongoose.Types.ObjectId.isValid(staffId)) {
+      const staffReviews = await models.Review.find({ staffId });
+      const avg = staffReviews.reduce((sum, r) => sum + r.rating, 0) / staffReviews.length;
+      await models.Staff.findByIdAndUpdate(staffId, { rating: Math.round(avg * 10) / 10 });
+    }
+
+    res.status(201).json({ success: true, data: review });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+});
+
 module.exports = router;
