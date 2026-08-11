@@ -4738,7 +4738,7 @@ button:disabled {
   gap: 1rem;
   align-items: flex-start;
   position: relative;
-  zIndex: 1;
+  z-index: 1;
 }
 
 .crm-timeline-marker {
