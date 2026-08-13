@@ -898,6 +898,150 @@ export const AppProvider = ({ children }) => {
     }
   };
 
+  const deleteAppointment = async (id) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/appointments/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success) {
+        await syncBackendData(token);
+        addToast('Appointment cancelled successfully!', 'info');
+      }
+    } catch (err) {
+      console.error('Error deleting appointment:', err);
+    }
+  };
+
+  const deleteService = async (id) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/services/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success) {
+        await syncBackendData(token);
+        addToast('Service deleted successfully!', 'info');
+      }
+    } catch (err) {
+      console.error('Error deleting service:', err);
+    }
+  };
+
+  const deleteProduct = async (id) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/products/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success) {
+        await syncBackendData(token);
+        addToast('Product deleted successfully!', 'info');
+      }
+    } catch (err) {
+      console.error('Error deleting product:', err);
+    }
+  };
+
+  const deleteExpense = async (id) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/expenses/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success) {
+        await syncBackendData(token);
+        addToast('Expense deleted successfully!', 'info');
+      }
+    } catch (err) {
+      console.error('Error deleting expense:', err);
+    }
+  };
+
+  const deleteStaff = async (id) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/staff/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success) {
+        await syncBackendData(token);
+        addToast('Staff member removed successfully!', 'info');
+      }
+    } catch (err) {
+      console.error('Error deleting staff:', err);
+    }
+  };
+
+  const addBranch = async (branchData) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/branches`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(branchData)
+      });
+      const data = await res.json();
+      if (data.success) {
+        await syncBackendData(token);
+        addToast('New branch added successfully!', 'success');
+      }
+    } catch (err) {
+      console.error('Error adding branch:', err);
+    }
+  };
+
+  const updateBranch = async (id, updatedFields) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/branches/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(updatedFields)
+      });
+      const data = await res.json();
+      if (data.success) {
+        await syncBackendData(token);
+        addToast('Branch updated successfully!', 'success');
+      }
+    } catch (err) {
+      console.error('Error updating branch:', err);
+    }
+  };
+
+  const deleteBranch = async (id) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/branches/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success) {
+        await syncBackendData(token);
+        addToast('Branch removed successfully!', 'info');
+      }
+    } catch (err) {
+      console.error('Error deleting branch:', err);
+    }
+  };
+
   return (
     <AppContext.Provider value={{
       darkMode, setDarkMode,
@@ -912,15 +1056,15 @@ export const AppProvider = ({ children }) => {
       // CRM
       addCustomer, updateCustomer, deleteCustomer,
       // Bookings
-      addAppointment, updateAppointmentStatus, updateAppointment,
+      addAppointment, updateAppointmentStatus, updateAppointment, deleteAppointment,
       // Services & packages
-      addService, updateService, addPackage,
+      addService, updateService, deleteService, addPackage,
       // Finance & Inventory
-      addExpense, addProduct, updateProduct, updateProductQuantity, addSupplier, createInvoice,
+      addExpense, deleteExpense, addProduct, updateProduct, updateProductQuantity, deleteProduct, addSupplier, createInvoice,
       // HR
-      addStaff, updateStaff, clockInStaff, clockOutStaff,
+      addStaff, updateStaff, deleteStaff, clockInStaff, clockOutStaff,
       // Configurations
-      updateSalonDetails, switchBranch, updateSalonSubscription,
+      updateSalonDetails, switchBranch, addBranch, updateBranch, deleteBranch, updateSalonSubscription,
       // Marketing
       addNotification,
       // Toast

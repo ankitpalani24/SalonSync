@@ -37,9 +37,8 @@ app.use(cors({
       return callback(null, true);
     }
     
-    // Fallback: allow other origins dynamically to ensure seamless user remote access
-    console.warn(`CORS: Origin ${origin} not explicitly whitelisted, but allowed as fallback.`);
-    callback(null, true);
+    // Strict CORS: Reject un-whitelisted origins
+    return callback(new Error(`CORS policy violation: Origin ${origin} is not allowed`));
   },
   credentials: true
 }));

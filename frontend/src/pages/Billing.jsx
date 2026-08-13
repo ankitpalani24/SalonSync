@@ -295,9 +295,15 @@ const Billing = ({ apptForCheckout, clearApptCheckout }) => {
   const [checkoutProducts, setCheckoutProducts] = useState([]);
   const [taxPercent, setTaxPercent] = useState(18);
   const [discountAmt, setDiscountAmt] = useState(0);
+  const [redeemPoints, setRedeemPoints] = useState(0);
   const [payMethod, setPayMethod] = useState('UPI');
   const [tempSrvId, setTempSrvId] = useState('');
   const [tempProdId, setTempProdId] = useState('');
+
+  // Selected customer object for loyalty calculation
+  const selectedCustomerObj = customers.find(c => String(c._id) === String(selectedCustId));
+  const pointsAvailable = selectedCustomerObj?.loyaltyPoints || 0;
+  const actualPointsRedeemed = Math.min(Number(redeemPoints) || 0, pointsAvailable);
 
   // Appointment checkout preset
   useEffect(() => {
@@ -336,7 +342,7 @@ const Billing = ({ apptForCheckout, clearApptCheckout }) => {
   };
   const subTotal = getSubTotal();
   const calculatedTax = Math.round(subTotal * (taxPercent / 100));
-  const finalAmount = Math.max(0, Math.round(subTotal + calculatedTax - Number(discountAmt)));
+  const finalAmount = Math.max(0, Math.round(subTotal + calculatedTax - Number(discountAmt) - actualPointsRedeemed));
 
   // ── CART HANDLERS ──
   const handleAddService = () => { if (!tempSrvId) return; if (checkoutServices.some(s => String(s.serviceId) === String(tempSrvId))) return; setCheckoutServices(prev => [...prev, { serviceId: tempSrvId, quantity: 1 }]); setTempSrvId(''); };
@@ -381,8 +387,14 @@ const Billing = ({ apptForCheckout, clearApptCheckout }) => {
       const safeCustId = typeof selectedCustId === 'object' ? selectedCustId?._id : selectedCustId;
       const safeStaffId = typeof selectedStaffId === 'object' ? selectedStaffId?._id : selectedStaffId;
       const newInvoice = await createInvoice({
-        customerId: safeCustId || null, services: checkoutServices, products: checkoutProducts,
-        tax: Number(taxPercent), discount: Number(discountAmt), paymentMethod: payMethod, staffId: safeStaffId || null
+        customerId: safeCustId || null,
+        services: checkoutServices,
+        products: checkoutProducts,
+        tax: Number(taxPercent),
+        discount: Number(discountAmt),
+        redeemPoints: actualPointsRedeemed,
+        paymentMethod: payMethod,
+        staffId: safeStaffId || null
       });
       if (newInvoice) {
         addToast(`Invoice ${newInvoice.invoiceNumber || 'INV'} generated!`, 'success');
@@ -390,7 +402,7 @@ const Billing = ({ apptForCheckout, clearApptCheckout }) => {
           const client = customers.find(c => String(c._id) === String(safeCustId));
           if (client) addNotification({ customerId: safeCustId, type: 'Billing', message: `Receipt ${newInvoice.invoiceNumber} generated. Total: ₹${finalAmount}.`, status: 'Sent' });
         }
-        setSelectedCustId(''); setSelectedStaffId(''); setCheckoutServices([]); setCheckoutProducts([]); setDiscountAmt(0);
+        setSelectedCustId(''); setSelectedStaffId(''); setCheckoutServices([]); setCheckoutProducts([]); setDiscountAmt(0); setRedeemPoints(0);
         setSelectedInvoice(newInvoice);
       } else {
         addToast('Failed to generate invoice.', 'error');
@@ -617,6 +629,17 @@ const Billing = ({ apptForCheckout, clearApptCheckout }) => {
               </select>
             </div>
 
+            {/* Loyalty Point Redemption */}
+            {selectedCustId && pointsAvailable > 0 && (
+              <div style={{ background: 'var(--gold-bg)', border: '1px solid var(--gold-border)', padding: '0.65rem 0.85rem', borderRadius: '6px', marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <span style={{ color: 'var(--gold-primary)', fontWeight: 'bold', fontSize: '0.8rem', display: 'block' }}>🎁 Redeem Loyalty Points</span>
+                  <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Available: {pointsAvailable} pts (1 pt = ₹1)</span>
+                </div>
+                <input type="number" min="0" max={pointsAvailable} className="form-control" style={{ width: '80px', padding: '0.2rem 0.4rem', fontSize: '0.85rem', textAlign: 'center' }} value={redeemPoints} onChange={(e) => setRedeemPoints(Math.min(pointsAvailable, Math.max(0, Number(e.target.value))))} />
+              </div>
+            )}
+
             {/* Bill Summary */}
             <div className="billing-summary-box">
               <div className="billing-sum-row"><span>Subtotal</span><span>₹{subTotal.toLocaleString()}</span></div>
@@ -629,6 +652,12 @@ const Billing = ({ apptForCheckout, clearApptCheckout }) => {
                 <span>Discount (₹)</span>
                 <input type="number" className="form-control" style={{ width: '85px', padding: '0.2rem 0.4rem', fontSize: '0.8rem', textAlign: 'center' }} value={discountAmt} onChange={(e) => setDiscountAmt(e.target.value)} />
               </div>
+              {actualPointsRedeemed > 0 && (
+                <div className="billing-sum-row" style={{ color: 'var(--gold-primary)' }}>
+                  <span>Points Redeemed</span>
+                  <span>− ₹{actualPointsRedeemed}</span>
+                </div>
+              )}
               <div className="billing-sum-total">
                 <span>Grand Total</span>
                 <span>₹{finalAmount.toLocaleString()}</span>

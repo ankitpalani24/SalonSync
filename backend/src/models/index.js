@@ -172,6 +172,9 @@ const InvoiceSchema = new mongoose.Schema({
   staffId: { type: mongoose.Schema.Types.ObjectId, ref: 'Staff' }
 }, { timestamps: true });
 
+// Compound index to ensure invoice numbers are unique per salon tenant
+InvoiceSchema.index({ salonId: 1, invoiceNumber: 1 }, { unique: true });
+
 // 11. Expense Schema
 const ExpenseSchema = new mongoose.Schema({
   salonId: { type: mongoose.Schema.Types.ObjectId, ref: 'Salon', required: true },
@@ -189,6 +192,7 @@ const ExpenseSchema = new mongoose.Schema({
 // 12. Product Schema (Inventory items)
 const ProductSchema = new mongoose.Schema({
   salonId: { type: mongoose.Schema.Types.ObjectId, ref: 'Salon', required: true },
+  branchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch' },
   name: { type: String, required: true },
   sku: { type: String, required: true },
   category: { type: String },

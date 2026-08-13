@@ -4,7 +4,7 @@ const bcrypt = require('bcryptjs');
 const mongoose = require('mongoose');
 const router = express.Router();
 const models = require('../models');
-const { protect, authorize, restrictToTenant } = require('../middleware/auth');
+const { protect, authorize, restrictToTenant, validateSubscription, checkBranchAccess, validateOwnership } = require('../middleware/auth');
 
 // Database connection readiness check middleware
 router.use((req, res, next) => {
@@ -270,7 +270,11 @@ router.use(restrictToTenant);
 // ----------------------------------------------------
 router.get('/customers', async (req, res) => {
   try {
-    const customers = await models.Customer.find(req.tenantFilter);
+    let filter = { ...req.tenantFilter };
+    if (req.user.role === 'CLIENT') {
+      filter.$or = [{ email: req.user.email }, { phone: req.user.phone }];
+    }
+    const customers = await models.Customer.find(filter);
     res.json({ success: true, count: customers.length, data: customers });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -338,7 +342,15 @@ router.delete('/customers/:id', async (req, res) => {
 // ----------------------------------------------------
 router.get('/appointments', async (req, res) => {
   try {
-    const appointments = await models.Appointment.find(req.tenantFilter)
+    let filter = { ...req.tenantFilter };
+    if (req.user.role === 'CLIENT') {
+      const myCustomers = await models.Customer.find({
+        $or: [{ email: req.user.email }, { phone: req.user.phone }]
+      });
+      const myIds = myCustomers.map(c => c._id);
+      filter.customerId = { $in: myIds };
+    }
+    const appointments = await models.Appointment.find(filter)
       .populate('customerId')
       .populate('staffId');
     res.json({ success: true, data: appointments });
@@ -352,6 +364,24 @@ router.post('/appointments', async (req, res) => {
     let finalCustomerId = req.body.customerId;
     const targetSalonId = req.user.role === 'CLIENT' ? req.body.salonId : req.user.salonId;
     const targetBranchId = req.user.role === 'CLIENT' ? req.body.branchId : (req.user.branchId || req.body.branchId);
+
+    // Overlap prevention validation for staff bookings
+    if (req.body.staffId && req.body.date && req.body.time) {
+      const checkDate = new Date(req.body.date);
+      const existingAppt = await models.Appointment.findOne({
+        salonId: targetSalonId,
+        staffId: req.body.staffId,
+        date: checkDate,
+        time: req.body.time,
+        status: { $in: ['Scheduled', 'Confirmed', 'In Progress'] }
+      });
+      if (existingAppt) {
+        return res.status(400).json({
+          success: false,
+          message: 'The requested staff member is already booked for another appointment at this time slot.'
+        });
+      }
+    }
 
     // If client user is booking, automatically resolve or create their customer profile for the target salon
     if (req.user.role === 'CLIENT') {
@@ -410,6 +440,16 @@ router.put('/appointments/:id', async (req, res) => {
   }
 });
 
+router.delete('/appointments/:id', async (req, res) => {
+  try {
+    const appointment = await models.Appointment.findOneAndDelete({ _id: req.params.id, ...req.tenantFilter });
+    if (!appointment) return res.status(404).json({ success: false, message: 'Appointment not found' });
+    res.json({ success: true, message: 'Appointment removed' });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+});
+
 // ----------------------------------------------------
 // SERVICES AND PACKAGES
 // ----------------------------------------------------
@@ -449,6 +489,16 @@ router.put('/services/:id', async (req, res) => {
   }
 });
 
+router.delete('/services/:id', async (req, res) => {
+  try {
+    const service = await models.Service.findOneAndDelete({ _id: req.params.id, ...req.tenantFilter });
+    if (!service) return res.status(404).json({ success: false, message: 'Service not found' });
+    res.json({ success: true, message: 'Service removed' });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+});
+
 router.get('/packages', async (req, res) => {
   try {
     const packages = await models.Package.find(req.tenantFilter);
@@ -465,6 +515,30 @@ router.post('/packages', async (req, res) => {
       salonId: req.user.salonId
     });
     res.status(201).json({ success: true, data: pkg });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+});
+
+router.put('/packages/:id', async (req, res) => {
+  try {
+    const pkg = await models.Package.findOneAndUpdate(
+      { _id: req.params.id, ...req.tenantFilter },
+      req.body,
+      { new: true }
+    );
+    if (!pkg) return res.status(404).json({ success: false, message: 'Package not found' });
+    res.json({ success: true, data: pkg });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+});
+
+router.delete('/packages/:id', async (req, res) => {
+  try {
+    const pkg = await models.Package.findOneAndDelete({ _id: req.params.id, ...req.tenantFilter });
+    if (!pkg) return res.status(404).json({ success: false, message: 'Package not found' });
+    res.json({ success: true, message: 'Package removed' });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
   }
@@ -495,6 +569,20 @@ router.post('/expenses', async (req, res) => {
   }
 });
 
+router.put('/expenses/:id', async (req, res) => {
+  try {
+    const expense = await models.Expense.findOneAndUpdate(
+      { _id: req.params.id, ...req.tenantFilter },
+      req.body,
+      { new: true }
+    );
+    if (!expense) return res.status(404).json({ success: false, message: 'Expense not found' });
+    res.json({ success: true, data: expense });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+});
+
 router.delete('/expenses/:id', async (req, res) => {
   try {
     const expense = await models.Expense.findOneAndDelete({ _id: req.params.id, ...req.tenantFilter });
@@ -510,7 +598,15 @@ router.delete('/expenses/:id', async (req, res) => {
 // ----------------------------------------------------
 router.get('/invoices', async (req, res) => {
   try {
-    const invoices = await models.Invoice.find(req.tenantFilter).populate('customerId');
+    let filter = { ...req.tenantFilter };
+    if (req.user.role === 'CLIENT') {
+      const myCustomers = await models.Customer.find({
+        $or: [{ email: req.user.email }, { phone: req.user.phone }]
+      });
+      const myIds = myCustomers.map(c => c._id);
+      filter.customerId = { $in: myIds };
+    }
+    const invoices = await models.Invoice.find(filter).populate('customerId');
     res.json({ success: true, data: invoices });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -519,7 +615,7 @@ router.get('/invoices', async (req, res) => {
 
 router.post('/invoices', async (req, res) => {
   try {
-    const { customerId, services, products, tax, discount, paymentMethod, staffId } = req.body;
+    const { customerId, services, products, tax, discount, paymentMethod, staffId, redeemPoints } = req.body;
     
     // Auto-generate invoice number
     const count = await models.Invoice.countDocuments({ salonId: req.user.salonId });
@@ -539,6 +635,24 @@ router.post('/invoices', async (req, res) => {
     // Validate Customer & Staff IDs
     const finalCustomerId = (customerId && mongoose.Types.ObjectId.isValid(customerId)) ? customerId : null;
     const finalStaffId = (staffId && mongoose.Types.ObjectId.isValid(staffId)) ? staffId : null;
+
+    // 1. Validate product inventory stock availability BEFORE deducting
+    if (products && Array.isArray(products)) {
+      for (const item of products) {
+        if (item.productId && mongoose.Types.ObjectId.isValid(item.productId)) {
+          const p = await models.Product.findById(item.productId);
+          if (p) {
+            const reqQty = item.quantity || 1;
+            if (p.quantity < reqQty) {
+              return res.status(400).json({
+                success: false,
+                message: `Insufficient inventory for "${p.name}". Requested: ${reqQty}, Available in stock: ${p.quantity}`
+              });
+            }
+          }
+        }
+      }
+    }
 
     let subTotal = 0;
     
@@ -584,8 +698,31 @@ router.post('/invoices', async (req, res) => {
       }
     }
 
+    // Handle Loyalty Point Redemption (1 point = ₹1 discount)
+    let loyaltyDiscount = 0;
+    const requestedRedeem = Math.max(0, Number(redeemPoints) || 0);
+    if (requestedRedeem > 0 && finalCustomerId) {
+      const customer = await models.Customer.findById(finalCustomerId);
+      if (customer) {
+        const actualRedeemed = Math.min(requestedRedeem, customer.loyaltyPoints || 0);
+        if (actualRedeemed > 0) {
+          loyaltyDiscount = actualRedeemed;
+          customer.loyaltyPoints -= actualRedeemed;
+          await customer.save();
+
+          await models.LoyaltyPoint.create({
+            salonId: req.user.salonId,
+            customerId: finalCustomerId,
+            pointsEarned: 0,
+            pointsRedeemed: actualRedeemed,
+            transactionAmount: subTotal
+          });
+        }
+      }
+    }
+
     const calculatedTax = subTotal * (tax || 0) / 100;
-    const finalAmount = Math.round(subTotal + calculatedTax - (discount || 0));
+    const finalAmount = Math.max(0, Math.round(subTotal + calculatedTax - (discount || 0) - loyaltyDiscount));
 
     const invoice = await models.Invoice.create({
       invoiceNumber,
@@ -696,6 +833,16 @@ router.put('/products/:id', async (req, res) => {
   }
 });
 
+router.delete('/products/:id', async (req, res) => {
+  try {
+    const product = await models.Product.findOneAndDelete({ _id: req.params.id, ...req.tenantFilter });
+    if (!product) return res.status(404).json({ success: false, message: 'Product not found' });
+    res.json({ success: true, message: 'Product removed' });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+});
+
 router.get('/suppliers', async (req, res) => {
   try {
     const suppliers = await models.Supplier.find(req.tenantFilter);
@@ -712,6 +859,30 @@ router.post('/suppliers', async (req, res) => {
       salonId: req.user.salonId
     });
     res.status(201).json({ success: true, data: supplier });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+});
+
+router.put('/suppliers/:id', async (req, res) => {
+  try {
+    const supplier = await models.Supplier.findOneAndUpdate(
+      { _id: req.params.id, ...req.tenantFilter },
+      req.body,
+      { new: true }
+    );
+    if (!supplier) return res.status(404).json({ success: false, message: 'Supplier not found' });
+    res.json({ success: true, data: supplier });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+});
+
+router.delete('/suppliers/:id', async (req, res) => {
+  try {
+    const supplier = await models.Supplier.findOneAndDelete({ _id: req.params.id, ...req.tenantFilter });
+    if (!supplier) return res.status(404).json({ success: false, message: 'Supplier not found' });
+    res.json({ success: true, message: 'Supplier removed' });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
   }
@@ -792,6 +963,16 @@ router.put('/staff/:id', async (req, res) => {
     );
     if (!staff) return res.status(404).json({ success: false, message: 'Staff member not found' });
     res.json({ success: true, data: staff });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+});
+
+router.delete('/staff/:id', async (req, res) => {
+  try {
+    const staff = await models.Staff.findOneAndDelete({ _id: req.params.id, ...req.tenantFilter });
+    if (!staff) return res.status(404).json({ success: false, message: 'Staff member not found' });
+    res.json({ success: true, message: 'Staff member removed' });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
   }
@@ -988,13 +1169,49 @@ router.put('/salons/mine', async (req, res) => {
   }
 });
 
-// @route   GET /api/branches
+// @route   BRANCH MANAGEMENT
 router.get('/branches', async (req, res) => {
   try {
     const branches = await models.Branch.find(req.tenantFilter);
     res.json({ success: true, data: branches });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.post('/branches', authorize('SUPER_ADMIN', 'SALON_OWNER', 'FRANCHISE_OWNER'), async (req, res) => {
+  try {
+    const branch = await models.Branch.create({
+      ...req.body,
+      salonId: req.user.salonId
+    });
+    res.status(201).json({ success: true, data: branch });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+});
+
+router.put('/branches/:id', authorize('SUPER_ADMIN', 'SALON_OWNER', 'FRANCHISE_OWNER'), async (req, res) => {
+  try {
+    const branch = await models.Branch.findOneAndUpdate(
+      { _id: req.params.id, ...req.tenantFilter },
+      req.body,
+      { new: true }
+    );
+    if (!branch) return res.status(404).json({ success: false, message: 'Branch not found' });
+    res.json({ success: true, data: branch });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+});
+
+router.delete('/branches/:id', authorize('SUPER_ADMIN', 'SALON_OWNER', 'FRANCHISE_OWNER'), async (req, res) => {
+  try {
+    const branch = await models.Branch.findOneAndDelete({ _id: req.params.id, ...req.tenantFilter });
+    if (!branch) return res.status(404).json({ success: false, message: 'Branch not found' });
+    res.json({ success: true, message: 'Branch removed' });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
   }
 });
 
@@ -1070,6 +1287,176 @@ router.post('/reviews', async (req, res) => {
     res.status(201).json({ success: true, data: review });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
+  }
+});
+
+// ----------------------------------------------------
+// DEDICATED MOBILE APP ENDPOINTS LAYER (iOS / Android)
+// ----------------------------------------------------
+
+// @route   POST /api/auth/refresh-token
+router.post('/auth/refresh-token', async (req, res) => {
+  try {
+    const token = generateToken(req.user._id);
+    res.json({
+      success: true,
+      token,
+      user: {
+        id: req.user._id,
+        name: req.user.name,
+        email: req.user.email,
+        phone: req.user.phone,
+        role: req.user.role,
+        salonId: req.user.salonId,
+        branchId: req.user.branchId
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// @route   POST /api/auth/logout
+router.post('/auth/logout', (req, res) => {
+  res.json({ success: true, message: 'Logged out successfully' });
+});
+
+// @route   GET /api/mobile/client/dashboard
+router.get('/mobile/client/dashboard', async (req, res) => {
+  try {
+    const myCustomer = await models.Customer.findOne({
+      $or: [{ email: req.user.email }, { phone: req.user.phone }]
+    });
+
+    const upcomingAppts = myCustomer
+      ? await models.Appointment.find({ customerId: myCustomer._id, status: { $ne: 'Cancelled' } })
+          .sort({ date: 1 })
+          .populate('staffId')
+          .limit(5)
+      : [];
+
+    const recentInvoices = myCustomer
+      ? await models.Invoice.find({ customerId: myCustomer._id })
+          .sort({ createdAt: -1 })
+          .limit(5)
+      : [];
+
+    const availableSalons = await models.Salon.find({}).limit(10);
+    const availableBranches = await models.Branch.find({ status: 'Active' }).limit(10);
+
+    res.json({
+      success: true,
+      data: {
+        profile: {
+          name: req.user.name,
+          email: req.user.email,
+          phone: req.user.phone,
+          loyaltyPoints: myCustomer ? myCustomer.loyaltyPoints : 0,
+          membershipLevel: myCustomer ? myCustomer.membershipLevel : 'None'
+        },
+        upcomingAppointments: upcomingAppts,
+        recentInvoices,
+        salons: availableSalons,
+        branches: availableBranches
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// @route   GET /api/mobile/staff/schedule
+router.get('/mobile/staff/schedule', async (req, res) => {
+  try {
+    const staffRecord = await models.Staff.findOne({
+      $or: [{ userId: req.user._id }, { email: req.user.email }, { phone: req.user.phone }]
+    });
+
+    if (!staffRecord) {
+      return res.status(440).json({ success: false, message: 'Staff profile not found for user account' });
+    }
+
+    const todayStart = new Date();
+    todayStart.setHours(0,0,0,0);
+
+    const appointmentsToday = await models.Appointment.find({
+      staffId: staffRecord._id,
+      date: { $gte: todayStart }
+    }).populate('customerId');
+
+    const attendanceToday = await models.Attendance.findOne({
+      staffId: staffRecord._id,
+      date: { $gte: todayStart }
+    });
+
+    const monthStart = new Date();
+    monthStart.setDate(1);
+    monthStart.setHours(0,0,0,0);
+
+    const monthCommissions = await models.Commission.find({
+      staffId: staffRecord._id,
+      date: { $gte: monthStart }
+    });
+
+    const totalCommissionEarned = monthCommissions.reduce((sum, c) => sum + c.commissionEarned, 0);
+
+    res.json({
+      success: true,
+      data: {
+        staff: staffRecord,
+        attendanceToday,
+        appointmentsToday,
+        totalCommissionEarnedThisMonth: totalCommissionEarned
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// @route   POST /api/notifications/register-device
+router.post('/notifications/register-device', async (req, res) => {
+  try {
+    const { deviceToken, platform } = req.body;
+    if (!deviceToken) {
+      return res.status(400).json({ success: false, message: 'deviceToken is required' });
+    }
+
+    await models.User.findByIdAndUpdate(req.user._id, {
+      $set: { deviceToken, devicePlatform: platform || 'mobile' }
+    });
+
+    res.json({ success: true, message: 'Device token registered successfully' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// @route   GET /api/public/slots
+router.get('/public/slots', async (req, res) => {
+  try {
+    const { salonId, staffId, date } = req.query;
+    const allSlots = ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00'];
+
+    if (!date) {
+      return res.json({ success: true, availableSlots: allSlots });
+    }
+
+    const checkDate = new Date(date);
+    const query = {
+      date: checkDate,
+      status: { $in: ['Scheduled', 'Confirmed', 'In Progress'] }
+    };
+    if (salonId) query.salonId = salonId;
+    if (staffId) query.staffId = staffId;
+
+    const bookedAppts = await models.Appointment.find(query);
+    const bookedTimes = new Set(bookedAppts.map(a => a.time));
+
+    const availableSlots = allSlots.filter(s => !bookedTimes.has(s));
+    res.json({ success: true, date, availableSlots });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
 });
 
