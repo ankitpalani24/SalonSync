@@ -8,24 +8,32 @@ import {
 import { useApp } from '../context/AppContext';
 
 const Sidebar = ({ activePage, setActivePage, collapsed, setCollapsed, user, logout, closeMobileSidebar }) => {
-  // Categorized Navigation mapping according to role
+  const {
+    currentBranch, switchBranch,
+    demoMode, setDemoMode,
+    db,
+    darkMode, setDarkMode,
+    hasPermission, PERMISSIONS
+  } = useApp();
+
+  // Categorized Navigation mapping according to permissions and role
   const menuSections = [
     {
       title: 'OPERATIONS',
       items: [
-        { id: 'dashboard', label: 'Overview', icon: LayoutDashboard, roles: ['SALON_OWNER', 'SALON_MANAGER', 'FRANCHISE_OWNER', 'STAFF', 'CLIENT'] },
-        { id: 'appointments', label: 'Calendar Bookings', icon: Calendar, roles: ['SALON_OWNER', 'SALON_MANAGER', 'FRANCHISE_OWNER', 'STAFF'] },
-        { id: 'customers', label: 'Customer CRM', icon: Users, roles: ['SALON_OWNER', 'SALON_MANAGER', 'FRANCHISE_OWNER'] },
-        { id: 'services', label: 'Services & Packages', icon: Scissors, roles: ['SALON_OWNER', 'SALON_MANAGER', 'FRANCHISE_OWNER'] },
-        { id: 'inventory', label: 'Inventory & Stock', icon: Package, roles: ['SALON_OWNER', 'SALON_MANAGER', 'FRANCHISE_OWNER'] },
+        { id: 'dashboard', label: 'Overview', icon: LayoutDashboard, permission: null },
+        { id: 'appointments', label: 'Calendar Bookings', icon: Calendar, permission: PERMISSIONS.APPOINTMENTS_VIEW },
+        { id: 'customers', label: 'Customer CRM', icon: Users, permission: PERMISSIONS.CUSTOMERS_VIEW },
+        { id: 'services', label: 'Services & Packages', icon: Scissors, permission: PERMISSIONS.INVENTORY_VIEW },
+        { id: 'inventory', label: 'Inventory & Stock', icon: Package, permission: PERMISSIONS.INVENTORY_VIEW },
       ]
     },
     {
       title: 'BUSINESS',
       items: [
-        { id: 'billing', label: 'POS Billing', icon: CreditCard, roles: ['SALON_OWNER', 'SALON_MANAGER', 'FRANCHISE_OWNER'] },
-        { id: 'staff', label: 'Staff & Roster', icon: UserCheck, roles: ['SALON_OWNER', 'SALON_MANAGER', 'FRANCHISE_OWNER', 'STAFF'] },
-        { id: 'analytics', label: 'BI Analytics', icon: BarChart3, roles: ['SALON_OWNER', 'SALON_MANAGER', 'FRANCHISE_OWNER'] },
+        { id: 'billing', label: 'POS Billing', icon: CreditCard, permission: PERMISSIONS.BILLING_VIEW },
+        { id: 'staff', label: 'Staff & Roster', icon: UserCheck, permission: PERMISSIONS.STAFF_VIEW },
+        { id: 'analytics', label: 'BI Analytics', icon: BarChart3, permission: PERMISSIONS.REPORTS_VIEW },
       ]
     },
     {
@@ -41,13 +49,6 @@ const Sidebar = ({ activePage, setActivePage, collapsed, setCollapsed, user, log
       ]
     }
   ];
-
-  const {
-    currentBranch, switchBranch,
-    demoMode, setDemoMode,
-    db,
-    darkMode, setDarkMode
-  } = useApp();
 
   const branches = (db && db.branches) ? db.branches.filter(b => b.salonId === user?.salonId) : [];
 
@@ -136,7 +137,10 @@ const Sidebar = ({ activePage, setActivePage, collapsed, setCollapsed, user, log
         {menuSections.map((sec) => {
           const visibleItems = sec.items.filter(item => {
             if (user?.role === 'SUPER_ADMIN') return item.id === 'super-admin';
-            return item.roles.includes(user?.role);
+            if (item.id === 'super-admin') return false;
+            if (item.permission) return hasPermission(item.permission);
+            if (item.roles) return item.roles.includes(user?.role);
+            return true;
           });
 
           if (visibleItems.length === 0) return null;

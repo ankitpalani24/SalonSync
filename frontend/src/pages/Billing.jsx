@@ -265,7 +265,7 @@ InvoiceTemplate.displayName = 'InvoiceTemplate';
 // MAIN BILLING COMPONENT
 // ═══════════════════════════════════════════════════════════════════════════════
 const Billing = ({ apptForCheckout, clearApptCheckout }) => {
-  const { tenantFilter, db, createInvoice, addNotification, addToast, currentSalon, currentBranch } = useApp();
+  const { tenantFilter, db, createInvoice, addNotification, addToast, currentSalon, currentBranch, hasPermission, PERMISSIONS } = useApp();
 
   const invoices = tenantFilter(db.invoices);
   const customers = tenantFilter(db.customers);

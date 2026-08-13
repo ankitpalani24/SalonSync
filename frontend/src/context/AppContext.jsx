@@ -1042,6 +1042,13 @@ export const AppProvider = ({ children }) => {
     }
   };
 
+  const hasPermission = (permission) => {
+    if (!currentUser || !currentUser.role) return false;
+    const userPerms = ROLE_PERMISSIONS[currentUser.role] || [];
+    if (userPerms.includes('*')) return true;
+    return userPerms.includes(permission);
+  };
+
   return (
     <AppContext.Provider value={{
       darkMode, setDarkMode,
@@ -1052,6 +1059,8 @@ export const AppProvider = ({ children }) => {
       db, setDb,
       login, signup, logout,
       tenantFilter,
+      hasPermission,
+      PERMISSIONS,
       
       // CRM
       addCustomer, updateCustomer, deleteCustomer,
@@ -1073,6 +1082,57 @@ export const AppProvider = ({ children }) => {
       {children}
     </AppContext.Provider>
   );
+};
+
+export const PERMISSIONS = {
+  CUSTOMERS_VIEW: 'customers.view',
+  CUSTOMERS_CREATE: 'customers.create',
+  CUSTOMERS_EDIT: 'customers.edit',
+  CUSTOMERS_DELETE: 'customers.delete',
+
+  APPOINTMENTS_VIEW: 'appointments.view',
+  APPOINTMENTS_CREATE: 'appointments.create',
+  APPOINTMENTS_EDIT: 'appointments.edit',
+  APPOINTMENTS_CANCEL: 'appointments.cancel',
+
+  BILLING_VIEW: 'billing.view',
+  BILLING_CREATE: 'billing.create',
+  BILLING_REFUND: 'billing.refund',
+
+  INVENTORY_VIEW: 'inventory.view',
+  INVENTORY_EDIT: 'inventory.edit',
+
+  STAFF_VIEW: 'staff.view',
+  STAFF_MANAGE: 'staff.manage',
+
+  REPORTS_VIEW: 'reports.view'
+};
+
+const ALL_PERMISSIONS = Object.values(PERMISSIONS);
+
+export const ROLE_PERMISSIONS = {
+  SUPER_ADMIN: ['*'],
+  FRANCHISE_OWNER: [...ALL_PERMISSIONS],
+  SALON_OWNER: [...ALL_PERMISSIONS],
+  SALON_MANAGER: [
+    PERMISSIONS.CUSTOMERS_VIEW, PERMISSIONS.CUSTOMERS_CREATE, PERMISSIONS.CUSTOMERS_EDIT,
+    PERMISSIONS.APPOINTMENTS_VIEW, PERMISSIONS.APPOINTMENTS_CREATE, PERMISSIONS.APPOINTMENTS_EDIT, PERMISSIONS.APPOINTMENTS_CANCEL,
+    PERMISSIONS.BILLING_VIEW, PERMISSIONS.BILLING_CREATE,
+    PERMISSIONS.INVENTORY_VIEW, PERMISSIONS.INVENTORY_EDIT,
+    PERMISSIONS.STAFF_VIEW, PERMISSIONS.STAFF_MANAGE,
+    PERMISSIONS.REPORTS_VIEW
+  ],
+  STAFF: [
+    PERMISSIONS.CUSTOMERS_VIEW, PERMISSIONS.CUSTOMERS_CREATE,
+    PERMISSIONS.APPOINTMENTS_VIEW, PERMISSIONS.APPOINTMENTS_CREATE, PERMISSIONS.APPOINTMENTS_EDIT, PERMISSIONS.APPOINTMENTS_CANCEL,
+    PERMISSIONS.INVENTORY_VIEW,
+    PERMISSIONS.STAFF_VIEW
+  ],
+  CLIENT: [
+    PERMISSIONS.CUSTOMERS_VIEW,
+    PERMISSIONS.APPOINTMENTS_VIEW, PERMISSIONS.APPOINTMENTS_CREATE, PERMISSIONS.APPOINTMENTS_CANCEL,
+    PERMISSIONS.BILLING_VIEW
+  ]
 };
 
 export const useApp = () => useContext(AppContext);

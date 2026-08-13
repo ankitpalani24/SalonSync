@@ -23,7 +23,7 @@ import Marketing from './pages/Marketing';
 import SuperAdmin from './pages/Admin/SuperAdmin';
 
 function App() {
-  const { currentUser, logout, db, currentBranch, currentSalon } = useApp();
+  const { currentUser, logout, db, currentBranch, currentSalon, hasPermission, PERMISSIONS } = useApp();
   const [activePage, setActivePage] = useState('landing');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -93,19 +93,19 @@ function App() {
           setActivePage('super-admin');
         }
       } else {
-        const pagePermissions = {
-          'dashboard': ['SALON_OWNER', 'SALON_MANAGER', 'FRANCHISE_OWNER', 'STAFF', 'CLIENT'],
-          'customers': ['SALON_OWNER', 'SALON_MANAGER', 'FRANCHISE_OWNER'],
-          'appointments': ['SALON_OWNER', 'SALON_MANAGER', 'FRANCHISE_OWNER', 'STAFF', 'CLIENT'],
-          'services': ['SALON_OWNER', 'SALON_MANAGER', 'FRANCHISE_OWNER'],
-          'billing': ['SALON_OWNER', 'SALON_MANAGER', 'FRANCHISE_OWNER'],
-          'inventory': ['SALON_OWNER', 'SALON_MANAGER', 'FRANCHISE_OWNER'],
-          'staff': ['SALON_OWNER', 'SALON_MANAGER', 'FRANCHISE_OWNER', 'STAFF'],
-          'analytics': ['SALON_OWNER', 'SALON_MANAGER', 'FRANCHISE_OWNER'],
-          'marketing': ['SALON_OWNER', 'FRANCHISE_OWNER']
+        const pagePermissionMap = {
+          'dashboard': null,
+          'customers': PERMISSIONS.CUSTOMERS_VIEW,
+          'appointments': PERMISSIONS.APPOINTMENTS_VIEW,
+          'services': PERMISSIONS.INVENTORY_VIEW,
+          'billing': PERMISSIONS.BILLING_VIEW,
+          'inventory': PERMISSIONS.INVENTORY_VIEW,
+          'staff': PERMISSIONS.STAFF_VIEW,
+          'analytics': PERMISSIONS.REPORTS_VIEW,
+          'marketing': null
         };
-        const allowedRoles = pagePermissions[activePage];
-        if (activePage === 'super-admin' || (allowedRoles && !allowedRoles.includes(currentUser.role))) {
+        const reqPerm = pagePermissionMap[activePage];
+        if (activePage === 'super-admin' || (reqPerm && !hasPermission(reqPerm))) {
           setActivePage('dashboard');
         }
       }

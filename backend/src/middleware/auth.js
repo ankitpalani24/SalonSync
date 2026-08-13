@@ -244,4 +244,34 @@ const validateOwnership = (modelName) => {
   };
 };
 
-module.exports = { protect, authorize, restrictToTenant, validateSubscription, checkBranchAccess, validateOwnership };
+const { PERMISSIONS, hasPermission } = require('../config/permissions');
+
+// Granular permission check middleware
+const requirePermission = (permission) => {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({ success: false, message: 'Authentication required' });
+    }
+    
+    if (hasPermission(req.user.role, permission)) {
+      return next();
+    }
+    
+    return res.status(403).json({
+      success: false,
+      message: `Forbidden: Role '${req.user.role}' lacks required permission '${permission}'`
+    });
+  };
+};
+
+module.exports = {
+  protect,
+  authorize,
+  restrictToTenant,
+  validateSubscription,
+  checkBranchAccess,
+  validateOwnership,
+  requirePermission,
+  PERMISSIONS,
+  hasPermission
+};

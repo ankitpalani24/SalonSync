@@ -46,7 +46,7 @@ const formatDate = (dateStr) => {
 // MAIN CUSTOMER CRM COMPONENT
 // ═══════════════════════════════════════════════════════════════════════════════
 const Customers = ({ setActivePage, setSelectedApptForCheckout }) => {
-  const { tenantFilter, db, addCustomer, updateCustomer, deleteCustomer, addNotification, addToast } = useApp();
+  const { tenantFilter, db, addCustomer, updateCustomer, deleteCustomer, addNotification, addToast, hasPermission, PERMISSIONS } = useApp();
 
   const customers = tenantFilter(db.customers);
   const invoices = tenantFilter(db.invoices);
@@ -384,9 +384,11 @@ const Customers = ({ setActivePage, setSelectedApptForCheckout }) => {
           <button onClick={handleExportData} className="outline-btn">
             <Download size={16} /> Export CRM CSV
           </button>
-          <button onClick={handleOpenAdd} className="gold-btn">
-            <Plus size={16} /> Add Customer File
-          </button>
+          {hasPermission(PERMISSIONS.CUSTOMERS_CREATE) && (
+            <button onClick={handleOpenAdd} className="gold-btn">
+              <Plus size={16} /> Add Customer File
+            </button>
+          )}
         </div>
       </div>
 
@@ -569,15 +571,21 @@ const Customers = ({ setActivePage, setSelectedApptForCheckout }) => {
                   <button className="crm-action-icon-btn" onClick={() => handleSendWhatsApp(selectedCust)} title="Send WhatsApp">
                     <MessageSquare size={16} />
                   </button>
-                  <button className="crm-action-icon-btn" onClick={() => handleOpenEdit(selectedCust)} title="Edit Profile">
-                    <Edit size={16} />
-                  </button>
-                  <button className="crm-action-icon-btn delete" onClick={() => handleDelete(selectedCust._id)} title="Delete Profile">
-                    <Trash2 size={16} />
-                  </button>
-                  <button className="gold-btn" onClick={() => setActivePage && setActivePage('appointments')}>
-                    <CalendarIcon size={14} /> Book Session
-                  </button>
+                  {hasPermission(PERMISSIONS.CUSTOMERS_EDIT) && (
+                    <button className="crm-action-icon-btn" onClick={() => handleOpenEdit(selectedCust)} title="Edit Profile">
+                      <Edit size={16} />
+                    </button>
+                  )}
+                  {hasPermission(PERMISSIONS.CUSTOMERS_DELETE) && (
+                    <button className="crm-action-icon-btn delete" onClick={() => handleDelete(selectedCust._id)} title="Delete Profile">
+                      <Trash2 size={16} />
+                    </button>
+                  )}
+                  {hasPermission(PERMISSIONS.APPOINTMENTS_CREATE) && (
+                    <button className="gold-btn" onClick={() => setActivePage && setActivePage('appointments')}>
+                      <CalendarIcon size={14} /> Book Session
+                    </button>
+                  )}
                 </div>
               </div>
 

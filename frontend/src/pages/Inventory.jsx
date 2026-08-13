@@ -4,7 +4,7 @@ import { useApp } from '../context/AppContext';
 import { EmptyState, DataGridHeader } from '../components/UIComponents';
 
 const Inventory = () => {
-  const { tenantFilter, db, addProduct, updateProduct, updateProductQuantity, addSupplier } = useApp();
+  const { tenantFilter, db, addProduct, updateProduct, updateProductQuantity, addSupplier, hasPermission, PERMISSIONS } = useApp();
   const [editingProduct, setEditingProduct] = useState(null);
 
   const products = tenantFilter(db.products);
@@ -176,7 +176,7 @@ const Inventory = () => {
             searchTerm={searchTerm}
             onSearchChange={setSearchTerm}
             searchPlaceholder="Search product name or SKU..."
-            actionButtonLabel="Add Product SKU"
+            actionButtonLabel={hasPermission(PERMISSIONS.INVENTORY_EDIT) ? "Add Product SKU" : null}
             onActionButtonClick={() => setShowProdModal(true)}
             actionButtonIcon={Plus}
           />

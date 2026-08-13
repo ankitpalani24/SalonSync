@@ -3,7 +3,7 @@ import { Plus, User, Clock, Award, Shield, UserCheck, Calculator, X } from 'luci
 import { useApp } from '../context/AppContext';
 
 const Staff = () => {
-  const { currentUser, currentBranch, tenantFilter, db, addStaff, updateStaff, clockInStaff, clockOutStaff } = useApp();
+  const { currentUser, currentBranch, tenantFilter, db, addStaff, updateStaff, clockInStaff, clockOutStaff, hasPermission, PERMISSIONS } = useApp();
   const [editingStaff, setEditingStaff] = useState(null);
 
   const staff = tenantFilter(db.staff).filter(s => {
@@ -112,7 +112,7 @@ const Staff = () => {
         <div>
           <div className="page-header" style={{ marginBottom: '1.5rem' }}>
             <h3 style={{ fontSize: '1rem', color: 'var(--text-primary)' }}>Active Salon Professionals</h3>
-            {['SALON_OWNER', 'FRANCHISE_OWNER', 'SALON_MANAGER'].includes(currentUser?.role) && (
+            {hasPermission(PERMISSIONS.STAFF_MANAGE) && (
               <button onClick={() => setShowStaffModal(true)} className="gold-btn" style={{ padding: '0.5rem 1rem' }}>
                 <Plus size={16} /> Add Employee
               </button>
@@ -125,8 +125,8 @@ const Staff = () => {
               const totalCommEarned = staffCommLogs.reduce((sum, c) => sum + c.commissionEarned, 0);
 
               return (
-                <div key={member._id} className="glass-card" style={{ display: 'flex', flexDirection: 'column', justifyBetween: 'space-between' }}>
-                  <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '1.25rem', justifyContent: 'space-between' }}>
+                <div key={member._id} className="glass-card">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
                     <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
                       <div style={{
                         width: '46px',
@@ -148,7 +148,7 @@ const Staff = () => {
                         <span style={{ fontSize: '0.7rem', color: 'var(--gold-primary)', fontWeight: '500' }}>{member.role}</span>
                       </div>
                     </div>
-                    {['SALON_OWNER', 'FRANCHISE_OWNER', 'SALON_MANAGER'].includes(currentUser?.role) && (
+                    {hasPermission(PERMISSIONS.STAFF_MANAGE) && (
                       <button
                         onClick={() => {
                           setEditingStaff(member);

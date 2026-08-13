@@ -65,7 +65,7 @@ const Appointments = ({ setActivePage, setSelectedApptForCheckout }) => {
   const {
     currentUser, currentBranch, tenantFilter, db,
     addAppointment, updateAppointment, updateAppointmentStatus,
-    addCustomer, addNotification, addToast
+    addCustomer, addNotification, addToast, hasPermission, PERMISSIONS
   } = useApp();
 
   // Filtered collections
@@ -447,9 +447,11 @@ const Appointments = ({ setActivePage, setSelectedApptForCheckout }) => {
         </div>
 
         <div className="gcal-header-right">
-          <button className="gold-btn" onClick={() => handleOpenQuickBook()}>
-            <Plus size={16} /> Quick Booking
-          </button>
+          {hasPermission(PERMISSIONS.APPOINTMENTS_CREATE) && (
+            <button className="gold-btn" onClick={() => handleOpenQuickBook()}>
+              <Plus size={16} /> Quick Booking
+            </button>
+          )}
         </div>
       </div>
 

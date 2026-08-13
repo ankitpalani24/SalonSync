@@ -4,7 +4,7 @@ const bcrypt = require('bcryptjs');
 const mongoose = require('mongoose');
 const router = express.Router();
 const models = require('../models');
-const { protect, authorize, restrictToTenant, validateSubscription, checkBranchAccess, validateOwnership } = require('../middleware/auth');
+const { protect, authorize, restrictToTenant, validateSubscription, checkBranchAccess, validateOwnership, requirePermission, PERMISSIONS } = require('../middleware/auth');
 
 // Database connection readiness check middleware
 router.use((req, res, next) => {
@@ -268,7 +268,7 @@ router.use(restrictToTenant);
 // ----------------------------------------------------
 // CUSTOMER CRM
 // ----------------------------------------------------
-router.get('/customers', async (req, res) => {
+router.get('/customers', requirePermission('customers.view'), async (req, res) => {
   try {
     let filter = { ...req.tenantFilter };
     if (req.user.role === 'CLIENT') {
@@ -281,7 +281,7 @@ router.get('/customers', async (req, res) => {
   }
 });
 
-router.post('/customers', async (req, res) => {
+router.post('/customers', requirePermission('customers.create'), async (req, res) => {
   try {
     const newCustomer = await models.Customer.create({
       ...req.body,
@@ -313,7 +313,7 @@ router.post('/customers', async (req, res) => {
   }
 });
 
-router.put('/customers/:id', async (req, res) => {
+router.put('/customers/:id', requirePermission('customers.edit'), async (req, res) => {
   try {
     const customer = await models.Customer.findOneAndUpdate(
       { _id: req.params.id, ...req.tenantFilter },
@@ -327,7 +327,7 @@ router.put('/customers/:id', async (req, res) => {
   }
 });
 
-router.delete('/customers/:id', async (req, res) => {
+router.delete('/customers/:id', requirePermission('customers.delete'), async (req, res) => {
   try {
     const customer = await models.Customer.findOneAndDelete({ _id: req.params.id, ...req.tenantFilter });
     if (!customer) return res.status(404).json({ success: false, message: 'Customer not found' });
@@ -340,7 +340,7 @@ router.delete('/customers/:id', async (req, res) => {
 // ----------------------------------------------------
 // APPOINTMENT MANAGEMENT
 // ----------------------------------------------------
-router.get('/appointments', async (req, res) => {
+router.get('/appointments', requirePermission('appointments.view'), async (req, res) => {
   try {
     let filter = { ...req.tenantFilter };
     if (req.user.role === 'CLIENT') {
@@ -359,7 +359,7 @@ router.get('/appointments', async (req, res) => {
   }
 });
 
-router.post('/appointments', async (req, res) => {
+router.post('/appointments', requirePermission('appointments.create'), async (req, res) => {
   try {
     let finalCustomerId = req.body.customerId;
     const targetSalonId = req.user.role === 'CLIENT' ? req.body.salonId : req.user.salonId;
@@ -426,7 +426,7 @@ router.post('/appointments', async (req, res) => {
   }
 });
 
-router.put('/appointments/:id', async (req, res) => {
+router.put('/appointments/:id', requirePermission('appointments.edit'), async (req, res) => {
   try {
     const appointment = await models.Appointment.findOneAndUpdate(
       { _id: req.params.id, ...req.tenantFilter },
@@ -440,7 +440,7 @@ router.put('/appointments/:id', async (req, res) => {
   }
 });
 
-router.delete('/appointments/:id', async (req, res) => {
+router.delete('/appointments/:id', requirePermission('appointments.cancel'), async (req, res) => {
   try {
     const appointment = await models.Appointment.findOneAndDelete({ _id: req.params.id, ...req.tenantFilter });
     if (!appointment) return res.status(404).json({ success: false, message: 'Appointment not found' });
@@ -547,7 +547,7 @@ router.delete('/packages/:id', async (req, res) => {
 // ----------------------------------------------------
 // EXPENSE TRACKING
 // ----------------------------------------------------
-router.get('/expenses', async (req, res) => {
+router.get('/expenses', requirePermission('reports.view'), async (req, res) => {
   try {
     const expenses = await models.Expense.find(req.tenantFilter);
     res.json({ success: true, data: expenses });
@@ -556,7 +556,7 @@ router.get('/expenses', async (req, res) => {
   }
 });
 
-router.post('/expenses', async (req, res) => {
+router.post('/expenses', requirePermission('reports.view'), async (req, res) => {
   try {
     const expense = await models.Expense.create({
       ...req.body,
@@ -569,7 +569,7 @@ router.post('/expenses', async (req, res) => {
   }
 });
 
-router.put('/expenses/:id', async (req, res) => {
+router.put('/expenses/:id', requirePermission('reports.view'), async (req, res) => {
   try {
     const expense = await models.Expense.findOneAndUpdate(
       { _id: req.params.id, ...req.tenantFilter },
@@ -583,7 +583,7 @@ router.put('/expenses/:id', async (req, res) => {
   }
 });
 
-router.delete('/expenses/:id', async (req, res) => {
+router.delete('/expenses/:id', requirePermission('reports.view'), async (req, res) => {
   try {
     const expense = await models.Expense.findOneAndDelete({ _id: req.params.id, ...req.tenantFilter });
     if (!expense) return res.status(404).json({ success: false, message: 'Expense not found' });
@@ -596,7 +596,7 @@ router.delete('/expenses/:id', async (req, res) => {
 // ----------------------------------------------------
 // INVOICING & POS BILLING TERMINAL
 // ----------------------------------------------------
-router.get('/invoices', async (req, res) => {
+router.get('/invoices', requirePermission('billing.view'), async (req, res) => {
   try {
     let filter = { ...req.tenantFilter };
     if (req.user.role === 'CLIENT') {
@@ -613,7 +613,7 @@ router.get('/invoices', async (req, res) => {
   }
 });
 
-router.post('/invoices', async (req, res) => {
+router.post('/invoices', requirePermission('billing.create'), async (req, res) => {
   try {
     const { customerId, services, products, tax, discount, paymentMethod, staffId, redeemPoints } = req.body;
     
@@ -799,7 +799,7 @@ router.post('/invoices', async (req, res) => {
 // ----------------------------------------------------
 // INVENTORY
 // ----------------------------------------------------
-router.get('/products', async (req, res) => {
+router.get('/products', requirePermission('inventory.view'), async (req, res) => {
   try {
     const products = await models.Product.find(req.tenantFilter).populate('supplierId');
     res.json({ success: true, data: products });
@@ -808,7 +808,7 @@ router.get('/products', async (req, res) => {
   }
 });
 
-router.post('/products', async (req, res) => {
+router.post('/products', requirePermission('inventory.edit'), async (req, res) => {
   try {
     const product = await models.Product.create({
       ...req.body,
@@ -820,7 +820,7 @@ router.post('/products', async (req, res) => {
   }
 });
 
-router.put('/products/:id', async (req, res) => {
+router.put('/products/:id', requirePermission('inventory.edit'), async (req, res) => {
   try {
     const product = await models.Product.findOneAndUpdate(
       { _id: req.params.id, ...req.tenantFilter },
@@ -833,7 +833,7 @@ router.put('/products/:id', async (req, res) => {
   }
 });
 
-router.delete('/products/:id', async (req, res) => {
+router.delete('/products/:id', requirePermission('inventory.edit'), async (req, res) => {
   try {
     const product = await models.Product.findOneAndDelete({ _id: req.params.id, ...req.tenantFilter });
     if (!product) return res.status(404).json({ success: false, message: 'Product not found' });
@@ -843,7 +843,7 @@ router.delete('/products/:id', async (req, res) => {
   }
 });
 
-router.get('/suppliers', async (req, res) => {
+router.get('/suppliers', requirePermission('inventory.view'), async (req, res) => {
   try {
     const suppliers = await models.Supplier.find(req.tenantFilter);
     res.json({ success: true, data: suppliers });
@@ -852,7 +852,7 @@ router.get('/suppliers', async (req, res) => {
   }
 });
 
-router.post('/suppliers', async (req, res) => {
+router.post('/suppliers', requirePermission('inventory.edit'), async (req, res) => {
   try {
     const supplier = await models.Supplier.create({
       ...req.body,
@@ -864,7 +864,7 @@ router.post('/suppliers', async (req, res) => {
   }
 });
 
-router.put('/suppliers/:id', async (req, res) => {
+router.put('/suppliers/:id', requirePermission('inventory.edit'), async (req, res) => {
   try {
     const supplier = await models.Supplier.findOneAndUpdate(
       { _id: req.params.id, ...req.tenantFilter },
@@ -878,7 +878,7 @@ router.put('/suppliers/:id', async (req, res) => {
   }
 });
 
-router.delete('/suppliers/:id', async (req, res) => {
+router.delete('/suppliers/:id', requirePermission('inventory.edit'), async (req, res) => {
   try {
     const supplier = await models.Supplier.findOneAndDelete({ _id: req.params.id, ...req.tenantFilter });
     if (!supplier) return res.status(404).json({ success: false, message: 'Supplier not found' });
@@ -891,7 +891,7 @@ router.delete('/suppliers/:id', async (req, res) => {
 // ----------------------------------------------------
 // STAFF & ATTENDANCE
 // ----------------------------------------------------
-router.get('/staff', async (req, res) => {
+router.get('/staff', requirePermission('staff.view'), async (req, res) => {
   try {
     const staff = await models.Staff.find(req.tenantFilter);
     res.json({ success: true, data: staff });
@@ -900,7 +900,7 @@ router.get('/staff', async (req, res) => {
   }
 });
 
-router.post('/staff', async (req, res) => {
+router.post('/staff', requirePermission('staff.manage'), async (req, res) => {
   try {
     const { name, phone, email, role, salary, commissionPercentage, password } = req.body;
     
@@ -954,7 +954,7 @@ router.post('/staff', async (req, res) => {
   }
 });
 
-router.put('/staff/:id', async (req, res) => {
+router.put('/staff/:id', requirePermission('staff.manage'), async (req, res) => {
   try {
     const staff = await models.Staff.findOneAndUpdate(
       { _id: req.params.id, ...req.tenantFilter },
@@ -968,7 +968,7 @@ router.put('/staff/:id', async (req, res) => {
   }
 });
 
-router.delete('/staff/:id', async (req, res) => {
+router.delete('/staff/:id', requirePermission('staff.manage'), async (req, res) => {
   try {
     const staff = await models.Staff.findOneAndDelete({ _id: req.params.id, ...req.tenantFilter });
     if (!staff) return res.status(404).json({ success: false, message: 'Staff member not found' });
@@ -978,7 +978,7 @@ router.delete('/staff/:id', async (req, res) => {
   }
 });
 
-router.get('/attendance', async (req, res) => {
+router.get('/attendance', requirePermission('staff.view'), async (req, res) => {
   try {
     const attendance = await models.Attendance.find(req.tenantFilter).populate('staffId');
     res.json({ success: true, data: attendance });
@@ -987,7 +987,7 @@ router.get('/attendance', async (req, res) => {
   }
 });
 
-router.post('/attendance', async (req, res) => {
+router.post('/attendance', requirePermission('staff.view'), async (req, res) => {
   try {
     const { staffId, action } = req.body; // action: 'clockin' or 'clockout'
     const today = new Date().setHours(0,0,0,0);
@@ -1032,7 +1032,7 @@ router.post('/attendance', async (req, res) => {
   }
 });
 
-router.get('/commissions', async (req, res) => {
+router.get('/commissions', requirePermission('staff.view'), async (req, res) => {
   try {
     const commissions = await models.Commission.find(req.tenantFilter).populate('staffId').populate('invoiceId');
     res.json({ success: true, data: commissions });
@@ -1044,7 +1044,7 @@ router.get('/commissions', async (req, res) => {
 // ----------------------------------------------------
 // ANALYTICS & PROFIT & LOSS ENGINE
 // ----------------------------------------------------
-router.get('/dashboard/stats', async (req, res) => {
+router.get('/dashboard/stats', requirePermission('reports.view'), async (req, res) => {
   try {
     const filter = req.tenantFilter;
 
