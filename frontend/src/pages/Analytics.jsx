@@ -3,9 +3,37 @@ import {
   BarChart3, TrendingUp, TrendingDown, DollarSign, Users, Award,
   Shield, Scissors, Clock, Download, FileSpreadsheet, FileText,
   Building2, Package, Sparkles, RefreshCw, Calendar, ArrowUpRight,
-  ArrowDownRight, PieChart, Activity, ShoppingBag, CheckCircle2, ChevronRight
+  ArrowDownRight, PieChart, Activity, ShoppingBag, CheckCircle2, ChevronRight, Calculator
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+
+// Profitability calculation engine helper
+const calculateServiceProfitability = (price, cost, commissionPct = 10, taxPct = 18, discountAmt = 0, allocatedCostPct = 5) => {
+  const p = Number(price) || 0;
+  const c = Number(cost) || 0;
+  const commPct = Number(commissionPct) || 0;
+  const taxP = Number(taxPct) || 0;
+  const disc = Number(discountAmt) || 0;
+  const allocPct = Number(allocatedCostPct) || 0;
+
+  const taxAmount = (p * taxP) / 100;
+  const customerPayment = Math.max(0, p - disc + taxAmount);
+  const staffCommission = (p * commPct) / 100;
+  const productCost = c;
+  const allocatedCosts = (p * allocPct) / 100;
+
+  const actualProfit = customerPayment - staffCommission - productCost - allocatedCosts;
+  const profitMargin = customerPayment > 0 ? (actualProfit / customerPayment) * 100 : 0;
+
+  return {
+    customerPayment: Math.round(customerPayment),
+    staffCommission: Math.round(staffCommission),
+    productCost: Math.round(productCost),
+    allocatedCosts: Math.round(allocatedCosts),
+    actualProfit: Math.round(actualProfit),
+    profitMargin: Math.round(profitMargin * 10) / 10
+  };
+};
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // PEAK HOURS BAR CHART COMPONENT
@@ -62,13 +90,13 @@ const Analytics = () => {
   const [dateRange, setDateRange] = useState('ALL'); // 'TODAY', 'WEEK', 'MONTH', 'YEAR', 'ALL'
   const [isExportingPDF, setIsExportingPDF] = useState(false);
 
-  const rawInvoices = tenantFilter(db.invoices);
-  const rawExpenses = tenantFilter(db.expenses);
-  const rawCustomers = tenantFilter(db.customers);
-  const services = tenantFilter(db.services);
-  const staff = tenantFilter(db.staff);
-  const branches = tenantFilter(db.branches);
-  const products = tenantFilter(db.products);
+  const rawInvoices = tenantFilter(db.invoices || []);
+  const rawExpenses = tenantFilter(db.expenses || []);
+  const rawCustomers = tenantFilter(db.customers || []);
+  const services = tenantFilter(db.services || []);
+  const staff = tenantFilter(db.staff || []);
+  const branches = tenantFilter(db.branches || []);
+  const products = tenantFilter(db.products || []);
 
   // Filter Data by Selected Date Range
   const filteredData = useMemo(() => {
@@ -134,26 +162,105 @@ const Analytics = () => {
   const totalUniqueBillingClients = Object.keys(customerInvoiceCounts).length;
   const repeatRate = totalUniqueBillingClients > 0 ? Math.round((repeatCustomerCount / totalUniqueBillingClients) * 100) : 0;
 
-  // 3. POPULAR & LEAST POPULAR SERVICES
-  const serviceStatsMap = {};
-  services.forEach(s => {
-    serviceStatsMap[s._id] = { name: s.name, price: s.price, category: s.category, count: 0, revenue: 0 };
-  });
+  // 3. SERVICE PROFITABILITY REPORTS ENGINE
+  const serviceProfitabilityReport = useMemo(() => {
+    const reportMap = {};
 
-  invoices.forEach(inv => {
-    (inv.services || []).forEach(item => {
-      const sid = String(item.serviceId);
-      if (!serviceStatsMap[sid]) {
-        serviceStatsMap[sid] = { name: item.name || 'Treatment', price: item.price || 0, category: 'General', count: 0, revenue: 0 };
-      }
-      serviceStatsMap[sid].count += (item.quantity || 1);
-      serviceStatsMap[sid].revenue += (item.price || 0) * (item.quantity || 1);
+    services.forEach(srv => {
+      reportMap[String(srv._id)] = {
+        id: srv._id,
+        name: srv.name,
+        category: srv.category,
+        price: srv.price,
+        duration: srv.duration,
+        materialCost: srv.materialCost || 0,
+        staffCommissionPercentage: srv.staffCommissionPercentage !== undefined ? srv.staffCommissionPercentage : 10,
+        taxPercentage: srv.taxPercentage !== undefined ? srv.taxPercentage : 18,
+        discountAmount: srv.discountAmount || 0,
+        allocatedCostPercentage: srv.allocatedCostPercentage !== undefined ? srv.allocatedCostPercentage : 5,
+        count: 0,
+        totalCustomerPayment: 0,
+        totalStaffCommission: 0,
+        totalProductCost: 0,
+        totalAllocatedCosts: 0,
+        totalActualProfit: 0,
+        profitMarginPct: 0
+      };
     });
-  });
 
-  const sortedServices = Object.values(serviceStatsMap).sort((a, b) => b.count - a.count);
-  const mostPopularServices = sortedServices.filter(s => s.count > 0).slice(0, 5);
-  const leastPopularServices = sortedServices.slice(-5).reverse();
+    invoices.forEach(inv => {
+      (inv.services || []).forEach(item => {
+        const sid = String(item.serviceId);
+        let srvRec = reportMap[sid];
+
+        if (!srvRec) {
+          const found = services.find(s => s.name === item.name);
+          if (found) srvRec = reportMap[String(found._id)];
+        }
+
+        if (srvRec) {
+          const qty = item.quantity || 1;
+          const fin = calculateServiceProfitability(
+            srvRec.price,
+            srvRec.materialCost,
+            srvRec.staffCommissionPercentage,
+            srvRec.taxPercentage,
+            srvRec.discountAmount,
+            srvRec.allocatedCostPercentage
+          );
+
+          srvRec.count += qty;
+          srvRec.totalCustomerPayment += fin.customerPayment * qty;
+          srvRec.totalStaffCommission += fin.staffCommission * qty;
+          srvRec.totalProductCost += fin.productCost * qty;
+          srvRec.totalAllocatedCosts += fin.allocatedCosts * qty;
+          srvRec.totalActualProfit += fin.actualProfit * qty;
+        }
+      });
+    });
+
+    Object.values(reportMap).forEach(s => {
+      s.profitMarginPct = s.totalCustomerPayment > 0
+        ? Math.round((s.totalActualProfit / s.totalCustomerPayment) * 1000) / 10
+        : 0;
+    });
+
+    const reportList = Object.values(reportMap);
+    const activeServicesWithSales = reportList.filter(s => s.count > 0);
+
+    const highestRevenueService = activeServicesWithSales.length > 0
+      ? [...activeServicesWithSales].sort((a, b) => b.totalCustomerPayment - a.totalCustomerPayment)[0]
+      : (services[0] || null);
+
+    const highestProfitService = activeServicesWithSales.length > 0
+      ? [...activeServicesWithSales].sort((a, b) => b.totalActualProfit - a.totalActualProfit)[0]
+      : (services[0] || null);
+
+    const lowestProfitService = activeServicesWithSales.length > 0
+      ? [...activeServicesWithSales].sort((a, b) => a.totalActualProfit - b.totalActualProfit)[0]
+      : (services[services.length - 1] || null);
+
+    const mostBookedService = activeServicesWithSales.length > 0
+      ? [...activeServicesWithSales].sort((a, b) => b.count - a.count)[0]
+      : (services[0] || null);
+
+    const grandTotalRevenue = reportList.reduce((sum, s) => sum + s.totalCustomerPayment, 0);
+    const grandTotalProfit = reportList.reduce((sum, s) => sum + s.totalActualProfit, 0);
+    const grandTotalVolume = reportList.reduce((sum, s) => sum + s.count, 0);
+    const avgServiceValue = grandTotalVolume > 0 ? Math.round(grandTotalRevenue / grandTotalVolume) : 0;
+
+    return {
+      reportList,
+      highestRevenueService,
+      highestProfitService,
+      lowestProfitService,
+      mostBookedService,
+      grandTotalRevenue,
+      grandTotalProfit,
+      grandTotalVolume,
+      avgServiceValue
+    };
+  }, [services, invoices]);
 
   // 4. TOP EMPLOYEES BY REVENUE & COMPLETED SERVICES
   const staffStatsMap = {};
@@ -246,11 +353,7 @@ const Analytics = () => {
     };
   }).sort((a, b) => b.revenue - a.revenue);
 
-  // ════════════════════════════════════════════════════════════════════════════
-  // EXPORT HANDLERS (CSV & PDF)
-  // ════════════════════════════════════════════════════════════════════════════
-
-  // Export to Excel / CSV
+  // Export CSV
   const handleExportCSV = () => {
     let csvContent = "data:text/csv;charset=utf-8,";
     csvContent += "SALONSYNC BUSINESS INTELLIGENCE REPORT\n";
@@ -267,11 +370,11 @@ const Analytics = () => {
     csvContent += `Average Order Value (AOV),₹${averageBill}\n`;
     csvContent += `Repeat Customer Rate,${repeatRate}%\n\n`;
 
-    // Top Services
-    csvContent += "TOP PERFORMING SERVICES\n";
-    csvContent += "Service Name,Category,Times Sold,Revenue Generated\n";
-    mostPopularServices.forEach(s => {
-      csvContent += `"${s.name}",${s.category},${s.count},₹${s.revenue}\n`;
+    // Service Profitability Report
+    csvContent += "SERVICE PROFITABILITY REPORT\n";
+    csvContent += "Service Name,Category,Volume,Customer Payments,Staff Commission,Product Cost,Allocated Costs,Net Actual Profit,Profit Margin %\n";
+    serviceProfitabilityReport.reportList.forEach(s => {
+      csvContent += `"${s.name}",${s.category},${s.count},₹${s.totalCustomerPayment},₹${s.totalStaffCommission},₹${s.totalProductCost},₹${s.totalAllocatedCosts},₹${s.totalActualProfit},${s.profitMarginPct}%\n`;
     });
     csvContent += "\n";
 
@@ -283,25 +386,18 @@ const Analytics = () => {
     });
     csvContent += "\n";
 
-    // Branch Comparison
-    csvContent += "BRANCH PERFORMANCE COMPARISON\n";
-    csvContent += "Branch Name,City,Checkouts,Gross Revenue,Operating Expenses,Net Profit,Average Order Value\n";
-    branchComparison.forEach(b => {
-      csvContent += `"${b.name}",${b.city},${b.checkoutCount},₹${b.revenue},₹${b.expenses},₹${b.profit},₹${b.averageBill}\n`;
-    });
-
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `SalonSync_BI_Report_${dateRange}_${new Date().toISOString().slice(0,10)}.csv`);
+    link.setAttribute("download", `SalonSync_BI_Profitability_Report_${dateRange}_${new Date().toISOString().slice(0,10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
 
-    addToast('Excel/CSV BI report downloaded successfully!', 'success');
+    addToast('Excel/CSV BI & Profitability report downloaded successfully!', 'success');
   };
 
-  // Export to PDF
+  // Export PDF
   const handleExportPDF = async () => {
     if (!reportRef.current) return;
     setIsExportingPDF(true);
@@ -338,7 +434,7 @@ const Analytics = () => {
             <BarChart3 size={24} style={{ color: 'var(--gold-primary)' }} /> Business Intelligence Workspace
           </h1>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-            Real-time multi-branch financial engine, customer growth retention analytics, and staff rankings.
+            Real-time multi-branch financial engine, service profitability tracking, customer retention, and staff rankings.
           </p>
         </div>
 
@@ -404,7 +500,7 @@ const Analytics = () => {
             </div>
             <div className="dash-kpi-value" style={{ color: '#2ecc71' }}>₹{netProfit.toLocaleString()}</div>
             <div className="dash-kpi-title">Net Operating Profit</div>
-            <div className="dash-kpi-subtitle">Revenue - Expenses - Material</div>
+            <div className="dash-kpi-subtitle">Revenue − Expenses − Material</div>
           </div>
 
           {/* Material Cost */}
@@ -449,7 +545,83 @@ const Analytics = () => {
       </div>
 
 
-      {/* ─── 2. PEAK HOURS CAPACITY UTILIZATION CHART ──────────────────────── */}
+      {/* ─── 2. SERVICE PROFITABILITY REPORT HIGHLIGHTS ────────────────────── */}
+      <div className="dash-chart-card" style={{ marginBottom: '1.5rem' }}>
+        <div className="dash-section-header">
+          <div className="dash-section-title">
+            <Calculator size={18} style={{ color: 'var(--gold-primary)' }} />
+            <h3>Service Profitability & Cost Breakdown Summary</h3>
+          </div>
+          <span style={{ fontSize: '0.75rem', color: 'var(--gold-primary)', fontWeight: '600' }}>
+            Average Service Value: ₹{serviceProfitabilityReport.avgServiceValue.toLocaleString()}
+          </span>
+        </div>
+
+        <div className="crm-summary-grid" style={{ marginBottom: '1rem' }}>
+          <div className="crm-summary-card">
+            <div className="crm-sum-icon" style={{ background: 'rgba(52, 152, 219, 0.12)', color: '#3498db' }}>
+              <TrendingUp size={18} />
+            </div>
+            <div>
+              <div className="crm-sum-title">Highest Revenue Service</div>
+              <div className="crm-sum-value" style={{ fontSize: '1rem' }}>
+                {serviceProfitabilityReport.highestRevenueService ? serviceProfitabilityReport.highestRevenueService.name : 'N/A'}
+              </div>
+              <div className="crm-metric-sub" style={{ color: 'var(--gold-primary)' }}>
+                ₹{serviceProfitabilityReport.highestRevenueService ? serviceProfitabilityReport.highestRevenueService.totalCustomerPayment.toLocaleString() : 0}
+              </div>
+            </div>
+          </div>
+
+          <div className="crm-summary-card">
+            <div className="crm-sum-icon" style={{ background: 'rgba(46, 204, 113, 0.12)', color: '#2ecc71' }}>
+              <Award size={18} />
+            </div>
+            <div>
+              <div className="crm-sum-title">Highest Net Profit Service</div>
+              <div className="crm-sum-value" style={{ fontSize: '1rem', color: '#2ecc71' }}>
+                {serviceProfitabilityReport.highestProfitService ? serviceProfitabilityReport.highestProfitService.name : 'N/A'}
+              </div>
+              <div className="crm-metric-sub" style={{ color: '#2ecc71' }}>
+                ₹{serviceProfitabilityReport.highestProfitService ? serviceProfitabilityReport.highestProfitService.totalActualProfit.toLocaleString() : 0} profit
+              </div>
+            </div>
+          </div>
+
+          <div className="crm-summary-card">
+            <div className="crm-sum-icon" style={{ background: 'rgba(231, 76, 60, 0.12)', color: '#e74c3c' }}>
+              <TrendingDown size={18} />
+            </div>
+            <div>
+              <div className="crm-sum-title">Lowest Profit Service</div>
+              <div className="crm-sum-value" style={{ fontSize: '1rem' }}>
+                {serviceProfitabilityReport.lowestProfitService ? serviceProfitabilityReport.lowestProfitService.name : 'N/A'}
+              </div>
+              <div className="crm-metric-sub" style={{ color: '#e74c3c' }}>
+                ₹{serviceProfitabilityReport.lowestProfitService ? serviceProfitabilityReport.lowestProfitService.totalActualProfit.toLocaleString() : 0} profit
+              </div>
+            </div>
+          </div>
+
+          <div className="crm-summary-card">
+            <div className="crm-sum-icon" style={{ background: 'rgba(155, 89, 182, 0.12)', color: '#9b59b6' }}>
+              <Scissors size={18} />
+            </div>
+            <div>
+              <div className="crm-sum-title">Most Booked Service</div>
+              <div className="crm-sum-value" style={{ fontSize: '1rem' }}>
+                {serviceProfitabilityReport.mostBookedService ? serviceProfitabilityReport.mostBookedService.name : 'N/A'}
+              </div>
+              <div className="crm-metric-sub">
+                {serviceProfitabilityReport.mostBookedService ? serviceProfitabilityReport.mostBookedService.count : 0} sessions
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+
+      {/* ─── 3. PEAK HOURS CAPACITY UTILIZATION CHART ──────────────────────── */}
       <div className="dash-chart-card" style={{ marginBottom: '1.5rem' }}>
         <div className="dash-section-header">
           <div className="dash-section-title">
