@@ -4,7 +4,8 @@ import {
   User, Download, X, Star, Sparkles, CreditCard, ShoppingBag,
   Clock, ArrowUpRight, CheckCircle2, MessageSquare, Filter, SlidersHorizontal,
   ChevronRight, Camera, Image, Layers, Activity, Award, ExternalLink,
-  ShieldCheck, RefreshCw, FileText, ArrowRight, Heart
+  ShieldCheck, RefreshCw, FileText, ArrowRight, Heart, DollarSign, Tag,
+  ChevronLeft, Send, AlertCircle, Bookmark, Layers3
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
@@ -42,37 +43,60 @@ const formatDate = (dateStr) => {
   return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 };
 
+// Customer Status helper & badge color map
+const STATUS_CONFIG = {
+  'New': { label: 'New', badgeClass: 'status-new', color: '#3498db' },
+  'Regular': { label: 'Regular', badgeClass: 'status-regular', color: '#2ecc71' },
+  'VIP': { label: 'VIP', badgeClass: 'status-vip', color: '#9b59b6' },
+  'Inactive': { label: 'Inactive', badgeClass: 'status-inactive', color: '#95a5a6' },
+  'High Value': { label: 'High Value', badgeClass: 'status-high-value', color: '#d4af37' },
+  'At Risk': { label: 'At Risk', badgeClass: 'status-at-risk', color: '#e67e22' }
+};
+
+const PAGE_SIZE = 10;
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // MAIN CUSTOMER CRM COMPONENT
 // ═══════════════════════════════════════════════════════════════════════════════
 const Customers = ({ setActivePage, setSelectedApptForCheckout }) => {
   const { tenantFilter, db, addCustomer, updateCustomer, deleteCustomer, addNotification, addToast, hasPermission, PERMISSIONS } = useApp();
 
-  const customers = tenantFilter(db.customers);
-  const invoices = tenantFilter(db.invoices);
-  const appointments = tenantFilter(db.appointments);
-  const staffList = tenantFilter(db.staff);
-  const servicesList = tenantFilter(db.services);
+  const customers = tenantFilter(db.customers || []);
+  const invoices = tenantFilter(db.invoices || []);
+  const appointments = tenantFilter(db.appointments || []);
+  const staffList = tenantFilter(db.staff || []);
+  const servicesList = tenantFilter(db.services || []);
+  const reviews = tenantFilter(db.reviews || []);
 
-  // Active Directory & Filter States
+  // Directory Selection State
   const [selectedCust, setSelectedCust] = useState(customers[0] || null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [membershipFilter, setMembershipFilter] = useState('ALL');
-  const [segmentFilter, setSegmentFilter] = useState('ALL'); // ALL, VIP, ACTIVE, NEW
-  const [sortBy, setSortBy] = useState('SPENT_HIGH'); // SPENT_HIGH, VISITS_HIGH, RECENT, NAME
 
-  // Workspace Tabs: 'timeline', 'appointments', 'invoices', 'products', 'beforeafter'
+  // Search & Multi-Filter States
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [membershipFilter, setMembershipFilter] = useState('ALL');
+  const [genderFilter, setGenderFilter] = useState('ALL');
+  const [sortBy, setSortBy] = useState('SPENT_HIGH');
+
+  // Directory Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // 10 Workspace Sub-View Tabs
   const [activeTab, setActiveTab] = useState('timeline');
 
-  // Modals
+  // Modal Dialog States
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showBAModal, setShowBAModal] = useState(false);
 
-  // Before & After Local State
+  // Dynamic Customer Notes Map
+  const [customerNotesMap, setCustomerNotesMap] = useState({});
+  const [newNoteText, setNewNoteText] = useState('');
+
+  // Before & After Local Gallery State
   const [transformations, setTransformations] = useState(INITIAL_BEFORE_AFTER);
 
-  // Form States
+  // Form Field States
   const [photo, setPhoto] = useState('');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -83,7 +107,7 @@ const Customers = ({ setActivePage, setSelectedApptForCheckout }) => {
   const [notes, setNotes] = useState('');
   const [membershipLevel, setMembershipLevel] = useState('None');
 
-  // Before & After Form States
+  // Transformation Form States
   const [baTitle, setBaTitle] = useState('');
   const [baService, setBaService] = useState('');
   const [baBeforeUrl, setBaBeforeUrl] = useState('');
@@ -91,29 +115,45 @@ const Customers = ({ setActivePage, setSelectedApptForCheckout }) => {
   const [baNotes, setBaNotes] = useState('');
 
   // ────────────────────────────────────────────────────────────────────────────
-  // CUSTOMER ANALYTICS COMPUTATIONS (PER CUSTOMER)
+  // 360° CUSTOMER ANALYTICS COMPUTATIONS
   // ────────────────────────────────────────────────────────────────────────────
   const getCustomerAnalytics = (cust) => {
     if (!cust) return null;
     const cid = String(cust._id);
 
-    // Invoices for this customer
+    // Matching Invoices
     const custInvoices = invoices.filter(inv => {
       const id = inv.customerId && typeof inv.customerId === 'object' ? inv.customerId._id : inv.customerId;
       return String(id) === cid;
     });
 
-    // Appointments for this customer
+    // Matching Appointments
     const custAppts = appointments.filter(appt => {
       const id = appt.customerId && typeof appt.customerId === 'object' ? appt.customerId._id : appt.customerId;
       return String(id) === cid;
+    });
+
+    // Matching Reviews
+    const custReviews = reviews.filter(rev => {
+      const id = rev.customerId && typeof rev.customerId === 'object' ? rev.customerId._id : rev.customerId;
+      return String(id) === cid || rev.customerName === cust.name;
     });
 
     const totalSpent = custInvoices.reduce((sum, inv) => sum + (inv.finalAmount || 0), 0);
     const totalVisits = custInvoices.length > 0 ? custInvoices.length : custAppts.filter(a => a.status === 'Completed').length;
     const avgBill = totalVisits > 0 ? Math.round(totalSpent / totalVisits) : 0;
 
-    // Favorite Staff (Most booked staff member)
+    // Determine Last Visit Date
+    let lastVisitDate = null;
+    const dates = [];
+    custInvoices.forEach(i => { if (i.createdAt) dates.push(new Date(i.createdAt)); });
+    custAppts.forEach(a => { if (a.date) dates.push(new Date(a.date)); });
+    if (dates.length > 0) {
+      dates.sort((a, b) => b - a);
+      lastVisitDate = dates[0].toISOString().split('T')[0];
+    }
+
+    // Favorite Staff Member
     const staffFrequency = {};
     custInvoices.forEach(inv => {
       const sid = typeof inv.staffId === 'object' ? inv.staffId?._id : inv.staffId;
@@ -123,29 +163,30 @@ const Customers = ({ setActivePage, setSelectedApptForCheckout }) => {
       const sid = typeof appt.staffId === 'object' ? appt.staffId?._id : appt.staffId;
       if (sid) staffFrequency[sid] = (staffFrequency[sid] || 0) + 1;
     });
-
     let favStaffId = Object.keys(staffFrequency).sort((a, b) => staffFrequency[b] - staffFrequency[a])[0];
-    const favStaff = staffList.find(s => String(s._id) === String(favStaffId)) || staffList[0];
+    const favStaff = staffList.find(s => String(s._id) === String(favStaffId)) || staffList[0] || null;
 
-    // Favorite Services (Top services booked)
+    // Favorite Services & Top Services
     const serviceFrequency = {};
     custInvoices.forEach(inv => {
       (inv.services || []).forEach(s => {
-        serviceFrequency[s.name] = (serviceFrequency[s.name] || 0) + (s.quantity || 1);
+        if (s.name) serviceFrequency[s.name] = (serviceFrequency[s.name] || 0) + (s.quantity || 1);
       });
     });
     custAppts.forEach(appt => {
       (appt.services || []).forEach(s => {
-        serviceFrequency[s.name] = (serviceFrequency[s.name] || 0) + 1;
+        if (s.name) serviceFrequency[s.name] = (serviceFrequency[s.name] || 0) + 1;
       });
     });
 
     const topServices = Object.keys(serviceFrequency)
       .sort((a, b) => serviceFrequency[b] - serviceFrequency[a])
-      .slice(0, 4)
+      .slice(0, 5)
       .map(servName => ({ name: servName, count: serviceFrequency[servName] }));
 
-    // Products Purchased
+    const favService = topServices.length > 0 ? topServices[0] : null;
+
+    // Retail Products Purchased
     const productsBought = [];
     custInvoices.forEach(inv => {
       (inv.products || []).forEach(p => {
@@ -157,9 +198,48 @@ const Customers = ({ setActivePage, setSelectedApptForCheckout }) => {
       });
     });
 
-    // Timeline Activities Aggregation
+    // Payment History Breakdown
+    const paymentHistory = custInvoices.map(inv => ({
+      id: inv._id,
+      invoiceNumber: inv.invoiceNumber,
+      date: inv.createdAt ? inv.createdAt.split('T')[0] : 'N/A',
+      paymentMethod: inv.paymentMethod || 'Cash',
+      amount: inv.finalAmount,
+      status: inv.paymentStatus || 'Paid'
+    }));
+
+    // Customer Status Dynamic Calculation
+    const now = new Date();
+    const regDate = cust.createdAt ? new Date(cust.createdAt) : new Date(2025, 0, 15);
+    const daysSinceReg = Math.max(0, Math.floor((now - regDate) / (1000 * 60 * 60 * 24)));
+
+    let daysSinceLastVisit = Infinity;
+    if (lastVisitDate) {
+      const lv = new Date(lastVisitDate);
+      if (!isNaN(lv.getTime())) {
+        daysSinceLastVisit = Math.max(0, Math.floor((now - lv) / (1000 * 60 * 60 * 24)));
+      }
+    }
+
+    let customerStatus = 'Regular';
+    if (daysSinceLastVisit > 90 || (totalVisits === 0 && daysSinceReg > 60)) {
+      customerStatus = 'Inactive';
+    } else if (daysSinceLastVisit >= 60 && daysSinceLastVisit <= 90 && (totalVisits >= 2 || totalSpent >= 3000)) {
+      customerStatus = 'At Risk';
+    } else if (totalSpent >= 15000 || avgBill >= 2500) {
+      customerStatus = 'High Value';
+    } else if (totalSpent >= 10000 || totalVisits >= 10) {
+      customerStatus = 'VIP';
+    } else if (daysSinceReg <= 30 || totalVisits <= 1) {
+      customerStatus = 'New';
+    } else {
+      customerStatus = 'Regular';
+    }
+
+    // Chronological Timeline Events Aggregation
     const timeline = [];
 
+    // 1. Appointments
     custAppts.forEach(a => {
       timeline.push({
         id: `appt-${a._id}`,
@@ -173,16 +253,74 @@ const Customers = ({ setActivePage, setSelectedApptForCheckout }) => {
       });
     });
 
+    // 2. Invoices & Checkouts
     custInvoices.forEach(i => {
       timeline.push({
         id: `inv-${i._id}`,
         type: 'invoice',
         icon: CreditCard,
         color: 'var(--gold-primary)',
-        title: `Completed POS Checkout — ${i.invoiceNumber}`,
+        title: `Completed Checkout — ${i.invoiceNumber}`,
         detail: `Paid ₹${i.finalAmount.toLocaleString()} via ${i.paymentMethod || 'Cash'} (+${Math.round(i.finalAmount / 100)} loyalty pts)`,
         date: i.createdAt ? i.createdAt.split('T')[0] : 'Recent',
         rawDate: i.createdAt ? new Date(i.createdAt) : new Date()
+      });
+    });
+
+    // 3. Reviews
+    custReviews.forEach(r => {
+      timeline.push({
+        id: `rev-${r._id}`,
+        type: 'review',
+        icon: Star,
+        color: '#f39c12',
+        title: `Submitted ${r.rating}★ Review`,
+        detail: r.comment ? `"${r.comment}"` : 'Rating recorded without written feedback',
+        date: r.date ? new Date(r.date).toISOString().split('T')[0] : 'N/A',
+        rawDate: r.date ? new Date(r.date) : new Date()
+      });
+    });
+
+    // 4. Loyalty Point Events
+    if (cust.loyaltyPoints > 0) {
+      timeline.push({
+        id: `loyalty-${cust._id}`,
+        type: 'loyalty',
+        icon: Award,
+        color: '#9b59b6',
+        title: `Loyalty Points Balance Updated`,
+        detail: `Current Balance: ${cust.loyaltyPoints} redeemable points`,
+        date: formatDate(cust.updatedAt || cust.createdAt),
+        rawDate: cust.updatedAt ? new Date(cust.updatedAt) : new Date()
+      });
+    }
+
+    // 5. Membership Tier Event
+    if (cust.membershipLevel && cust.membershipLevel !== 'None') {
+      timeline.push({
+        id: `mship-${cust._id}`,
+        type: 'membership',
+        icon: ShieldCheck,
+        color: '#16a085',
+        title: `Enrolled in ${cust.membershipLevel} Club`,
+        detail: `Enjoys exclusive tier discount & VIP perks`,
+        date: formatDate(cust.createdAt),
+        rawDate: cust.createdAt ? new Date(cust.createdAt) : new Date(2025, 0, 15)
+      });
+    }
+
+    // 6. Timeline Notes
+    const customNotes = customerNotesMap[cid] || [];
+    customNotes.forEach(n => {
+      timeline.push({
+        id: `note-${n.id}`,
+        type: 'note',
+        icon: FileText,
+        color: '#e74c3c',
+        title: `Client Note Added`,
+        detail: n.text,
+        date: n.date,
+        rawDate: new Date(n.rawDate)
       });
     });
 
@@ -192,44 +330,57 @@ const Customers = ({ setActivePage, setSelectedApptForCheckout }) => {
     return {
       custInvoices,
       custAppts,
+      custReviews,
       totalSpent,
       totalVisits,
       avgBill,
+      lastVisitDate,
       favStaff,
+      favService,
       topServices,
       productsBought,
+      paymentHistory,
+      customerStatus,
       timeline
     };
   };
 
-  // Currently selected analytics
-  const selectedAnalytics = useMemo(() => getCustomerAnalytics(selectedCust), [selectedCust, invoices, appointments, staffList]);
+  // Currently selected customer's calculated analytics
+  const selectedAnalytics = useMemo(() => getCustomerAnalytics(selectedCust), [selectedCust, invoices, appointments, staffList, reviews, customerNotesMap]);
 
   // ────────────────────────────────────────────────────────────────────────────
-  // FILTERING & SORTING DIRECTORY
+  // FILTERING, SEARCH & SORTING DIRECTORY
   // ────────────────────────────────────────────────────────────────────────────
   const filteredCustomers = useMemo(() => {
     return customers.filter(cust => {
-      // Search term
+      const analytics = getCustomerAnalytics(cust);
+
+      // Search filter
       if (searchTerm.trim()) {
         const q = searchTerm.toLowerCase();
         const matchesName = cust.name.toLowerCase().includes(q);
         const matchesPhone = cust.phone && cust.phone.includes(q);
         const matchesEmail = cust.email && cust.email.toLowerCase().includes(q);
-        if (!matchesName && !matchesPhone && !matchesEmail) return false;
+        const matchesAddress = cust.address && cust.address.toLowerCase().includes(q);
+        const matchesNotes = cust.notes && cust.notes.toLowerCase().includes(q);
+        if (!matchesName && !matchesPhone && !matchesEmail && !matchesAddress && !matchesNotes) {
+          return false;
+        }
       }
 
-      // Membership Filter
+      // Customer Status filter
+      if (statusFilter !== 'ALL') {
+        if (analytics?.customerStatus !== statusFilter) return false;
+      }
+
+      // Membership filter
       if (membershipFilter !== 'ALL') {
         if (cust.membershipLevel !== membershipFilter) return false;
       }
 
-      // Segment Filter
-      if (segmentFilter !== 'ALL') {
-        const analytics = getCustomerAnalytics(cust);
-        if (segmentFilter === 'VIP' && (analytics?.totalSpent || 0) < 5000) return false;
-        if (segmentFilter === 'ACTIVE' && (analytics?.totalVisits || 0) === 0) return false;
-        if (segmentFilter === 'NEW' && cust.createdAt && new Date(cust.createdAt) < new Date(Date.now() - 30 * 86400000)) return false;
+      // Gender filter
+      if (genderFilter !== 'ALL') {
+        if (cust.gender !== genderFilter) return false;
       }
 
       return true;
@@ -239,18 +390,42 @@ const Customers = ({ setActivePage, setSelectedApptForCheckout }) => {
 
       if (sortBy === 'SPENT_HIGH') {
         return (bAnalytics?.totalSpent || 0) - (aAnalytics?.totalSpent || 0);
+      } else if (sortBy === 'SPENT_LOW') {
+        return (aAnalytics?.totalSpent || 0) - (bAnalytics?.totalSpent || 0);
       } else if (sortBy === 'VISITS_HIGH') {
         return (bAnalytics?.totalVisits || 0) - (aAnalytics?.totalVisits || 0);
-      } else if (sortBy === 'NAME') {
+      } else if (sortBy === 'VISITS_LOW') {
+        return (aAnalytics?.totalVisits || 0) - (bAnalytics?.totalVisits || 0);
+      } else if (sortBy === 'RECENT_VISIT') {
+        const dateA = aAnalytics?.lastVisitDate ? new Date(aAnalytics.lastVisitDate) : new Date(0);
+        const dateB = bAnalytics?.lastVisitDate ? new Date(bAnalytics.lastVisitDate) : new Date(0);
+        return dateB - dateA;
+      } else if (sortBy === 'NAME_AZ') {
         return a.name.localeCompare(b.name);
+      } else if (sortBy === 'NAME_ZA') {
+        return b.name.localeCompare(a.name);
       }
       return 0;
     });
-  }, [customers, searchTerm, membershipFilter, segmentFilter, sortBy, invoices, appointments]);
+  }, [customers, searchTerm, statusFilter, membershipFilter, genderFilter, sortBy, invoices, appointments, reviews, customerNotesMap]);
 
+  // Directory Pagination Logic
+  const totalPages = Math.ceil(filteredCustomers.length / PAGE_SIZE) || 1;
+
+  const paginatedCustomers = useMemo(() => {
+    const startIdx = (currentPage - 1) * PAGE_SIZE;
+    return filteredCustomers.slice(startIdx, startIdx + PAGE_SIZE);
+  }, [filteredCustomers, currentPage]);
+
+  // Handle Page Changes
+  const handlePageChange = (newPage) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      setCurrentPage(newPage);
+    }
+  };
 
   // ────────────────────────────────────────────────────────────────────────────
-  // HANDLERS
+  // ACTION HANDLERS
   // ────────────────────────────────────────────────────────────────────────────
   const handleOpenAdd = () => {
     setPhoto('');
@@ -309,6 +484,25 @@ const Customers = ({ setActivePage, setSelectedApptForCheckout }) => {
     }
   };
 
+  // Add Note to Customer Notes Timeline
+  const handleAddCustomerNote = (e) => {
+    e.preventDefault();
+    if (!newNoteText.trim() || !selectedCust) return;
+    const cid = String(selectedCust._id);
+    const noteObj = {
+      id: Date.now(),
+      text: newNoteText.trim(),
+      date: formatDate(new Date()),
+      rawDate: new Date()
+    };
+    setCustomerNotesMap(prev => ({
+      ...prev,
+      [cid]: [noteObj, ...(prev[cid] || [])]
+    }));
+    setNewNoteText('');
+    addToast('Added client note to timeline', 'success');
+  };
+
   // Add Before & After Transformation
   const handleAddTransformation = (e) => {
     e.preventDefault();
@@ -338,19 +532,24 @@ const Customers = ({ setActivePage, setSelectedApptForCheckout }) => {
     setBaNotes('');
   };
 
-  // Export Complete CRM CSV Data
+  // Export Complete CRM CSV Dataset
   const handleExportData = () => {
-    const headers = 'Name,Mobile,Email,Gender,Birthday,Address,Membership Tier,Loyalty Points,Total Visits,Total Spent (INR),Average Bill (INR)\n';
+    const headers = 'Name,Mobile,Email,Gender,Birthday,Address,Registration Date,Last Visit,Total Visits,Total Spent (INR),Average Bill (INR),Favorite Service,Favorite Staff,Loyalty Points,Membership Tier,Customer Status\n';
     const rows = filteredCustomers.map(c => {
       const analytics = getCustomerAnalytics(c);
-      return `"${c.name}","${c.phone}","${c.email || ''}","${c.gender || ''}","${c.birthday || ''}","${(c.address || '').replace(/"/g, '""')}","${c.membershipLevel || 'None'}",${c.loyaltyPoints || 0},${analytics.totalVisits},${analytics.totalSpent},${analytics.avgBill}`;
+      const regDate = formatDate(c.createdAt || '2025-01-15');
+      const lastVisit = formatDate(analytics.lastVisitDate);
+      const favServ = analytics.favService ? analytics.favService.name : 'N/A';
+      const favStf = analytics.favStaff ? analytics.favStaff.name : 'Unassigned';
+
+      return `"${c.name}","${c.phone}","${c.email || ''}","${c.gender || ''}","${c.birthday || ''}","${(c.address || '').replace(/"/g, '""')}","${regDate}","${lastVisit}",${analytics.totalVisits},${analytics.totalSpent},${analytics.avgBill},"${favServ}","${favStf}",${c.loyaltyPoints || 0},"${c.membershipLevel || 'None'}","${analytics.customerStatus}"`;
     }).join('\n');
 
     const blob = new Blob([headers + rows], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `SalonSync_Salesforce_CRM_Export_${new Date().toLocaleDateString('en-CA')}.csv`;
+    link.download = `SalonSync_CRM_Customers_Export_${new Date().toLocaleDateString('en-CA')}.csv`;
     link.click();
     addToast('Exported complete CRM customer database to CSV', 'success');
   };
@@ -366,18 +565,17 @@ const Customers = ({ setActivePage, setSelectedApptForCheckout }) => {
     addToast(`Simulated WhatsApp alert sent to ${cust.name}`, 'success');
   };
 
-
   // ════════════════════════════════════════════════════════════════════════════
   // JSX RENDER
   // ════════════════════════════════════════════════════════════════════════════
   return (
     <div className="page-container animated-fade-in crm-container">
 
-      {/* ─── SALESFORCE / HUBSPOT STYLE CRM HERO HEADER ───────────────────── */}
+      {/* ─── CRM HERO HEADER ──────────────────────────────────────────────── */}
       <div className="crm-hero-header">
         <div className="crm-hero-left">
           <h1>Customer Relationship Management</h1>
-          <p>Salesforce-grade 360° client profiles, treatment analytics, & lifetime value tracking</p>
+          <p>Salesforce-grade 360° client profiles, treatment analytics, activity timelines & customer status tracking</p>
         </div>
 
         <div className="crm-hero-actions">
@@ -423,7 +621,7 @@ const Customers = ({ setActivePage, setSelectedApptForCheckout }) => {
           </div>
           <div>
             <div className="crm-sum-value">
-              ₹{invoices.reduce((s, i) => s + i.finalAmount, 0).toLocaleString()}
+              ₹{invoices.reduce((s, i) => s + (i.finalAmount || 0), 0).toLocaleString()}
             </div>
             <div className="crm-sum-title">Lifetime CRM Revenue</div>
           </div>
@@ -435,7 +633,7 @@ const Customers = ({ setActivePage, setSelectedApptForCheckout }) => {
           </div>
           <div>
             <div className="crm-sum-value">
-              ₹{invoices.length > 0 ? Math.round(invoices.reduce((s, i) => s + i.finalAmount, 0) / invoices.length).toLocaleString() : 0}
+              ₹{invoices.length > 0 ? Math.round(invoices.reduce((s, i) => s + (i.finalAmount || 0), 0) / invoices.length).toLocaleString() : 0}
             </div>
             <div className="crm-sum-title">Average Order Value (AOV)</div>
           </div>
@@ -443,54 +641,76 @@ const Customers = ({ setActivePage, setSelectedApptForCheckout }) => {
       </div>
 
 
-      {/* ─── MAIN CRM WORKSPACE GRID (DIRECTORY + 360 PROFILE) ────────────── */}
+      {/* ─── MAIN CRM WORKSPACE GRID (DIRECTORY + 360° PROFILE) ────────────── */}
       <div className="crm-main-workspace">
 
-        {/* ─── LEFT: DIRECTORY & SEARCH PANEL ────────────────────────────── */}
+        {/* ─── LEFT: DIRECTORY & MULTI-FILTER PANEL ───────────────────────── */}
         <div className="crm-directory-card">
           <div className="crm-dir-header">
             <h3>Contact Directory</h3>
             <span className="crm-dir-count">{filteredCustomers.length} clients</span>
           </div>
 
-          {/* Search & Filter Toolbar */}
+          {/* Search & Multi-Filter Controls */}
           <div className="crm-dir-toolbar">
             <div className="crm-search-input">
               <Search size={15} style={{ color: 'var(--gold-primary)' }} />
               <input
                 type="text"
-                placeholder="Search name, phone, email..."
+                placeholder="Search name, phone, email, address..."
                 value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
+                onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }}
               />
-              {searchTerm && <X size={13} style={{ cursor: 'pointer' }} onClick={() => setSearchTerm('')} />}
+              {searchTerm && <X size={13} style={{ cursor: 'pointer' }} onClick={() => { setSearchTerm(''); setCurrentPage(1); }} />}
             </div>
 
             <div className="crm-filter-row">
-              <select value={membershipFilter} onChange={e => setMembershipFilter(e.target.value)}>
+              <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setCurrentPage(1); }}>
+                <option value="ALL">All Statuses</option>
+                <option value="New">New</option>
+                <option value="Regular">Regular</option>
+                <option value="VIP">VIP</option>
+                <option value="Inactive">Inactive</option>
+                <option value="High Value">High Value</option>
+                <option value="At Risk">At Risk</option>
+              </select>
+
+              <select value={membershipFilter} onChange={e => { setMembershipFilter(e.target.value); setCurrentPage(1); }}>
                 <option value="ALL">All Tiers</option>
-                <option value="Platinum">Platinum Club</option>
-                <option value="Gold">Gold Club</option>
-                <option value="Silver">Silver Club</option>
+                <option value="Platinum">Platinum</option>
+                <option value="Gold">Gold</option>
+                <option value="Silver">Silver</option>
                 <option value="None">Non-Member</option>
+              </select>
+            </div>
+
+            <div className="crm-filter-row">
+              <select value={genderFilter} onChange={e => { setGenderFilter(e.target.value); setCurrentPage(1); }}>
+                <option value="ALL">All Genders</option>
+                <option value="Female">Female</option>
+                <option value="Male">Male</option>
+                <option value="Other">Other</option>
               </select>
 
               <select value={sortBy} onChange={e => setSortBy(e.target.value)}>
-                <option value="SPENT_HIGH">Spent: High to Low</option>
-                <option value="VISITS_HIGH">Visits: High to Low</option>
-                <option value="NAME">Name: A to Z</option>
+                <option value="SPENT_HIGH">Spent: High → Low</option>
+                <option value="SPENT_LOW">Spent: Low → High</option>
+                <option value="VISITS_HIGH">Visits: High → Low</option>
+                <option value="RECENT_VISIT">Last Visit: Recent</option>
+                <option value="NAME_AZ">Name: A → Z</option>
               </select>
             </div>
           </div>
 
-          {/* Customer Directory List */}
+          {/* Directory Client List */}
           <div className="crm-dir-list">
-            {filteredCustomers.length === 0 ? (
+            {paginatedCustomers.length === 0 ? (
               <div className="crm-empty-dir">No clients found matching search & filters.</div>
             ) : (
-              filteredCustomers.map(cust => {
+              paginatedCustomers.map(cust => {
                 const isSelected = selectedCust && selectedCust._id === cust._id;
                 const analytics = getCustomerAnalytics(cust);
+                const statusInfo = STATUS_CONFIG[analytics.customerStatus] || STATUS_CONFIG['Regular'];
 
                 return (
                   <div
@@ -509,8 +729,8 @@ const Customers = ({ setActivePage, setSelectedApptForCheckout }) => {
                     <div className="crm-dir-info">
                       <div className="crm-dir-name-row">
                         <span className="crm-dir-name">{cust.name}</span>
-                        <span className={`badge ${cust.membershipLevel.toLowerCase()}`}>
-                          {cust.membershipLevel}
+                        <span className={`badge ${statusInfo.badgeClass}`}>
+                          {analytics.customerStatus}
                         </span>
                       </div>
                       <div className="crm-dir-contact">{cust.phone}</div>
@@ -524,15 +744,52 @@ const Customers = ({ setActivePage, setSelectedApptForCheckout }) => {
               })
             )}
           </div>
+
+          {/* Directory Pagination Controls */}
+          {filteredCustomers.length > 0 && (
+            <div className="crm-pagination">
+              <span>
+                Showing {Math.min((currentPage - 1) * PAGE_SIZE + 1, filteredCustomers.length)} - {Math.min(currentPage * PAGE_SIZE, filteredCustomers.length)} of {filteredCustomers.length}
+              </span>
+              <div className="crm-pagination-btns">
+                <button
+                  className="crm-page-btn"
+                  disabled={currentPage === 1}
+                  onClick={() => handlePageChange(currentPage - 1)}
+                >
+                  <ChevronLeft size={14} />
+                </button>
+
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
+                  <button
+                    key={p}
+                    className={`crm-page-btn ${currentPage === p ? 'active' : ''}`}
+                    onClick={() => handlePageChange(p)}
+                  >
+                    {p}
+                  </button>
+                ))}
+
+                <button
+                  className="crm-page-btn"
+                  disabled={currentPage === totalPages}
+                  onClick={() => handlePageChange(currentPage + 1)}
+                >
+                  <ChevronRight size={14} />
+                </button>
+              </div>
+            </div>
+          )}
+
         </div>
 
 
-        {/* ─── RIGHT: HUBSPOT 360° CLIENT PROFILE WORKSPACE ─────────────── */}
+        {/* ─── RIGHT: 360° CLIENT PROFILE WORKSPACE ───────────────────────── */}
         <div className="crm-profile-card">
-          {selectedCust ? (
+          {selectedCust && selectedAnalytics ? (
             <div className="crm-360-workspace">
 
-              {/* 1. PROFILE HEADER CARD */}
+              {/* 1. DETAILED PROFILE HERO SECTION */}
               <div className="crm-profile-hero">
                 <div className="crm-profile-hero-left">
                   <div className="crm-profile-avatar-large">
@@ -546,16 +803,22 @@ const Customers = ({ setActivePage, setSelectedApptForCheckout }) => {
                   <div className="crm-profile-identity">
                     <div className="crm-name-flex">
                       <h2>{selectedCust.name}</h2>
-                      <span className={`badge ${selectedCust.membershipLevel.toLowerCase()}`}>
-                        {selectedCust.membershipLevel} Club
+                      <span className={`badge ${(STATUS_CONFIG[selectedAnalytics.customerStatus] || STATUS_CONFIG['Regular']).badgeClass}`}>
+                        {selectedAnalytics.customerStatus}
                       </span>
+                      {selectedCust.membershipLevel && selectedCust.membershipLevel !== 'None' && (
+                        <span className={`badge ${selectedCust.membershipLevel.toLowerCase()}`}>
+                          {selectedCust.membershipLevel} Club
+                        </span>
+                      )}
                     </div>
 
                     <div className="crm-contact-pills">
                       <span>📱 {selectedCust.phone}</span>
                       {selectedCust.email && <span>✉ {selectedCust.email}</span>}
                       {selectedCust.gender && <span>👤 {selectedCust.gender}</span>}
-                      {selectedCust.birthday && <span>🎂 {selectedCust.birthday}</span>}
+                      {selectedCust.birthday && <span>🎂 {formatDate(selectedCust.birthday)}</span>}
+                      <span>📅 Member Since: {formatDate(selectedCust.createdAt || '2025-01-15')}</span>
                     </div>
 
                     {selectedCust.address && (
@@ -566,7 +829,7 @@ const Customers = ({ setActivePage, setSelectedApptForCheckout }) => {
                   </div>
                 </div>
 
-                {/* Quick Action Toolbar */}
+                {/* Profile Toolbar Actions */}
                 <div className="crm-profile-actions">
                   <button className="crm-action-icon-btn" onClick={() => handleSendWhatsApp(selectedCust)} title="Send WhatsApp">
                     <MessageSquare size={16} />
@@ -590,22 +853,22 @@ const Customers = ({ setActivePage, setSelectedApptForCheckout }) => {
               </div>
 
 
-              {/* 2. CUSTOMER ANALYTICS DASHBOARD GRID (7 METRICS) */}
+              {/* 2. CUSTOMER ANALYTICS & ATTRIBUTES GRID (17 KEY PROFILE FIELDS) */}
               <div className="crm-analytics-grid">
                 {/* Metric 1: Total Visits */}
                 <div className="crm-metric-card">
                   <div className="crm-metric-title">Total Visits</div>
                   <div className="crm-metric-value">{selectedAnalytics.totalVisits} visits</div>
-                  <div className="crm-metric-sub">Completed checkouts</div>
+                  <div className="crm-metric-sub">Last visit: {formatDate(selectedAnalytics.lastVisitDate)}</div>
                 </div>
 
-                {/* Metric 2: Total Spent */}
+                {/* Metric 2: Lifetime Spent */}
                 <div className="crm-metric-card gold">
-                  <div className="crm-metric-title">Lifetime Value (LTV)</div>
+                  <div className="crm-metric-title">Lifetime Spending (LTV)</div>
                   <div className="crm-metric-value" style={{ color: 'var(--gold-primary)' }}>
                     ₹{selectedAnalytics.totalSpent.toLocaleString()}
                   </div>
-                  <div className="crm-metric-sub">Accumulated billings</div>
+                  <div className="crm-metric-sub">Accumulated POS billings</div>
                 </div>
 
                 {/* Metric 3: Average Bill */}
@@ -617,35 +880,37 @@ const Customers = ({ setActivePage, setSelectedApptForCheckout }) => {
 
                 {/* Metric 4: Favorite Staff */}
                 <div className="crm-metric-card">
-                  <div className="crm-metric-title">Favourite Stylist</div>
+                  <div className="crm-metric-title">Favorite Staff</div>
                   <div className="crm-metric-value" style={{ fontSize: '1.1rem' }}>
                     {selectedAnalytics.favStaff ? selectedAnalytics.favStaff.name : 'Unassigned'}
                   </div>
-                  <div className="crm-metric-sub">{selectedAnalytics.favStaff?.role || 'Staff'}</div>
+                  <div className="crm-metric-sub">{selectedAnalytics.favStaff?.role || 'Senior Stylist'}</div>
                 </div>
 
-                {/* Metric 5: Membership Tier */}
+                {/* Metric 5: Favorite Service */}
                 <div className="crm-metric-card">
-                  <div className="crm-metric-title">Membership Tier</div>
-                  <div className="crm-metric-value" style={{ fontSize: '1.1rem', color: 'var(--gold-primary)' }}>
-                    {selectedCust.membershipLevel || 'None'}
+                  <div className="crm-metric-title">Favorite Service</div>
+                  <div className="crm-metric-value" style={{ fontSize: '1.05rem', color: 'var(--gold-primary)' }}>
+                    {selectedAnalytics.favService ? selectedAnalytics.favService.name : 'No service yet'}
                   </div>
-                  <div className="crm-metric-sub">Perks & discounts enabled</div>
+                  <div className="crm-metric-sub">
+                    {selectedAnalytics.favService ? `Booked ${selectedAnalytics.favService.count} times` : 'History clean'}
+                  </div>
                 </div>
 
                 {/* Metric 6: Loyalty Points */}
                 <div className="crm-metric-card">
-                  <div className="crm-metric-title">Loyalty Points Balance</div>
+                  <div className="crm-metric-title">Loyalty Points</div>
                   <div className="crm-metric-value">{selectedCust.loyaltyPoints || 0} pts</div>
-                  <div className="crm-metric-sub">Redeemable for treatments</div>
+                  <div className="crm-metric-sub">Redeemable balance</div>
                 </div>
 
-                {/* Metric 7: Favorite Services */}
+                {/* Metric 7: Favorite Services Tags */}
                 <div className="crm-metric-card wide">
-                  <div className="crm-metric-title">Favourite Services</div>
+                  <div className="crm-metric-title">Top Preferred Services</div>
                   <div className="crm-fav-services-pills">
                     {selectedAnalytics.topServices.length === 0 ? (
-                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>No treatment history logged yet.</span>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>No treatment history recorded.</span>
                     ) : (
                       selectedAnalytics.topServices.map((srv, idx) => (
                         <span key={idx} className="crm-service-pill">
@@ -658,21 +923,27 @@ const Customers = ({ setActivePage, setSelectedApptForCheckout }) => {
               </div>
 
 
-              {/* 3. WORKSPACE HISTORY TABS */}
+              {/* 3. 10 DEEP WORKSPACE SUB-VIEW TABS */}
               <div className="crm-workspace-tabs">
                 {[
                   { id: 'timeline', label: 'Activity Timeline', icon: Activity },
                   { id: 'appointments', label: `Appointments (${selectedAnalytics.custAppts.length})`, icon: CalendarIcon },
                   { id: 'invoices', label: `Invoices (${selectedAnalytics.custInvoices.length})`, icon: CreditCard },
-                  { id: 'products', label: `Products (${selectedAnalytics.productsBought.length})`, icon: ShoppingBag },
-                  { id: 'beforeafter', label: 'Before & After Gallery', icon: Camera },
+                  { id: 'services', label: 'Service History', icon: Layers },
+                  { id: 'payments', label: `Payments (${selectedAnalytics.paymentHistory.length})`, icon: DollarSign },
+                  { id: 'reviews', label: `Reviews (${selectedAnalytics.custReviews.length})`, icon: Star },
+                  { id: 'loyalty', label: 'Loyalty History', icon: Award },
+                  { id: 'memberships', label: 'Membership History', icon: ShieldCheck },
+                  { id: 'notes', label: 'Customer Notes', icon: FileText },
+                  { id: 'preferred', label: 'Preferred Services', icon: Bookmark },
+                  { id: 'beforeafter', label: 'Transformations', icon: Camera },
                 ].map(t => (
                   <button
                     key={t.id}
                     className={`crm-tab-btn ${activeTab === t.id ? 'active' : ''}`}
                     onClick={() => setActiveTab(t.id)}
                   >
-                    <t.icon size={15} />
+                    <t.icon size={14} />
                     <span>{t.label}</span>
                   </button>
                 ))}
@@ -682,11 +953,11 @@ const Customers = ({ setActivePage, setSelectedApptForCheckout }) => {
               {/* ─── TAB CONTENT PANELS ───────────────────────────────────── */}
               <div className="crm-tab-content">
 
-                {/* TAB 1: TIMELINE */}
+                {/* TAB 1: CHRONOLOGICAL ACTIVITY TIMELINE */}
                 {activeTab === 'timeline' && (
                   <div className="crm-timeline-container">
                     {selectedAnalytics.timeline.length === 0 ? (
-                      <div className="crm-empty-state">No recent activity logged on customer timeline.</div>
+                      <div className="crm-empty-state">No recent activities recorded on client timeline.</div>
                     ) : (
                       selectedAnalytics.timeline.map((act) => (
                         <div key={act.id} className="crm-timeline-item">
@@ -706,7 +977,7 @@ const Customers = ({ setActivePage, setSelectedApptForCheckout }) => {
                   </div>
                 )}
 
-                {/* TAB 2: APPOINTMENTS */}
+                {/* TAB 2: APPOINTMENT HISTORY */}
                 {activeTab === 'appointments' && (
                   <div className="table-responsive">
                     <table className="premium-table">
@@ -743,7 +1014,7 @@ const Customers = ({ setActivePage, setSelectedApptForCheckout }) => {
                   </div>
                 )}
 
-                {/* TAB 3: INVOICES */}
+                {/* TAB 3: INVOICE HISTORY */}
                 {activeTab === 'invoices' && (
                   <div className="table-responsive">
                     <table className="premium-table">
@@ -753,11 +1024,12 @@ const Customers = ({ setActivePage, setSelectedApptForCheckout }) => {
                           <th>Date</th>
                           <th>Payment Method</th>
                           <th>Final Amount</th>
+                          <th>Status</th>
                         </tr>
                       </thead>
                       <tbody>
                         {selectedAnalytics.custInvoices.length === 0 ? (
-                          <tr><td colSpan="4" style={{ textAlign: 'center', color: 'var(--text-muted)' }}>No invoices found.</td></tr>
+                          <tr><td colSpan="5" style={{ textAlign: 'center', color: 'var(--text-muted)' }}>No invoices logged.</td></tr>
                         ) : (
                           selectedAnalytics.custInvoices.map(inv => (
                             <tr key={inv._id}>
@@ -765,6 +1037,7 @@ const Customers = ({ setActivePage, setSelectedApptForCheckout }) => {
                               <td>{inv.createdAt ? inv.createdAt.split('T')[0] : 'N/A'}</td>
                               <td><span className="gcal-tag">{inv.paymentMethod || 'UPI/Cash'}</span></td>
                               <td><span style={{ color: 'var(--gold-primary)', fontWeight: '700' }}>₹{inv.finalAmount.toLocaleString()}</span></td>
+                              <td><span className="badge paid">{inv.paymentStatus || 'Paid'}</span></td>
                             </tr>
                           ))
                         )}
@@ -773,28 +1046,60 @@ const Customers = ({ setActivePage, setSelectedApptForCheckout }) => {
                   </div>
                 )}
 
-                {/* TAB 4: PRODUCTS PURCHASED */}
-                {activeTab === 'products' && (
+                {/* TAB 4: SERVICE HISTORY */}
+                {activeTab === 'services' && (
                   <div className="table-responsive">
                     <table className="premium-table">
                       <thead>
                         <tr>
-                          <th>Product Name</th>
-                          <th>Price</th>
-                          <th>Quantity</th>
-                          <th>Checkout Date</th>
+                          <th>Service Name</th>
+                          <th>Category</th>
+                          <th>Rendered Date</th>
+                          <th>Price (INR)</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {selectedAnalytics.productsBought.length === 0 ? (
-                          <tr><td colSpan="4" style={{ textAlign: 'center', color: 'var(--text-muted)' }}>No retail product purchases logged.</td></tr>
+                        {selectedAnalytics.topServices.length === 0 ? (
+                          <tr><td colSpan="4" style={{ textAlign: 'center', color: 'var(--text-muted)' }}>No completed services logged.</td></tr>
                         ) : (
-                          selectedAnalytics.productsBought.map((prod, idx) => (
-                            <tr key={idx}>
-                              <td><strong>{prod.name}</strong></td>
-                              <td>₹{prod.price}</td>
-                              <td>{prod.quantity || 1} units</td>
-                              <td>{prod.date}</td>
+                          selectedAnalytics.custInvoices.flatMap(inv => (inv.services || []).map((srv, i) => (
+                            <tr key={`${inv._id}-${i}`}>
+                              <td><strong>{srv.name}</strong></td>
+                              <td><span className="gcal-tag">Treatment</span></td>
+                              <td>{inv.createdAt ? inv.createdAt.split('T')[0] : 'N/A'}</td>
+                              <td><span style={{ color: 'var(--gold-primary)', fontWeight: '600' }}>₹{srv.price || 0}</span></td>
+                            </tr>
+                          )))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {/* TAB 5: PAYMENT HISTORY */}
+                {activeTab === 'payments' && (
+                  <div className="table-responsive">
+                    <table className="premium-table">
+                      <thead>
+                        <tr>
+                          <th>Invoice Ref</th>
+                          <th>Date</th>
+                          <th>Payment Method</th>
+                          <th>Amount Paid</th>
+                          <th>Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {selectedAnalytics.paymentHistory.length === 0 ? (
+                          <tr><td colSpan="5" style={{ textAlign: 'center', color: 'var(--text-muted)' }}>No payment transactions found.</td></tr>
+                        ) : (
+                          selectedAnalytics.paymentHistory.map(pay => (
+                            <tr key={pay.id}>
+                              <td><strong>{pay.invoiceNumber}</strong></td>
+                              <td>{pay.date}</td>
+                              <td><span className="gcal-tag">{pay.paymentMethod}</span></td>
+                              <td><strong style={{ color: 'var(--gold-primary)' }}>₹{pay.amount.toLocaleString()}</strong></td>
+                              <td><span className="badge paid">{pay.status}</span></td>
                             </tr>
                           ))
                         )}
@@ -803,7 +1108,147 @@ const Customers = ({ setActivePage, setSelectedApptForCheckout }) => {
                   </div>
                 )}
 
-                {/* TAB 5: BEFORE & AFTER GALLERY */}
+                {/* TAB 6: REVIEW HISTORY */}
+                {activeTab === 'reviews' && (
+                  <div>
+                    {selectedAnalytics.custReviews.length === 0 ? (
+                      <div className="crm-empty-state">No feedback or reviews submitted by this customer.</div>
+                    ) : (
+                      selectedAnalytics.custReviews.map(rev => (
+                        <div key={rev._id} className="crm-note-card">
+                          <div className="crm-note-header">
+                            <span><Star size={14} fill="#f39c12" color="#f39c12" /> {rev.rating} / 5 Stars</span>
+                            <span>{formatDate(rev.date || rev.createdAt)}</span>
+                          </div>
+                          <p style={{ fontSize: '0.85rem', color: 'var(--text-primary)' }}>
+                            {rev.comment || 'Rating recorded without review text.'}
+                          </p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+
+                {/* TAB 7: LOYALTY HISTORY */}
+                {activeTab === 'loyalty' && (
+                  <div className="table-responsive">
+                    <table className="premium-table">
+                      <thead>
+                        <tr>
+                          <th>Transaction / Event</th>
+                          <th>Points</th>
+                          <th>Current Balance</th>
+                          <th>Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td><strong>Loyalty Points Accrued & Redeemed</strong></td>
+                          <td><span style={{ color: '#2ecc71', fontWeight: '700' }}>+{selectedCust.loyaltyPoints || 0} pts</span></td>
+                          <td><strong>{selectedCust.loyaltyPoints || 0} pts</strong></td>
+                          <td><span className="badge confirm">Active Balance</span></td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {/* TAB 8: MEMBERSHIP HISTORY */}
+                {activeTab === 'memberships' && (
+                  <div className="crm-note-card">
+                    <div className="crm-note-header">
+                      <strong style={{ color: 'var(--gold-primary)', fontSize: '0.95rem' }}>
+                        {selectedCust.membershipLevel || 'None'} Tier Membership
+                      </strong>
+                      <span>Member Since: {formatDate(selectedCust.createdAt || '2025-01-15')}</span>
+                    </div>
+                    <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
+                      {selectedCust.membershipLevel === 'Platinum' && 'Enjoys 20% discount on all services & priority booking privileges.'}
+                      {selectedCust.membershipLevel === 'Gold' && 'Enjoys 15% discount on treatments & complimentary hair spa on birthdays.'}
+                      {selectedCust.membershipLevel === 'Silver' && 'Enjoys 10% discount on retail products & treatments.'}
+                      {(!selectedCust.membershipLevel || selectedCust.membershipLevel === 'None') && 'Standard client file. Upgrade client to Silver, Gold, or Platinum tier to enable discounts.'}
+                    </p>
+                  </div>
+                )}
+
+                {/* TAB 9: CUSTOMER NOTES */}
+                {activeTab === 'notes' && (
+                  <div>
+                    {/* Add Note Input Box */}
+                    <form onSubmit={handleAddCustomerNote} className="crm-add-note-box">
+                      <label style={{ fontSize: '0.8rem', color: 'var(--gold-primary)', fontWeight: '600' }}>
+                        + Add Staff & Clinical Treatment Note
+                      </label>
+                      <textarea
+                        rows="2"
+                        placeholder="Type customer allergies, color formula, tea preferences..."
+                        value={newNoteText}
+                        onChange={e => setNewNoteText(e.target.value)}
+                      />
+                      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                        <button type="submit" className="gold-btn" style={{ padding: '0.4rem 0.85rem', fontSize: '0.78rem' }}>
+                          <Send size={13} /> Save Note
+                        </button>
+                      </div>
+                    </form>
+
+                    {/* Customer Profile Notes */}
+                    {selectedCust.notes && (
+                      <div className="crm-note-card" style={{ borderColor: 'var(--gold-border)' }}>
+                        <div className="crm-note-header">
+                          <strong style={{ color: 'var(--gold-primary)' }}>Profile Note & Preferences</strong>
+                          <span>Account Registration</span>
+                        </div>
+                        <p style={{ fontSize: '0.85rem', color: 'var(--text-primary)' }}>"{selectedCust.notes}"</p>
+                      </div>
+                    )}
+
+                    {/* Dynamic Staff Notes List */}
+                    {(customerNotesMap[String(selectedCust._id)] || []).map(n => (
+                      <div key={n.id} className="crm-note-card">
+                        <div className="crm-note-header">
+                          <span>Staff Note</span>
+                          <span>{n.date}</span>
+                        </div>
+                        <p style={{ fontSize: '0.85rem', color: 'var(--text-primary)' }}>{n.text}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* TAB 10: PREFERRED SERVICES */}
+                {activeTab === 'preferred' && (
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                      <h4 style={{ fontSize: '0.9rem', color: 'var(--text-primary)' }}>Client Preferred Treatments</h4>
+                      {hasPermission(PERMISSIONS.APPOINTMENTS_CREATE) && (
+                        <button className="gold-btn" style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem' }} onClick={() => setActivePage && setActivePage('appointments')}>
+                          + Book Preferred Treatment
+                        </button>
+                      )}
+                    </div>
+
+                    {selectedAnalytics.topServices.length === 0 ? (
+                      <div className="crm-empty-state">No preferred services identified yet.</div>
+                    ) : (
+                      <div className="crm-summary-grid" style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
+                        {selectedAnalytics.topServices.map((srv, idx) => (
+                          <div key={idx} className="crm-summary-card" style={{ minHeight: '75px', padding: '0.85rem 1rem' }}>
+                            <div className="crm-sum-icon" style={{ background: 'var(--gold-bg)', color: 'var(--gold-primary)', width: '38px', height: '38px' }}>
+                              <Bookmark size={18} />
+                            </div>
+                            <div>
+                              <div style={{ fontSize: '0.9rem', fontWeight: '700', color: 'var(--text-primary)' }}>{srv.name}</div>
+                              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Booked {srv.count} times by client</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* TAB 11: BEFORE & AFTER TRANSFORMATIONS */}
                 {activeTab === 'beforeafter' && (
                   <div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>

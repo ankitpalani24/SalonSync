@@ -3820,6 +3820,127 @@ button:disabled {
   }
 }
 
+/* Customer Status Badges */
+.badge.status-new {
+  background: rgba(52, 152, 219, 0.15);
+  color: #3498db;
+  border: 1px solid rgba(52, 152, 219, 0.4);
+}
+.badge.status-regular {
+  background: rgba(46, 204, 113, 0.15);
+  color: #2ecc71;
+  border: 1px solid rgba(46, 204, 113, 0.4);
+}
+.badge.status-vip {
+  background: rgba(155, 89, 182, 0.15);
+  color: #9b59b6;
+  border: 1px solid rgba(155, 89, 182, 0.4);
+}
+.badge.status-inactive {
+  background: rgba(149, 165, 166, 0.15);
+  color: #95a5a6;
+  border: 1px solid rgba(149, 165, 166, 0.4);
+}
+.badge.status-high-value {
+  background: rgba(212, 175, 55, 0.15);
+  color: #d4af37;
+  border: 1px solid rgba(212, 175, 55, 0.4);
+}
+.badge.status-at-risk {
+  background: rgba(230, 126, 34, 0.15);
+  color: #e67e22;
+  border: 1px solid rgba(230, 126, 34, 0.4);
+}
+
+/* CRM Pagination Controls */
+.crm-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border-light);
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.crm-pagination-btns {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.crm-page-btn {
+  padding: 0.3rem 0.6rem;
+  border-radius: 4px;
+  border: 1px solid var(--border-light);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-primary);
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.crm-page-btn:hover:not(:disabled) {
+  border-color: var(--gold-primary);
+  background: var(--gold-bg);
+  color: var(--gold-primary);
+}
+
+.crm-page-btn.active {
+  background: var(--gold-primary);
+  color: #000;
+  border-color: var(--gold-primary);
+  font-weight: 700;
+}
+
+.crm-page-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* CRM Notes & Add Note Form */
+.crm-add-note-box {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.crm-add-note-box textarea {
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  color: var(--text-primary);
+  padding: 0.6rem;
+  font-size: 0.85rem;
+  outline: none;
+  resize: vertical;
+}
+
+.crm-note-card {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.crm-note-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
 
 /* ═══════════════════════════════════════════════════════════════════════════════
    ENTERPRISE BILLING SYSTEM STYLES
