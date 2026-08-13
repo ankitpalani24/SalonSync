@@ -2,10 +2,10 @@ import React, { useState, useMemo } from 'react';
 import {
   ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon, Clock,
   User, Check, X, Search, Filter, RefreshCw, AlertCircle,
-  CheckCircle2, XCircle, CreditCard, Sparkles, Phone, UserCheck, MessageSquare
+  CheckCircle2, XCircle, CreditCard, Sparkles, Phone, UserCheck, MessageSquare,
+  Repeat, Layers, Award, UserPlus, CheckSquare, Square, Info, ShieldCheck
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { EmptyState, DataGridPagination } from '../components/UIComponents';
 
 // ─── SERVICE COLOR PALETTE ENGINE ───────────────────────────────────────────
 const SERVICE_COLORS = [
@@ -26,13 +26,36 @@ const getServiceColor = (serviceName = '') => {
   return SERVICE_COLORS[index];
 };
 
-// ─── TIME SLOTS GENERATOR (08:00 to 20:00) ──────────────────────────────────
+// ─── SALON SCHEDULING CONSTANTS ──────────────────────────────────────────────
+const SALON_OPEN_HOUR = 8;  // 08:00
+const SALON_CLOSE_HOUR = 20; // 20:00
+const DEFAULT_STAFF_START = 9;  // 09:00
+const DEFAULT_STAFF_END = 19;   // 19:00
+const BUFFER_MINUTES = 15;      // 15 mins setup/cleanup buffer time
+
+// Scheduled Breaks
+const BREAK_TIMES = [
+  { name: 'Lunch Break', start: 13 * 60, end: 14 * 60 },      // 13:00 - 14:00
+  { name: 'Tea Break', start: 16 * 60 + 30, end: 17 * 60 }    // 16:30 - 17:00
+];
+
 const TIME_SLOTS = [
   '08:00', '09:00', '10:00', '11:00', '12:00',
   '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00'
 ];
 
-// Helper to format date string to YYYY-MM-DD
+const timeToMinutes = (timeStr) => {
+  if (!timeStr) return 0;
+  const [h, m] = timeStr.split(':').map(Number);
+  return h * 60 + (m || 0);
+};
+
+const minutesToTimeStr = (mins) => {
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+};
+
 const formatDateStr = (d) => {
   if (!d) return '';
   const dateObj = new Date(d);
@@ -43,7 +66,6 @@ const formatDateStr = (d) => {
   return `${year}-${month}-${day}`;
 };
 
-// Helper for date display
 const formatDateDisplay = (date, viewType) => {
   if (viewType === 'month') {
     return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
@@ -68,21 +90,22 @@ const Appointments = ({ setActivePage, setSelectedApptForCheckout }) => {
     addCustomer, addNotification, addToast, hasPermission, PERMISSIONS
   } = useApp();
 
-  // Filtered collections
-  const appointments = tenantFilter(db.appointments);
-  const customers = tenantFilter(db.customers);
-  const services = tenantFilter(db.services);
-  const staffMembers = tenantFilter(db.staff).filter(s => {
+  // Collections
+  const appointments = tenantFilter(db.appointments || []);
+  const customers = tenantFilter(db.customers || []);
+  const services = tenantFilter(db.services || []);
+  const staffMembers = tenantFilter(db.staff || []).filter(s => {
     if (!currentBranch) return true;
     const bid = typeof s.branchId === 'object' ? s.branchId?._id : s.branchId;
     return !bid || String(bid) === String(currentBranch._id);
   });
-  const invoices = tenantFilter(db.invoices);
+  const invoices = tenantFilter(db.invoices || []);
+  const attendanceList = tenantFilter(db.attendance || []);
 
-  const customerProfile = currentUser?.role === 'CLIENT' ? db.customers.find(c => c.email === currentUser.email) : null;
+  const customerProfile = currentUser?.role === 'CLIENT' ? (db.customers || []).find(c => c.email === currentUser.email) : null;
 
   // View States
-  const [viewType, setViewType] = useState('month'); // Default to month view
+  const [viewType, setViewType] = useState('week'); // Default to week view
   const [currentDate, setCurrentDate] = useState(new Date());
 
   // Search & Filters
@@ -92,20 +115,117 @@ const Appointments = ({ setActivePage, setSelectedApptForCheckout }) => {
   const [serviceFilter, setServiceFilter] = useState('ALL');
 
   // Modals & Drag State
-  const [showQuickBookModal, setShowQuickBookModal] = useState(false);
+  const [showWizardModal, setShowWizardModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedAppt, setSelectedAppt] = useState(null);
   const [draggedApptId, setDraggedApptId] = useState(null);
 
-  // Quick Booking Form States
+  // ─── 6-STEP BOOKING WIZARD STATE ───────────────────────────────────────────
+  const [wizardStep, setWizardStep] = useState(1); // Steps 1 to 6
   const [bookingCustType, setBookingCustType] = useState('registered'); // 'registered' | 'walkin'
   const [selectedCustId, setSelectedCustId] = useState('');
   const [walkinName, setWalkinName] = useState('');
   const [walkinPhone, setWalkinPhone] = useState('');
-  const [selectedServId, setSelectedServId] = useState('');
+  const [selectedServices, setSelectedServices] = useState([]); // Array of service IDs
   const [selectedStaffId, setSelectedStaffId] = useState('');
   const [bookingDate, setBookingDate] = useState(formatDateStr(new Date()));
-  const [bookingTime, setBookingTime] = useState('10:00');
+  const [selectedTimeSlot, setSelectedTimeSlot] = useState('');
+  const [recurringFrequency, setRecurringFrequency] = useState('NONE'); // NONE, WEEKLY, BIWEEKLY, MONTHLY
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // REAL AVAILABILITY CALCULATION ENGINE
+  // ────────────────────────────────────────────────────────────────────────────
+  const availableTimeSlots = useMemo(() => {
+    if (!bookingDate || selectedServices.length === 0 || !selectedStaffId) {
+      return [];
+    }
+
+    const staffId = selectedStaffId;
+    const dateStr = bookingDate;
+
+    // Check Staff Leave / Attendance
+    const staffAtt = attendanceList.find(a => {
+      const sid = typeof a.staffId === 'object' ? a.staffId?._id : a.staffId;
+      const aDate = a.date ? new Date(a.date).toISOString().split('T')[0] : '';
+      return String(sid) === String(staffId) && aDate === dateStr;
+    });
+
+    if (staffAtt && (staffAtt.workingHours === 0 || staffAtt.status === 'Absent' || staffAtt.status === 'Leave')) {
+      return [];
+    }
+
+    // Sum selected services duration
+    const totalDurationMins = selectedServices.reduce((sum, id) => {
+      const srv = services.find(s => String(s._id) === String(id));
+      return sum + (srv?.duration || 30);
+    }, 0);
+
+    const totalNeededMins = totalDurationMins + BUFFER_MINUTES;
+
+    // Get active appointments for staff on date
+    const staffAppts = appointments.filter(appt => {
+      const sid = typeof appt.staffId === 'object' ? appt.staffId?._id : appt.staffId;
+      const aDate = appt.date ? String(appt.date).split('T')[0] : '';
+      return String(sid) === String(staffId) &&
+        aDate === dateStr &&
+        ['Scheduled', 'Confirmed', 'In Progress'].includes(appt.status);
+    });
+
+    // Busy ranges in minutes
+    const busyRanges = staffAppts.map(appt => {
+      const startMins = timeToMinutes(appt.time);
+      let apptDuration = 30;
+      if (appt.services && appt.services.length > 0) {
+        apptDuration = appt.services.reduce((sum, s) => {
+          const servObj = services.find(serv => String(serv._id) === String(s.serviceId) || serv.name === s.name);
+          return sum + (servObj?.duration || 30);
+        }, 0);
+      }
+      return {
+        start: startMins,
+        end: startMins + apptDuration + BUFFER_MINUTES
+      };
+    });
+
+    // Add breaks
+    BREAK_TIMES.forEach(b => busyRanges.push({ start: b.start, end: b.end }));
+
+    const shiftStartMins = DEFAULT_STAFF_START * 60;
+    const salonCloseMins = SALON_CLOSE_HOUR * 60;
+
+    const slots = [];
+    for (let mins = SALON_OPEN_HOUR * 60; mins <= salonCloseMins - totalDurationMins; mins += 30) {
+      const slotStart = mins;
+      const slotEnd = mins + totalNeededMins;
+
+      if (slotStart < shiftStartMins || slotEnd > salonCloseMins) {
+        continue;
+      }
+
+      const hasOverlap = busyRanges.some(b => (slotStart < b.end && slotEnd > b.start));
+      if (!hasOverlap) {
+        slots.push(minutesToTimeStr(slotStart));
+      }
+    }
+
+    return slots;
+  }, [bookingDate, selectedServices, selectedStaffId, appointments, attendanceList, services]);
+
+  // Aggregate selected services totals
+  const selectedServicesTotals = useMemo(() => {
+    let price = 0;
+    let duration = 0;
+    const names = [];
+    selectedServices.forEach(id => {
+      const srv = services.find(s => String(s._id) === String(id));
+      if (srv) {
+        price += srv.price || 0;
+        duration += srv.duration || 30;
+        names.push(srv.name);
+      }
+    });
+    return { price, duration, names };
+  }, [selectedServices, services]);
 
   // ────────────────────────────────────────────────────────────────────────────
   // NAVIGATION HELPERS
@@ -136,19 +256,18 @@ const Appointments = ({ setActivePage, setSelectedApptForCheckout }) => {
   const resolveCustomer = (appt) => {
     if (!appt) return null;
     if (appt.customerId && typeof appt.customerId === 'object') return appt.customerId;
-    return db.customers.find(c => String(c._id) === String(appt.customerId));
+    return (db.customers || []).find(c => String(c._id) === String(appt.customerId));
   };
 
   const resolveStaff = (appt) => {
     if (!appt) return null;
     const sid = typeof appt.staffId === 'object' ? appt.staffId?._id : appt.staffId;
-    return db.staff.find(s => String(s._id) === String(sid));
+    return (db.staff || []).find(s => String(s._id) === String(sid));
   };
 
   const getPaymentStatus = (appt) => {
     if (!appt) return 'Pending';
     if (appt.status === 'Completed') return 'Paid';
-    // Check if an invoice exists for this appointment or customer checkout
     const cust = resolveCustomer(appt);
     const hasInv = invoices.some(i => {
       const invCustId = typeof i.customerId === 'object' ? i.customerId?._id : i.customerId;
@@ -159,8 +278,11 @@ const Appointments = ({ setActivePage, setSelectedApptForCheckout }) => {
 
   const getServiceDuration = (appt) => {
     if (!appt || !appt.services || appt.services.length === 0) return '30 min';
-    const mainServ = db.services.find(s => s._id === appt.services[0].serviceId || s.name === appt.services[0].name);
-    return `${mainServ?.duration || 30} min`;
+    const totalMins = appt.services.reduce((sum, s) => {
+      const servObj = services.find(serv => String(serv._id) === String(s.serviceId) || serv.name === s.name);
+      return sum + (servObj?.duration || 30);
+    }, 0);
+    return `${totalMins} min`;
   };
 
   // ────────────────────────────────────────────────────────────────────────────
@@ -243,23 +365,34 @@ const Appointments = ({ setActivePage, setSelectedApptForCheckout }) => {
   };
 
   // ────────────────────────────────────────────────────────────────────────────
-  // QUICK BOOKING POPUP HANDLERS
+  // WIZARD BOOKING HANDLERS
   // ────────────────────────────────────────────────────────────────────────────
-  const handleOpenQuickBook = (presetDateStr, presetTime, presetStaffId) => {
+  const handleOpenWizard = (presetDateStr, presetTime, presetStaffId) => {
+    setWizardStep(1);
     setBookingCustType('registered');
     setSelectedCustId(customers[0]?._id || '');
     setWalkinName('');
     setWalkinPhone('');
-    setSelectedServId(services[0]?._id || '');
+    setSelectedServices(services[0]?._id ? [services[0]._id] : []);
     setSelectedStaffId(presetStaffId || staffMembers[0]?._id || '');
     setBookingDate(presetDateStr || formatDateStr(currentDate));
-    setBookingTime(presetTime || '10:00');
-    setShowQuickBookModal(true);
+    setSelectedTimeSlot(presetTime || '10:00');
+    setRecurringFrequency('NONE');
+    setShowWizardModal(true);
   };
 
-  const handleQuickBookSubmit = async (e) => {
-    e.preventDefault();
+  const toggleServiceSelection = (serviceId) => {
+    setSelectedServices(prev => {
+      if (prev.includes(serviceId)) {
+        if (prev.length === 1) return prev; // Keep at least one
+        return prev.filter(id => id !== serviceId);
+      } else {
+        return [...prev, serviceId];
+      }
+    });
+  };
 
+  const handleConfirmWizardBooking = async () => {
     let custId = selectedCustId;
     let isWalkin = false;
 
@@ -275,28 +408,59 @@ const Appointments = ({ setActivePage, setSelectedApptForCheckout }) => {
       }
     }
 
-    const srv = services.find(s => String(s._id) === String(selectedServId)) || services[0];
+    const selectedServiceObjs = selectedServices.map(id => {
+      const srv = services.find(s => String(s._id) === String(id));
+      return {
+        serviceId: srv ? srv._id : id,
+        name: srv ? srv.name : 'Treatment',
+        price: srv ? srv.price : 0
+      };
+    });
 
+    // Primary Appointment
     const result = await addAppointment({
       customerId: custId || null,
-      services: [{
-        serviceId: srv ? srv._id : selectedServId,
-        name: srv ? srv.name : 'Service',
-        price: srv ? srv.price : 0
-      }],
+      services: selectedServiceObjs,
       staffId: selectedStaffId,
       date: bookingDate,
-      time: bookingTime,
+      time: selectedTimeSlot,
       status: 'Scheduled',
       isWalkin
     });
 
-    if (result && result.success !== false) {
-      addToast(`Appointment booked for ${bookingDate} at ${bookingTime}`, 'success');
-      setShowQuickBookModal(false);
+    // Handle Recurring Bookings (Weekly, Bi-weekly, Monthly)
+    if (recurringFrequency !== 'NONE') {
+      const recurringCount = 3; // Schedule 3 upcoming recurring visits
+      let baseDate = new Date(bookingDate);
+
+      for (let i = 1; i <= recurringCount; i++) {
+        const nextDate = new Date(baseDate);
+        if (recurringFrequency === 'WEEKLY') {
+          nextDate.setDate(baseDate.getDate() + 7 * i);
+        } else if (recurringFrequency === 'BIWEEKLY') {
+          nextDate.setDate(baseDate.getDate() + 14 * i);
+        } else if (recurringFrequency === 'MONTHLY') {
+          nextDate.setMonth(baseDate.getMonth() + i);
+        }
+
+        const nextDateStr = formatDateStr(nextDate);
+        await addAppointment({
+          customerId: custId || null,
+          services: selectedServiceObjs,
+          staffId: selectedStaffId,
+          date: nextDateStr,
+          time: selectedTimeSlot,
+          status: 'Scheduled',
+          isWalkin,
+          isRecurring: true
+        });
+      }
+      addToast(`Booked primary appointment + ${recurringCount} recurring ${recurringFrequency.toLowerCase()} sessions`, 'success');
     } else {
-      addToast(result?.message || 'Failed to book appointment', 'error');
+      addToast(`Appointment confirmed for ${bookingDate} at ${selectedTimeSlot}`, 'success');
     }
+
+    setShowWizardModal(false);
   };
 
   // ────────────────────────────────────────────────────────────────────────────
@@ -346,8 +510,6 @@ const Appointments = ({ setActivePage, setSelectedApptForCheckout }) => {
   // ────────────────────────────────────────────────────────────────────────────
   // CALENDAR GRID CALCULATIONS
   // ────────────────────────────────────────────────────────────────────────────
-
-  // Get current week dates (Sun - Sat)
   const getWeekDates = (date) => {
     const start = new Date(date);
     start.setDate(date.getDate() - date.getDay());
@@ -360,7 +522,6 @@ const Appointments = ({ setActivePage, setSelectedApptForCheckout }) => {
     return week;
   };
 
-  // Get current month cells (with padding)
   const getMonthCells = (date) => {
     const yr = date.getFullYear();
     const mo = date.getMonth();
@@ -413,10 +574,11 @@ const Appointments = ({ setActivePage, setSelectedApptForCheckout }) => {
         <div className="gcal-appt-cust">
           <strong>{custName}</strong>
           {isWalkin && <span className="gcal-walkin-badge">Walk-in</span>}
+          {appt.isRecurring && <span className="gcal-walkin-badge" style={{ background: 'rgba(155, 89, 182, 0.2)', color: '#9b59b6' }}>Recurring</span>}
         </div>
 
         <div className="gcal-appt-service" style={{ color: color.text }}>
-          {appt.services.map(s => s.name).join(', ')}
+          {appt.services ? appt.services.map(s => s.name).join(', ') : 'Treatment'}
         </div>
 
         {!compact && (
@@ -442,14 +604,14 @@ const Appointments = ({ setActivePage, setSelectedApptForCheckout }) => {
       {/* ─── HEADER & CONTROLS ────────────────────────────────────────────── */}
       <div className="gcal-header">
         <div className="gcal-header-title">
-          <h1>Calendar Bookings</h1>
-          <p>Google Calendar-style scheduler & staff booking engine</p>
+          <h1>Professional Scheduling System</h1>
+          <p>Real-time staff availability, working hours, breaks & multi-service scheduling engine</p>
         </div>
 
         <div className="gcal-header-right">
           {hasPermission(PERMISSIONS.APPOINTMENTS_CREATE) && (
-            <button className="gold-btn" onClick={() => handleOpenQuickBook()}>
-              <Plus size={16} /> Quick Booking
+            <button className="gold-btn" onClick={() => handleOpenWizard()}>
+              <Plus size={16} /> Book Appointment
             </button>
           )}
         </div>
@@ -474,12 +636,12 @@ const Appointments = ({ setActivePage, setSelectedApptForCheckout }) => {
           <h2 className="gcal-date-display">{formatDateDisplay(currentDate, viewType)}</h2>
         </div>
 
-        {/* View Switcher */}
+        {/* 4 Calendar View Switchers */}
         <div className="gcal-view-switcher">
           {[
-            { id: 'day', label: 'Day' },
-            { id: 'week', label: 'Week' },
-            { id: 'month', label: 'Month' },
+            { id: 'day', label: 'Daily View' },
+            { id: 'week', label: 'Weekly View' },
+            { id: 'month', label: 'Monthly View' },
             { id: 'staff', label: 'Staff Resource' },
           ].map(v => (
             <button
@@ -589,7 +751,7 @@ const Appointments = ({ setActivePage, setSelectedApptForCheckout }) => {
                       className="gcal-slot-cell"
                       onDragOver={handleDragOver}
                       onDrop={(e) => handleDrop(e, dStr, timeSlot, null)}
-                      onClick={() => handleOpenQuickBook(dStr, timeSlot)}
+                      onClick={() => handleOpenWizard(dStr, timeSlot)}
                     >
                       {cellAppts.map(appt => renderApptCard(appt, true))}
                     </div>
@@ -628,7 +790,7 @@ const Appointments = ({ setActivePage, setSelectedApptForCheckout }) => {
                     className="gcal-day-slot-cell"
                     onDragOver={handleDragOver}
                     onDrop={(e) => handleDrop(e, dStr, timeSlot, null)}
-                    onClick={() => handleOpenQuickBook(dStr, timeSlot)}
+                    onClick={() => handleOpenWizard(dStr, timeSlot)}
                   >
                     {cellAppts.length === 0 ? (
                       <span className="gcal-slot-empty-label">+ Click to book slot</span>
@@ -671,7 +833,7 @@ const Appointments = ({ setActivePage, setSelectedApptForCheckout }) => {
                   className={`gcal-month-cell ${isToday ? 'today' : ''}`}
                   onDragOver={handleDragOver}
                   onDrop={(e) => handleDrop(e, dStr, null, null)}
-                  onClick={() => handleOpenQuickBook(dStr)}
+                  onClick={() => handleOpenWizard(dStr)}
                 >
                   <div className="gcal-month-date-num">
                     <span className={isToday ? 'today-badge' : ''}>{dayObj.getDate()}</span>
@@ -711,7 +873,7 @@ const Appointments = ({ setActivePage, setSelectedApptForCheckout }) => {
       )}
 
 
-      {/* ─── 4. STAFF-WISE RESOURCE VIEW ────────────────────────────────── */}
+      {/* ─── 4. STAFF-WISE RESOURCE SCHEDULE VIEW ───────────────────────── */}
       {viewType === 'staff' && (
         <div className="gcal-grid-card">
           <div className="gcal-staff-header-row">
@@ -749,7 +911,7 @@ const Appointments = ({ setActivePage, setSelectedApptForCheckout }) => {
                         className="gcal-staff-slot-cell"
                         onDragOver={handleDragOver}
                         onDrop={(e) => handleDrop(e, dStr, timeSlot, staff._id)}
-                        onClick={() => handleOpenQuickBook(dStr, timeSlot, staff._id)}
+                        onClick={() => handleOpenWizard(dStr, timeSlot, staff._id)}
                       >
                         {cellAppts.map(appt => renderApptCard(appt, true))}
                       </div>
@@ -764,125 +926,215 @@ const Appointments = ({ setActivePage, setSelectedApptForCheckout }) => {
 
 
       {/* ════════════════════════════════════════════════════════════════════
-         QUICK BOOKING POPUP MODAL
+         INTERACTIVE 6-STEP BOOKING WIZARD MODAL
          ════════════════════════════════════════════════════════════════════ */}
-      {showQuickBookModal && (
-        <div className="modal-backdrop-overlay" onClick={() => setShowQuickBookModal(false)}>
-          <div className="modal-scrollable-content gcal-modal" onClick={e => e.stopPropagation()}>
+      {showWizardModal && (
+        <div className="modal-backdrop-overlay" onClick={() => setShowWizardModal(false)}>
+          <div className="modal-scrollable-content gcal-modal" style={{ maxWidth: '640px' }} onClick={e => e.stopPropagation()}>
+            
+            {/* Modal Header */}
             <div className="gcal-modal-header">
               <h3>
-                <CalendarIcon size={18} style={{ color: 'var(--gold-primary)' }} /> Quick Appointment Booking
+                <CalendarIcon size={18} style={{ color: 'var(--gold-primary)' }} /> Professional Appointment Wizard
               </h3>
-              <button className="gcal-modal-close" onClick={() => setShowQuickBookModal(false)}>
+              <button className="gcal-modal-close" onClick={() => setShowWizardModal(false)}>
                 <X size={18} />
               </button>
             </div>
 
-            <form onSubmit={handleQuickBookSubmit} className="gcal-modal-form">
-              {/* Customer Type Selector */}
-              {currentUser?.role !== 'CLIENT' && (
-                <div className="gcal-tab-toggle">
-                  <button
-                    type="button"
-                    className={bookingCustType === 'registered' ? 'active' : ''}
-                    onClick={() => setBookingCustType('registered')}
-                  >
-                    Registered Client
-                  </button>
-                  <button
-                    type="button"
-                    className={bookingCustType === 'walkin' ? 'active' : ''}
-                    onClick={() => setBookingCustType('walkin')}
-                  >
-                    Walk-in Customer
-                  </button>
+            {/* 6-Step Wizard Navigation Indicator */}
+            <div className="wizard-steps-nav">
+              {[
+                { step: 1, label: 'Customer' },
+                { step: 2, label: 'Service(s)' },
+                { step: 3, label: 'Stylist' },
+                { step: 4, label: 'Date' },
+                { step: 5, label: 'Time Slot' },
+                { step: 6, label: 'Confirm' },
+              ].map(s => (
+                <div
+                  key={s.step}
+                  className={`wizard-step-item ${wizardStep === s.step ? 'active' : ''} ${wizardStep > s.step ? 'completed' : ''}`}
+                  onClick={() => wizardStep > s.step && setWizardStep(s.step)}
+                >
+                  <div className="wizard-step-num">{wizardStep > s.step ? '✓' : s.step}</div>
+                  <span>{s.label}</span>
                 </div>
-              )}
+              ))}
+            </div>
 
-              {/* Client Selector or Walk-in Fields */}
-              {currentUser?.role === 'CLIENT' ? (
-                <div className="form-group">
-                  <label>Client</label>
-                  <input type="text" className="form-control" disabled value={`${currentUser.name} (${customerProfile?.phone || ''})`} />
+
+            {/* STEP 1: CUSTOMER SELECTION / WALK-IN */}
+            {wizardStep === 1 && (
+              <div className="wizard-step-content">
+                <h4 style={{ fontSize: '1rem', color: 'var(--text-primary)', marginBottom: '1rem' }}>
+                  Step 1: Choose Client or Walk-in Guest
+                </h4>
+
+                {currentUser?.role !== 'CLIENT' && (
+                  <div className="gcal-tab-toggle" style={{ marginBottom: '1.25rem' }}>
+                    <button
+                      type="button"
+                      className={bookingCustType === 'registered' ? 'active' : ''}
+                      onClick={() => setBookingCustType('registered')}
+                    >
+                      Registered Client
+                    </button>
+                    <button
+                      type="button"
+                      className={bookingCustType === 'walkin' ? 'active' : ''}
+                      onClick={() => setBookingCustType('walkin')}
+                    >
+                      Walk-in Guest
+                    </button>
+                  </div>
+                )}
+
+                {currentUser?.role === 'CLIENT' ? (
+                  <div className="form-group">
+                    <label>Client Profile</label>
+                    <input type="text" className="form-control" disabled value={`${currentUser.name} (${customerProfile?.phone || ''})`} />
+                  </div>
+                ) : bookingCustType === 'registered' ? (
+                  <div className="form-group">
+                    <label>Select Registered Customer</label>
+                    <select
+                      className="form-control"
+                      value={selectedCustId}
+                      onChange={e => setSelectedCustId(e.target.value)}
+                    >
+                      {customers.map(c => (
+                        <option key={c._id} value={c._id}>{c.name} ({c.phone || 'No phone'}) — {c.membershipLevel || 'None'} Tier</option>
+                      ))}
+                    </select>
+                  </div>
+                ) : (
+                  <div className="grid-2-cols">
+                    <div className="form-group">
+                      <label>Walk-in Guest Name *</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        required
+                        placeholder="Guest full name"
+                        value={walkinName}
+                        onChange={e => setWalkinName(e.target.value)}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Mobile Number (Optional)</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        placeholder="Phone number"
+                        value={walkinPhone}
+                        onChange={e => setWalkinPhone(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
+                  <button className="gold-btn" onClick={() => setWizardStep(2)}>
+                    Next: Choose Service(s) →
+                  </button>
                 </div>
-              ) : bookingCustType === 'registered' ? (
+              </div>
+            )}
+
+
+            {/* STEP 2: MULTI-SERVICE SELECTION */}
+            {wizardStep === 2 && (
+              <div className="wizard-step-content">
+                <h4 style={{ fontSize: '1rem', color: 'var(--text-primary)', marginBottom: '0.5rem' }}>
+                  Step 2: Select Treatments / Services
+                </h4>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
+                  Select one or multiple services. Duration & costs calculate automatically.
+                </p>
+
+                <div className="wizard-service-grid">
+                  {services.map(srv => {
+                    const isSelected = selectedServices.includes(srv._id);
+                    return (
+                      <div
+                        key={srv._id}
+                        className={`wizard-service-card ${isSelected ? 'selected' : ''}`}
+                        onClick={() => toggleServiceSelection(srv._id)}
+                      >
+                        <div>
+                          <strong style={{ display: 'block', fontSize: '0.9rem', color: 'var(--text-primary)' }}>{srv.name}</strong>
+                          <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>⏱ {srv.duration || 30} mins • {srv.category}</span>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <strong style={{ color: 'var(--gold-primary)', fontSize: '0.95rem' }}>₹{srv.price}</strong>
+                          <div style={{ marginTop: '0.2rem' }}>
+                            {isSelected ? <CheckSquare size={16} color="var(--gold-primary)" /> : <Square size={16} color="var(--text-muted)" />}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="crm-summary-box" style={{ background: 'var(--gold-bg)', padding: '0.85rem 1rem', borderRadius: '8px', marginBottom: '1.25rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
+                    <span>Selected Services: <strong>{selectedServicesTotals.names.join(', ') || 'None'}</strong></span>
+                    <strong style={{ color: 'var(--gold-primary)' }}>₹{selectedServicesTotals.price} ({selectedServicesTotals.duration} mins total)</strong>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <button className="outline-btn" onClick={() => setWizardStep(1)}>← Back</button>
+                  <button className="gold-btn" disabled={selectedServices.length === 0} onClick={() => setWizardStep(3)}>
+                    Next: Choose Stylist →
+                  </button>
+                </div>
+              </div>
+            )}
+
+
+            {/* STEP 3: STAFF SELECTION */}
+            {wizardStep === 3 && (
+              <div className="wizard-step-content">
+                <h4 style={{ fontSize: '1rem', color: 'var(--text-primary)', marginBottom: '1rem' }}>
+                  Step 3: Choose Stylist / Staff Specialist
+                </h4>
+
                 <div className="form-group">
-                  <label>Select Registered Client</label>
+                  <label>Assign Specialist</label>
                   <select
                     className="form-control"
-                    required
-                    value={selectedCustId}
-                    onChange={e => setSelectedCustId(e.target.value)}
+                    value={selectedStaffId}
+                    onChange={e => setSelectedStaffId(e.target.value)}
                   >
-                    {customers.map(c => (
-                      <option key={c._id} value={c._id}>{c.name} ({c.phone || 'No phone'})</option>
+                    {staffMembers.map(st => (
+                      <option key={st._id} value={st._id}>
+                        {st.name} ({st.role}) — ⭐ {st.rating || 5.0} Rating
+                      </option>
                     ))}
                   </select>
                 </div>
-              ) : (
-                <div className="grid-2-cols">
-                  <div className="form-group">
-                    <label>Walk-in Customer Name</label>
-                    <input
-                      type="text"
-                      className="form-control"
-                      required
-                      placeholder="Guest Client Name"
-                      value={walkinName}
-                      onChange={e => setWalkinName(e.target.value)}
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Phone Number (Optional)</label>
-                    <input
-                      type="text"
-                      className="form-control"
-                      placeholder="Mobile number"
-                      value={walkinPhone}
-                      onChange={e => setWalkinPhone(e.target.value)}
-                    />
-                  </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '1.5rem' }}>
+                  <button className="outline-btn" onClick={() => setWizardStep(2)}>← Back</button>
+                  <button className="gold-btn" disabled={!selectedStaffId} onClick={() => setWizardStep(4)}>
+                    Next: Choose Date →
+                  </button>
                 </div>
-              )}
-
-              {/* Service Selection */}
-              <div className="form-group">
-                <label>Select Service / Treatment</label>
-                <select
-                  className="form-control"
-                  required
-                  value={selectedServId}
-                  onChange={e => setSelectedServId(e.target.value)}
-                >
-                  {services.map(s => (
-                    <option key={s._id} value={s._id}>
-                      {s.name} — ₹{s.price} ({s.duration || 30} mins)
-                    </option>
-                  ))}
-                </select>
               </div>
+            )}
 
-              {/* Staff Assignment */}
-              <div className="form-group">
-                <label>Assign Stylist / Staff</label>
-                <select
-                  className="form-control"
-                  required
-                  value={selectedStaffId}
-                  onChange={e => setSelectedStaffId(e.target.value)}
-                >
-                  {staffMembers.map(st => (
-                    <option key={st._id} value={st._id}>
-                      {st.name} ({st.role})
-                    </option>
-                  ))}
-                </select>
-              </div>
 
-              {/* Date & Time */}
-              <div className="grid-2-cols">
+            {/* STEP 4: DATE SELECTION */}
+            {wizardStep === 4 && (
+              <div className="wizard-step-content">
+                <h4 style={{ fontSize: '1rem', color: 'var(--text-primary)', marginBottom: '1rem' }}>
+                  Step 4: Select Appointment Date
+                </h4>
+
                 <div className="form-group">
-                  <label>Appointment Date</label>
+                  <label>Booking Date</label>
                   <input
                     type="date"
                     className="form-control"
@@ -891,25 +1143,103 @@ const Appointments = ({ setActivePage, setSelectedApptForCheckout }) => {
                     onChange={e => setBookingDate(e.target.value)}
                   />
                 </div>
-                <div className="form-group">
-                  <label>Start Time</label>
-                  <select
-                    className="form-control"
-                    required
-                    value={bookingTime}
-                    onChange={e => setBookingTime(e.target.value)}
-                  >
-                    {TIME_SLOTS.map(t => (
-                      <option key={t} value={t}>{t}</option>
-                    ))}
-                  </select>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '1.5rem' }}>
+                  <button className="outline-btn" onClick={() => setWizardStep(3)}>← Back</button>
+                  <button className="gold-btn" disabled={!bookingDate} onClick={() => setWizardStep(5)}>
+                    Next: View Real Available Slots →
+                  </button>
                 </div>
               </div>
+            )}
 
-              <button type="submit" className="gold-btn gcal-submit-btn">
-                ✓ Confirm Appointment
-              </button>
-            </form>
+
+            {/* STEP 5: DYNAMIC REAL AVAILABILITY SLOT PICKER */}
+            {wizardStep === 5 && (
+              <div className="wizard-step-content">
+                <h4 style={{ fontSize: '1rem', color: 'var(--text-primary)', marginBottom: '0.35rem' }}>
+                  Step 5: Select Real Available Time Slot
+                </h4>
+                <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
+                  Slots are calculated dynamically considering salon hours, staff shift, breaks, leaves, total treatment duration ({selectedServicesTotals.duration} mins), and 15 min buffer time.
+                </p>
+
+                {availableTimeSlots.length === 0 ? (
+                  <div className="crm-empty-state" style={{ background: 'rgba(231, 76, 60, 0.1)', borderColor: 'rgba(231, 76, 60, 0.3)', color: '#ec7063' }}>
+                    <AlertCircle size={24} style={{ marginBottom: '0.5rem' }} />
+                    <br />
+                    No open time slots available on <strong>{bookingDate}</strong> for the selected stylist/duration. Staff may be on break, off duty, or fully booked. Please select another date or stylist.
+                  </div>
+                ) : (
+                  <div className="wizard-slots-grid">
+                    {availableTimeSlots.map(slotTime => {
+                      const isSelected = selectedTimeSlot === slotTime;
+                      return (
+                        <button
+                          key={slotTime}
+                          type="button"
+                          className={`wizard-slot-btn ${isSelected ? 'selected' : ''}`}
+                          onClick={() => setSelectedTimeSlot(slotTime)}
+                        >
+                          ⏰ {slotTime}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '1.5rem' }}>
+                  <button className="outline-btn" onClick={() => setWizardStep(4)}>← Back</button>
+                  <button className="gold-btn" disabled={!selectedTimeSlot} onClick={() => setWizardStep(6)}>
+                    Next: Review & Confirm →
+                  </button>
+                </div>
+              </div>
+            )}
+
+
+            {/* STEP 6: CONFIRMATION & RECURRING OPTIONS */}
+            {wizardStep === 6 && (
+              <div className="wizard-step-content">
+                <h4 style={{ fontSize: '1rem', color: 'var(--text-primary)', marginBottom: '1rem' }}>
+                  Step 6: Review & Confirm Booking
+                </h4>
+
+                <div className="crm-summary-box" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--gold-border)', padding: '1.25rem', borderRadius: '8px', marginBottom: '1.25rem' }}>
+                  <div style={{ fontSize: '0.85rem', display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                    <div><strong>Client:</strong> {bookingCustType === 'walkin' ? `${walkinName} (Walk-in)` : (customers.find(c => String(c._id) === String(selectedCustId))?.name || 'Client')}</div>
+                    <div><strong>Treatments:</strong> {selectedServicesTotals.names.join(', ')}</div>
+                    <div><strong>Total Duration:</strong> {selectedServicesTotals.duration} mins (+15 min cleanup buffer)</div>
+                    <div><strong>Assigned Stylist:</strong> {staffMembers.find(s => String(s._id) === String(selectedStaffId))?.name || 'Stylist'}</div>
+                    <div><strong>Scheduled Date & Time:</strong> <span style={{ color: 'var(--gold-primary)', fontWeight: '700' }}>{bookingDate} at {selectedTimeSlot}</span></div>
+                    <div><strong>Total Payable Amount:</strong> <span style={{ color: 'var(--gold-primary)', fontWeight: '800', fontSize: '1.1rem' }}>₹{selectedServicesTotals.price}</span></div>
+                  </div>
+                </div>
+
+                {/* Recurring Options */}
+                <div className="form-group" style={{ marginBottom: '1.5rem' }}>
+                  <label><Repeat size={14} style={{ color: 'var(--gold-primary)' }} /> Schedule Recurring Visits?</label>
+                  <select
+                    className="form-control"
+                    value={recurringFrequency}
+                    onChange={e => setRecurringFrequency(e.target.value)}
+                  >
+                    <option value="NONE">One-time Appointment (No recurrence)</option>
+                    <option value="WEEKLY">Repeat Weekly (Next 3 weeks)</option>
+                    <option value="BIWEEKLY">Repeat Bi-weekly (Every 2 weeks)</option>
+                    <option value="MONTHLY">Repeat Monthly (Next 3 months)</option>
+                  </select>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <button className="outline-btn" onClick={() => setWizardStep(5)}>← Back</button>
+                  <button className="gold-btn" onClick={handleConfirmWizardBooking}>
+                    ✓ Confirm Booking
+                  </button>
+                </div>
+              </div>
+            )}
+
           </div>
         </div>
       )}
@@ -926,7 +1256,6 @@ const Appointments = ({ setActivePage, setSelectedApptForCheckout }) => {
         const color = getServiceColor(mainServName);
         const duration = getServiceDuration(selectedAppt);
         const payStatus = getPaymentStatus(selectedAppt);
-        const isWalkin = !cust || cust.phone === 'Walk-in' || selectedAppt.isWalkin;
 
         return (
           <div className="modal-backdrop-overlay" onClick={() => setShowDetailModal(false)}>

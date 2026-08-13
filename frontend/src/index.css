@@ -3943,6 +3943,133 @@ button:disabled {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════════
+   APPOINTMENT BOOKING WIZARD STYLES
+   ═══════════════════════════════════════════════════════════════════════════════ */
+.wizard-steps-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border-light);
+  overflow-x: auto;
+  gap: 0.5rem;
+}
+
+.wizard-step-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.wizard-step-item.active {
+  color: var(--gold-primary);
+  font-weight: 700;
+}
+
+.wizard-step-item.completed {
+  color: #2ecc71;
+}
+
+.wizard-step-num {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.wizard-step-item.active .wizard-step-num {
+  background: var(--gold-primary);
+  color: #000;
+  border-color: var(--gold-primary);
+}
+
+.wizard-step-item.completed .wizard-step-num {
+  background: rgba(46, 204, 113, 0.2);
+  color: #2ecc71;
+  border-color: #2ecc71;
+}
+
+.wizard-service-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+  max-height: 300px;
+  overflow-y: auto;
+  margin-bottom: 1rem;
+  padding-right: 0.25rem;
+}
+
+.wizard-service-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.85rem 1rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-light);
+  background: rgba(255, 255, 255, 0.02);
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+
+.wizard-service-card:hover {
+  border-color: var(--gold-primary);
+  background: var(--gold-bg);
+}
+
+.wizard-service-card.selected {
+  border-color: var(--gold-primary);
+  background: var(--gold-bg);
+  box-shadow: 0 0 12px var(--gold-glow);
+}
+
+.wizard-slots-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.6rem;
+  max-height: 260px;
+  overflow-y: auto;
+  margin-bottom: 1rem;
+  padding-right: 0.25rem;
+}
+
+.wizard-slot-btn {
+  padding: 0.6rem 0.4rem;
+  border-radius: 6px;
+  border: 1px solid var(--border-light);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-primary);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+  transition: var(--transition-smooth);
+}
+
+.wizard-slot-btn:hover {
+  border-color: var(--gold-primary);
+  background: var(--gold-bg);
+  color: var(--gold-primary);
+}
+
+.wizard-slot-btn.selected {
+  background: var(--gold-primary);
+  color: #000;
+  border-color: var(--gold-primary);
+  font-weight: 700;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════════
    ENTERPRISE BILLING SYSTEM STYLES
    ═══════════════════════════════════════════════════════════════════════════════ */
 .billing-container {
