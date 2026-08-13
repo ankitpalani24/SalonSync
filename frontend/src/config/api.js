@@ -5,7 +5,7 @@ const getApiUrl = () => {
   }
   
   // Dynamic fallback based on current host
-  const hostname = window.location.hostname;
+  const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
   
   // Check if current hostname is localhost or a local network IP / domain
   const isLocal = 
