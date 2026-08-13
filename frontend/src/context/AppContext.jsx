@@ -678,6 +678,26 @@ export const AppProvider = ({ children }) => {
     }
   };
 
+  const fetchFinancialAnalytics = async (horizon = 'monthly', branchId = null) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (token) {
+        let queryStr = `horizon=${horizon}`;
+        if (branchId) queryStr += `&branchId=${branchId}`;
+        const res = await fetch(`${API_URL}/analytics/financial-summary?${queryStr}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (data.success) {
+          return data.data;
+        }
+      }
+    } catch (err) {
+      console.warn('Backend analytics API failed:', err.message);
+    }
+    return null;
+  };
+
   const updateExpense = async (id, updatedFields) => {
     try {
       setDb(prev => {
@@ -1174,7 +1194,7 @@ export const AppProvider = ({ children }) => {
       // Services & packages
       addService, updateService, deleteService, addPackage,
       // Finance & Inventory
-      addExpense, updateExpense, deleteExpense, addProduct, updateProduct, updateProductQuantity, deleteProduct, addSupplier, createInvoice,
+      addExpense, updateExpense, deleteExpense, fetchFinancialAnalytics, addProduct, updateProduct, updateProductQuantity, deleteProduct, addSupplier, createInvoice,
       // HR
       addStaff, updateStaff, deleteStaff, clockInStaff, clockOutStaff,
       // Configurations

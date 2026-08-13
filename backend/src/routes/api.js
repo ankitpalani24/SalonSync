@@ -1338,28 +1338,204 @@ router.post('/notifications/register-device', sanitizeBody(['deviceToken', 'plat
   res.json({ success: true, message: 'Device token registered successfully' });
 }, 'Failed to register device'));
 
-// @route   GET /api/public/slots
-router.get('/public/slots', safeHandler(async (req, res) => {
-  const { salonId, staffId, date } = req.query;
-  const allSlots = ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00'];
-
-  if (!date) {
-    return res.json({ success: true, availableSlots: allSlots });
+// @route   GET /api/analytics/financial-summary
+router.get('/analytics/financial-summary', requirePermission('reports.view'), safeHandler(async (req, res) => {
+  const { horizon, branchId } = req.query;
+  const salonFilter = { ...req.tenantFilter };
+  if (branchId && mongoose.Types.ObjectId.isValid(branchId)) {
+    salonFilter.branchId = branchId;
   }
 
-  const checkDate = new Date(date);
-  const query = {
-    date: checkDate,
-    status: { $in: ['Scheduled', 'Confirmed', 'In Progress'] }
-  };
-  if (salonId && mongoose.Types.ObjectId.isValid(salonId)) query.salonId = salonId;
-  if (staffId && mongoose.Types.ObjectId.isValid(staffId)) query.staffId = staffId;
+  const now = new Date();
+  let startDate = null;
+  if (horizon === 'daily') {
+    startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  } else if (horizon === 'weekly') {
+    startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  } else if (horizon === 'monthly') {
+    startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+  } else if (horizon === 'yearly') {
+    startDate = new Date(now.getFullYear(), 0, 1);
+  }
 
-  const bookedAppts = await models.Appointment.find(query);
-  const bookedTimes = new Set(bookedAppts.map(a => a.time));
+  const queryFilter = { ...salonFilter };
+  if (startDate) {
+    queryFilter.createdAt = { $gte: startDate };
+  }
 
-  const availableSlots = allSlots.filter(s => !bookedTimes.has(s));
-  res.json({ success: true, date, availableSlots });
-}, 'Failed to fetch available slots'));
+  const invoices = await models.Invoice.find(queryFilter);
+  const expenses = await models.Expense.find(startDate ? { ...salonFilter, date: { $gte: startDate } } : salonFilter);
+  const commissions = await models.Commission.find(startDate ? { ...salonFilter, date: { $gte: startDate } } : salonFilter);
+  const services = await models.Service.find(req.tenantFilter);
+  const products = await models.Product.find(req.tenantFilter);
+  const staff = await models.Staff.find(req.tenantFilter);
+  const branches = await models.Branch.find({ salonId: req.user.salonId });
+
+  let grossRevenue = 0;
+  let discounts = 0;
+  let refunds = 0;
+
+  invoices.forEach(inv => {
+    if (inv.paymentStatus === 'Refunded' || inv.status === 'Cancelled') {
+      refunds += inv.finalAmount || 0;
+      return;
+    }
+
+    let invGross = 0;
+    (inv.services || []).forEach(s => { invGross += (s.price || 0) * (s.quantity || 1); });
+    (inv.products || []).forEach(p => { invGross += (p.price || 0) * (p.quantity || 1); });
+
+    grossRevenue += (invGross || inv.finalAmount || 0);
+    discounts += (inv.discount || 0);
+  });
+
+  const netRevenue = Math.max(0, grossRevenue - discounts - refunds);
+
+  let productCosts = 0;
+  invoices.forEach(inv => {
+    if (inv.paymentStatus !== 'Refunded' && inv.status !== 'Cancelled') {
+      (inv.services || []).forEach(item => {
+        const srv = services.find(s => String(s._id) === String(item.serviceId) || s.name === item.name);
+        if (srv) {
+          productCosts += (srv.materialCost || 0) * (item.quantity || 1);
+        }
+      });
+      (inv.products || []).forEach(item => {
+        const prod = products.find(p => String(p._id) === String(item.productId) || p.name === item.name);
+        if (prod) {
+          productCosts += (prod.purchasePrice || 0) * (item.quantity || 1);
+        }
+      });
+    }
+  });
+
+  let staffCommissions = commissions.reduce((sum, c) => sum + (c.commissionEarned || 0), 0);
+  if (staffCommissions === 0 && invoices.length > 0) {
+    invoices.forEach(inv => {
+      if (inv.paymentStatus !== 'Refunded' && inv.status !== 'Cancelled') {
+        const sid = typeof inv.staffId === 'object' ? inv.staffId?._id : inv.staffId;
+        const stMember = staff.find(s => String(s._id) === String(sid));
+        const commPct = stMember ? (stMember.commissionPercentage || 10) : 10;
+        staffCommissions += ((inv.finalAmount || 0) * commPct) / 100;
+      }
+    });
+  }
+  staffCommissions = Math.round(staffCommissions);
+
+  const operatingExpenses = Math.round(expenses.reduce((sum, e) => sum + (e.amount || 0), 0));
+  const grossProfit = Math.round(netRevenue - productCosts - staffCommissions);
+  const netProfit = Math.round(grossProfit - operatingExpenses);
+  const profitMargin = netRevenue > 0 ? Math.round((netProfit / netRevenue) * 1000) / 10 : 0;
+
+  const expenseBreakdown = {};
+  expenses.forEach(e => {
+    const cat = e.category || 'Other';
+    expenseBreakdown[cat] = (expenseBreakdown[cat] || 0) + (e.amount || 0);
+  });
+
+  const serviceStatsMap = {};
+  services.forEach(s => {
+    serviceStatsMap[String(s._id)] = {
+      id: s._id,
+      name: s.name,
+      category: s.category,
+      volume: 0,
+      revenue: 0,
+      productCost: 0,
+      staffCommission: 0,
+      netProfit: 0
+    };
+  });
+
+  invoices.forEach(inv => {
+    if (inv.paymentStatus !== 'Refunded' && inv.status !== 'Cancelled') {
+      (inv.services || []).forEach(item => {
+        const sid = String(item.serviceId);
+        let rec = serviceStatsMap[sid];
+        if (!rec) {
+          const found = services.find(s => s.name === item.name);
+          if (found) rec = serviceStatsMap[String(found._id)];
+        }
+        if (rec) {
+          const qty = item.quantity || 1;
+          const rev = (item.price || 0) * qty;
+          const srvObj = services.find(s => String(s._id) === String(rec.id));
+          const matCost = (srvObj?.materialCost || 0) * qty;
+          const comm = (rev * 10) / 100;
+
+          rec.volume += qty;
+          rec.revenue += rev;
+          rec.productCost += matCost;
+          rec.staffCommission += comm;
+          rec.netProfit += (rev - matCost - comm);
+        }
+      });
+    }
+  });
+
+  const serviceProfitability = Object.values(serviceStatsMap).sort((a, b) => b.revenue - a.revenue);
+
+  const staffStatsMap = {};
+  staff.forEach(st => {
+    staffStatsMap[String(st._id)] = { id: st._id, name: st.name, role: st.role, count: 0, revenue: 0, commission: 0 };
+  });
+
+  invoices.forEach(inv => {
+    if (inv.paymentStatus !== 'Refunded' && inv.status !== 'Cancelled') {
+      const sid = String(typeof inv.staffId === 'object' ? inv.staffId?._id : inv.staffId);
+      if (staffStatsMap[sid]) {
+        staffStatsMap[sid].count += 1;
+        staffStatsMap[sid].revenue += inv.finalAmount || 0;
+        const commPct = staff.find(s => String(s._id) === sid)?.commissionPercentage || 10;
+        staffStatsMap[sid].commission += ((inv.finalAmount || 0) * commPct) / 100;
+      }
+    }
+  });
+
+  const staffRevenue = Object.values(staffStatsMap).sort((a, b) => b.revenue - a.revenue);
+
+  const branchProfitability = branches.map(br => {
+    const bInvoices = invoices.filter(i => String(typeof i.branchId === 'object' ? i.branchId?._id : i.branchId) === String(br._id));
+    const bExpenses = expenses.filter(e => String(typeof e.branchId === 'object' ? e.branchId?._id : e.branchId) === String(br._id));
+
+    const bRev = bInvoices.reduce((sum, i) => sum + (i.finalAmount || 0), 0);
+    const bExp = bExpenses.reduce((sum, e) => sum + (e.amount || 0), 0);
+    const bProfit = Math.max(0, bRev - bExp);
+    const bAov = bInvoices.length > 0 ? Math.round(bRev / bInvoices.length) : 0;
+
+    return {
+      id: br._id,
+      name: br.name,
+      city: br.city || 'Branch',
+      revenue: bRev,
+      expenses: bExp,
+      profit: bProfit,
+      checkoutCount: bInvoices.length,
+      averageBill: bAov
+    };
+  }).sort((a, b) => b.revenue - a.revenue);
+
+  res.json({
+    success: true,
+    data: {
+      metrics: {
+        grossRevenue: Math.round(grossRevenue),
+        discounts: Math.round(discounts),
+        refunds: Math.round(refunds),
+        netRevenue: Math.round(netRevenue),
+        productCosts: Math.round(productCosts),
+        staffCommissions: Math.round(staffCommissions),
+        grossProfit,
+        operatingExpenses,
+        netProfit,
+        profitMargin
+      },
+      expenseBreakdown,
+      serviceProfitability,
+      staffRevenue,
+      branchProfitability
+    }
+  });
+}, 'Failed to fetch financial summary analytics'));
 
 module.exports = router;
