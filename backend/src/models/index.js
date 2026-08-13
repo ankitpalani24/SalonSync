@@ -15,6 +15,9 @@ const UserSchema = new mongoose.Schema({
   branchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch' },
 }, { timestamps: true });
 
+UserSchema.index({ phone: 1 });
+UserSchema.index({ salonId: 1, role: 1 });
+
 // 2. Salon Schema
 const SalonSchema = new mongoose.Schema({
   name: { type: String, required: true },
@@ -49,6 +52,8 @@ const BranchSchema = new mongoose.Schema({
   status: { type: String, enum: ['Active', 'Inactive'], default: 'Active' }
 }, { timestamps: true });
 
+BranchSchema.index({ salonId: 1, status: 1 });
+
 // 4. Customer Schema
 const CustomerSchema = new mongoose.Schema({
   salonId: { type: mongoose.Schema.Types.ObjectId, ref: 'Salon', required: true },
@@ -68,6 +73,10 @@ const CustomerSchema = new mongoose.Schema({
     default: 'None' 
   },
 }, { timestamps: true });
+
+CustomerSchema.index({ salonId: 1, phone: 1 });
+CustomerSchema.index({ salonId: 1, email: 1 });
+CustomerSchema.index({ salonId: 1, branchId: 1 });
 
 // 5. Appointment Schema
 const AppointmentSchema = new mongoose.Schema({
@@ -89,6 +98,11 @@ const AppointmentSchema = new mongoose.Schema({
   },
 }, { timestamps: true });
 
+// Performance index for double-booking overlap prevention & availability checks
+AppointmentSchema.index({ salonId: 1, staffId: 1, date: 1, time: 1 });
+AppointmentSchema.index({ salonId: 1, customerId: 1 });
+AppointmentSchema.index({ salonId: 1, date: 1 });
+
 // 6. Service Schema
 const ServiceSchema = new mongoose.Schema({
   salonId: { type: mongoose.Schema.Types.ObjectId, ref: 'Salon', required: true },
@@ -104,6 +118,8 @@ const ServiceSchema = new mongoose.Schema({
   profitMargin: { type: Number }, // Price - MaterialCost
   description: { type: String },
 }, { timestamps: true });
+
+ServiceSchema.index({ salonId: 1, category: 1 });
 
 // Auto-calculate profit margin on save
 ServiceSchema.pre('save', function() {
@@ -123,6 +139,8 @@ const PackageSchema = new mongoose.Schema({
   expiryDate: { type: Date }
 }, { timestamps: true });
 
+PackageSchema.index({ salonId: 1 });
+
 // 8. Membership Schema
 const MembershipSchema = new mongoose.Schema({
   salonId: { type: mongoose.Schema.Types.ObjectId, ref: 'Salon', required: true },
@@ -131,6 +149,8 @@ const MembershipSchema = new mongoose.Schema({
   price: { type: Number, required: true },
   validityMonths: { type: Number, default: 12 },
 }, { timestamps: true });
+
+MembershipSchema.index({ salonId: 1 });
 
 // 9. LoyaltyPoint Schema
 const LoyaltyPointSchema = new mongoose.Schema({
@@ -141,6 +161,8 @@ const LoyaltyPointSchema = new mongoose.Schema({
   transactionAmount: { type: Number, required: true },
   date: { type: Date, default: Date.now }
 }, { timestamps: true });
+
+LoyaltyPointSchema.index({ salonId: 1, customerId: 1 });
 
 // 10. Invoice Schema
 const InvoiceSchema = new mongoose.Schema({
@@ -174,6 +196,9 @@ const InvoiceSchema = new mongoose.Schema({
 
 // Compound index to ensure invoice numbers are unique per salon tenant
 InvoiceSchema.index({ salonId: 1, invoiceNumber: 1 }, { unique: true });
+InvoiceSchema.index({ salonId: 1, createdAt: -1 });
+InvoiceSchema.index({ salonId: 1, customerId: 1 });
+InvoiceSchema.index({ salonId: 1, staffId: 1 });
 
 // 11. Expense Schema
 const ExpenseSchema = new mongoose.Schema({
@@ -189,6 +214,8 @@ const ExpenseSchema = new mongoose.Schema({
   date: { type: Date, default: Date.now },
 }, { timestamps: true });
 
+ExpenseSchema.index({ salonId: 1, date: -1 });
+
 // 12. Product Schema (Inventory items)
 const ProductSchema = new mongoose.Schema({
   salonId: { type: mongoose.Schema.Types.ObjectId, ref: 'Salon', required: true },
@@ -203,6 +230,9 @@ const ProductSchema = new mongoose.Schema({
   lowStockThreshold: { type: Number, default: 5 }
 }, { timestamps: true });
 
+ProductSchema.index({ salonId: 1, sku: 1 });
+ProductSchema.index({ salonId: 1, quantity: 1 });
+
 // 13. Supplier Schema
 const SupplierSchema = new mongoose.Schema({
   salonId: { type: mongoose.Schema.Types.ObjectId, ref: 'Salon', required: true },
@@ -212,6 +242,8 @@ const SupplierSchema = new mongoose.Schema({
   address: { type: String },
   outstandingDues: { type: Number, default: 0 }
 }, { timestamps: true });
+
+SupplierSchema.index({ salonId: 1 });
 
 // 14. Staff Schema
 const StaffSchema = new mongoose.Schema({
@@ -227,6 +259,10 @@ const StaffSchema = new mongoose.Schema({
   rating: { type: Number, default: 5 },
 }, { timestamps: true });
 
+StaffSchema.index({ salonId: 1, branchId: 1 });
+StaffSchema.index({ userId: 1 });
+StaffSchema.index({ salonId: 1, phone: 1 });
+
 // 15. Attendance Schema
 const AttendanceSchema = new mongoose.Schema({
   salonId: { type: mongoose.Schema.Types.ObjectId, ref: 'Salon', required: true },
@@ -238,6 +274,8 @@ const AttendanceSchema = new mongoose.Schema({
   workingHours: { type: Number, default: 0 },
   overtime: { type: Number, default: 0 },
 }, { timestamps: true });
+
+AttendanceSchema.index({ salonId: 1, staffId: 1, date: -1 });
 
 // 16. Commission Schema
 const CommissionSchema = new mongoose.Schema({
@@ -251,6 +289,8 @@ const CommissionSchema = new mongoose.Schema({
   date: { type: Date, default: Date.now }
 }, { timestamps: true });
 
+CommissionSchema.index({ salonId: 1, staffId: 1, date: -1 });
+
 // 17. Subscription Schema (For Salon platforms/Super Admin)
 const SubscriptionSchema = new mongoose.Schema({
   salonId: { type: mongoose.Schema.Types.ObjectId, ref: 'Salon', required: true },
@@ -260,6 +300,8 @@ const SubscriptionSchema = new mongoose.Schema({
   endDate: { type: Date, required: true },
   status: { type: String, enum: ['Active', 'Expired', 'Cancelled'], default: 'Active' }
 }, { timestamps: true });
+
+SubscriptionSchema.index({ salonId: 1, status: 1 });
 
 // 18. Notification Schema (SMS/WhatsApp logs)
 const NotificationSchema = new mongoose.Schema({
@@ -271,6 +313,8 @@ const NotificationSchema = new mongoose.Schema({
   sentAt: { type: Date, default: Date.now }
 }, { timestamps: true });
 
+NotificationSchema.index({ salonId: 1, customerId: 1 });
+
 // 19. Review Schema
 const ReviewSchema = new mongoose.Schema({
   salonId: { type: mongoose.Schema.Types.ObjectId, ref: 'Salon', required: true },
@@ -281,6 +325,8 @@ const ReviewSchema = new mongoose.Schema({
   comment: { type: String },
   date: { type: Date, default: Date.now }
 }, { timestamps: true });
+
+ReviewSchema.index({ salonId: 1, staffId: 1 });
 
 // Export all models
 module.exports = {
