@@ -19,6 +19,7 @@ import Billing from './pages/Billing';
 import Inventory from './pages/Inventory';
 import Staff from './pages/Staff';
 import Analytics from './pages/Analytics';
+import Expenses from './pages/Expenses';
 import Marketing from './pages/Marketing';
 import SuperAdmin from './pages/Admin/SuperAdmin';
 
@@ -98,8 +99,9 @@ function App() {
           'customers': PERMISSIONS.CUSTOMERS_VIEW,
           'appointments': PERMISSIONS.APPOINTMENTS_VIEW,
           'services': PERMISSIONS.INVENTORY_VIEW,
-          'billing': PERMISSIONS.BILLING_VIEW,
           'inventory': PERMISSIONS.INVENTORY_VIEW,
+          'billing': PERMISSIONS.BILLING_VIEW,
+          'expenses': PERMISSIONS.REPORTS_VIEW,
           'staff': PERMISSIONS.STAFF_VIEW,
           'analytics': PERMISSIONS.REPORTS_VIEW,
           'marketing': null
@@ -141,6 +143,8 @@ function App() {
         );
       case 'inventory':
         return <Inventory />;
+      case 'expenses':
+        return <Expenses />;
       case 'staff':
         return <Staff />;
       case 'analytics':

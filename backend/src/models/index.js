@@ -213,12 +213,16 @@ const ExpenseSchema = new mongoose.Schema({
   branchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch', required: true },
   category: { 
     type: String, 
-    enum: ['Rent', 'Electricity', 'Internet', 'Water', 'Staff Salary', 'Product Purchases', 'Marketing', 'Miscellaneous'], 
+    enum: ['Rent', 'Salary', 'Electricity', 'Water', 'Products', 'Equipment', 'Maintenance', 'Marketing', 'Internet', 'Transportation', 'Other'], 
     required: true 
   },
   amount: { type: Number, required: true },
   description: { type: String },
   date: { type: Date, default: Date.now },
+  paymentMethod: { type: String, enum: ['Cash', 'UPI', 'Card', 'Bank Transfer'], default: 'Cash' },
+  vendor: { type: String },
+  receiptUrl: { type: String },
+  createdBy: { type: String }
 }, { timestamps: true });
 
 ExpenseSchema.index({ salonId: 1, date: -1 });

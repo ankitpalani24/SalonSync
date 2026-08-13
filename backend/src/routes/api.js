@@ -558,7 +558,7 @@ router.delete('/packages/:id', requirePermission('inventory.edit'), validateObje
 // ----------------------------------------------------
 // EXPENSE TRACKING
 // ----------------------------------------------------
-const EXPENSE_FIELDS = ['category', 'amount', 'description', 'date'];
+const EXPENSE_FIELDS = ['category', 'amount', 'description', 'date', 'paymentMethod', 'vendor', 'receiptUrl', 'createdBy', 'branchId'];
 
 router.get('/expenses', requirePermission('reports.view'), safeHandler(async (req, res) => {
   const expenses = await models.Expense.find(req.tenantFilter);

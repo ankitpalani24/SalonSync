@@ -643,24 +643,90 @@ export const AppProvider = ({ children }) => {
 
   const addExpense = async (exp) => {
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_URL}/expenses`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          ...exp,
-          branchId: currentBranch ? currentBranch._id : null
-        })
+      const newExp = {
+        _id: 'exp_' + Date.now() + Math.random(),
+        ...exp,
+        salonId: currentUser?.salonId || 'salon_luxe_123',
+        branchId: exp.branchId || (currentBranch ? currentBranch._id : 'branch_mumbai_1'),
+        createdBy: currentUser?.name || 'Manager',
+        createdAt: exp.date || new Date().toISOString()
+      };
+
+      setDb(prev => {
+        const updatedExp = [newExp, ...(prev.expenses || [])];
+        localStorage.setItem('sf_expenses', JSON.stringify(updatedExp));
+        return { ...prev, expenses: updatedExp };
       });
-      const data = await res.json();
-      if (data.success) {
-        await syncBackendData(token);
+
+      const token = localStorage.getItem('token');
+      if (token) {
+        const res = await fetch(`${API_URL}/expenses`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(exp)
+        });
+        const data = await res.json();
+        if (data.success) {
+          await syncBackendData(token);
+        }
       }
     } catch (err) {
       console.error('Error adding expense:', err);
+    }
+  };
+
+  const updateExpense = async (id, updatedFields) => {
+    try {
+      setDb(prev => {
+        const updatedExp = (prev.expenses || []).map(e => e._id === id ? { ...e, ...updatedFields } : e);
+        localStorage.setItem('sf_expenses', JSON.stringify(updatedExp));
+        return { ...prev, expenses: updatedExp };
+      });
+
+      const token = localStorage.getItem('token');
+      if (token) {
+        const res = await fetch(`${API_URL}/expenses/${id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(updatedFields)
+        });
+        const data = await res.json();
+        if (data.success) {
+          await syncBackendData(token);
+        }
+      }
+    } catch (err) {
+      console.error('Error updating expense:', err);
+    }
+  };
+
+  const deleteExpense = async (id) => {
+    try {
+      setDb(prev => {
+        const updatedExp = (prev.expenses || []).filter(e => e._id !== id);
+        localStorage.setItem('sf_expenses', JSON.stringify(updatedExp));
+        return { ...prev, expenses: updatedExp };
+      });
+
+      const token = localStorage.getItem('token');
+      if (token) {
+        const res = await fetch(`${API_URL}/expenses/${id}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (data.success) {
+          await syncBackendData(token);
+        }
+      }
+    } catch (err) {
+      console.error('Error deleting expense:', err);
     }
   };
 
@@ -1003,22 +1069,7 @@ export const AppProvider = ({ children }) => {
     }
   };
 
-  const deleteExpense = async (id) => {
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_URL}/expenses/${id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const data = await res.json();
-      if (data.success) {
-        await syncBackendData(token);
-        addToast('Expense deleted successfully!', 'info');
-      }
-    } catch (err) {
-      console.error('Error deleting expense:', err);
-    }
-  };
+
 
   const deleteStaff = async (id) => {
     try {
@@ -1123,7 +1174,7 @@ export const AppProvider = ({ children }) => {
       // Services & packages
       addService, updateService, deleteService, addPackage,
       // Finance & Inventory
-      addExpense, deleteExpense, addProduct, updateProduct, updateProductQuantity, deleteProduct, addSupplier, createInvoice,
+      addExpense, updateExpense, deleteExpense, addProduct, updateProduct, updateProductQuantity, deleteProduct, addSupplier, createInvoice,
       // HR
       addStaff, updateStaff, deleteStaff, clockInStaff, clockOutStaff,
       // Configurations

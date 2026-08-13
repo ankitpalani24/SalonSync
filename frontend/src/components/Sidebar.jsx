@@ -32,6 +32,7 @@ const Sidebar = ({ activePage, setActivePage, collapsed, setCollapsed, user, log
       title: 'BUSINESS',
       items: [
         { id: 'billing', label: 'POS Billing', icon: CreditCard, permission: PERMISSIONS.BILLING_VIEW },
+        { id: 'expenses', label: 'Expense Ledger', icon: DollarSign, permission: PERMISSIONS.REPORTS_VIEW },
         { id: 'staff', label: 'Staff & Roster', icon: UserCheck, permission: PERMISSIONS.STAFF_VIEW },
         { id: 'analytics', label: 'BI Analytics', icon: BarChart3, permission: PERMISSIONS.REPORTS_VIEW },
       ]
