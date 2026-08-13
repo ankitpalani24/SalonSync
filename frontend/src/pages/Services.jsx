@@ -63,6 +63,14 @@ const Services = () => {
   const [srvDiscountAmt, setSrvDiscountAmt] = useState(0);
   const [srvAllocatedCostPct, setSrvAllocatedCostPct] = useState(5);
   const [srvDesc, setSrvDesc] = useState('');
+  const [requiredProducts, setRequiredProducts] = useState([]); // Array of { productId, productName, quantity, unit }
+
+  // Recipe Temp Builder Inputs
+  const [recipeProdId, setRecipeProdId] = useState('');
+  const [recipeQty, setRecipeQty] = useState(10);
+  const [recipeUnit, setRecipeUnit] = useState('ml');
+
+  const products = tenantFilter(db.products || []);
 
   // Package Form state
   const [pkgName, setPkgName] = useState('');
@@ -216,7 +224,8 @@ const Services = () => {
       allocatedCostPercentage: Number(srvAllocatedCostPct),
       actualProfit: fin.actualProfit,
       profitMarginPercentage: fin.profitMargin,
-      description: srvDesc
+      description: srvDesc,
+      requiredProducts
     };
 
     if (editingService) {
@@ -241,6 +250,27 @@ const Services = () => {
     setSrvDiscountAmt(0);
     setSrvAllocatedCostPct(5);
     setSrvDesc('');
+    setRequiredProducts([]);
+  };
+
+  const handleAddRecipeItem = () => {
+    if (!recipeProdId) return;
+    const prod = products.find(p => String(p._id) === String(recipeProdId));
+    if (!prod) return;
+
+    setRequiredProducts(prev => [
+      ...prev.filter(item => String(item.productId) !== String(recipeProdId)),
+      {
+        productId: prod._id,
+        productName: prod.name,
+        quantity: Number(recipeQty),
+        unit: recipeUnit || 'units'
+      }
+    ]);
+  };
+
+  const handleRemoveRecipeItem = (prodId) => {
+    setRequiredProducts(prev => prev.filter(item => String(item.productId) !== String(prodId)));
   };
 
   const handleOpenEdit = (srv) => {
@@ -255,6 +285,7 @@ const Services = () => {
     setSrvDiscountAmt(srv.discountAmount || 0);
     setSrvAllocatedCostPct(srv.allocatedCostPercentage !== undefined ? srv.allocatedCostPercentage : 5);
     setSrvDesc(srv.description || '');
+    setRequiredProducts(srv.requiredProducts || []);
     setShowSrvModal(true);
   };
 
@@ -696,18 +727,45 @@ const Services = () => {
                 </div>
               </div>
 
-              <div className="grid-3-cols">
-                <div className="form-group">
-                  <label>Staff Comm (%)</label>
-                  <input type="number" className="form-control" value={srvCommissionPct} onChange={(e) => setSrvCommissionPct(e.target.value)} />
+              {/* CONSUMABLE PRODUCT CONSUMPTION RECIPE BUILDER */}
+              <div style={{ border: '1px solid var(--border-gold)', borderRadius: '8px', padding: '1rem', marginBottom: '1.25rem', background: 'rgba(255,255,255,0.01)' }}>
+                <h4 style={{ fontSize: '0.85rem', color: 'var(--gold-primary)', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  <Bookmark size={14} /> Service Consumable Material Recipe (Auto-Deducted on Completion)
+                </h4>
+                <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '0.85rem' }}>
+                  Define products & quantities consumed per service (e.g. Hair Color = 50g, Developer = 30ml, Shampoo = 10ml).
+                </p>
+
+                <div className="flex-mobile-column" style={{ gap: '0.5rem', marginBottom: '0.85rem' }}>
+                  <select className="form-control" style={{ flex: 2 }} value={recipeProdId} onChange={e => setRecipeProdId(e.target.value)}>
+                    <option value="">-- Choose Consumable Product --</option>
+                    {products.map(p => (
+                      <option key={p._id} value={p._id}>{p.name} ({p.quantity} {p.unit || 'units'} in stock)</option>
+                    ))}
+                  </select>
+                  <input type="number" min="1" className="form-control" style={{ flex: 1 }} placeholder="Qty" value={recipeQty} onChange={e => setRecipeQty(e.target.value)} />
+                  <select className="form-control" style={{ flex: 1 }} value={recipeUnit} onChange={e => setRecipeUnit(e.target.value)}>
+                    <option value="g">g (grams)</option>
+                    <option value="ml">ml (milliliters)</option>
+                    <option value="units">units</option>
+                    <option value="bottles">bottles</option>
+                    <option value="pcs">pcs</option>
+                  </select>
+                  <button type="button" onClick={handleAddRecipeItem} className="outline-btn" style={{ padding: '0.4rem 0.75rem', fontSize: '0.75rem' }}>+ Add</button>
                 </div>
-                <div className="form-group">
-                  <label>Tax (%)</label>
-                  <input type="number" className="form-control" value={srvTaxPct} onChange={(e) => setSrvTaxPct(e.target.value)} />
-                </div>
-                <div className="form-group">
-                  <label>Overhead Cost (%)</label>
-                  <input type="number" className="form-control" value={srvAllocatedCostPct} onChange={(e) => setSrvAllocatedCostPct(e.target.value)} />
+
+                {/* List of attached recipe products */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                  {requiredProducts.length === 0 ? (
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', italic: 'true' }}>No consumable materials linked yet.</span>
+                  ) : (
+                    requiredProducts.map(item => (
+                      <div key={item.productId} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.03)', padding: '0.35rem 0.6rem', borderRadius: '4px', fontSize: '0.78rem' }}>
+                        <span>🧪 <strong>{item.productName}</strong>: {item.quantity} {item.unit}</span>
+                        <button type="button" onClick={() => handleRemoveRecipeItem(item.productId)} style={{ background: 'transparent', border: 'none', color: 'var(--accent-red)', cursor: 'pointer' }}><X size={14} /></button>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
 

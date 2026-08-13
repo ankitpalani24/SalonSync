@@ -96,6 +96,7 @@ const AppointmentSchema = new mongoose.Schema({
     enum: ['Scheduled', 'Confirmed', 'In Progress', 'Completed', 'Cancelled'], 
     default: 'Scheduled' 
   },
+  inventoryDeducted: { type: Boolean, default: false },
 }, { timestamps: true });
 
 // Performance index for double-booking overlap prevention & availability checks
@@ -117,6 +118,12 @@ const ServiceSchema = new mongoose.Schema({
   materialCost: { type: Number, default: 0 },
   profitMargin: { type: Number }, // Price - MaterialCost
   description: { type: String },
+  requiredProducts: [{
+    productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Product' },
+    productName: { type: String },
+    quantity: { type: Number, default: 0 },
+    unit: { type: String, default: 'units' }
+  }],
 }, { timestamps: true });
 
 ServiceSchema.index({ salonId: 1, category: 1 });
@@ -224,9 +231,13 @@ const ProductSchema = new mongoose.Schema({
   sku: { type: String, required: true },
   category: { type: String },
   quantity: { type: Number, default: 0 },
+  unit: { type: String, default: 'units' },
+  minStock: { type: Number, default: 5 },
+  reorderLevel: { type: Number, default: 10 },
   purchasePrice: { type: Number, required: true },
   sellingPrice: { type: Number, required: true },
   supplierId: { type: mongoose.Schema.Types.ObjectId, ref: 'Supplier' },
+  expiryDate: { type: Date },
   lowStockThreshold: { type: Number, default: 5 }
 }, { timestamps: true });
 
@@ -328,6 +339,26 @@ const ReviewSchema = new mongoose.Schema({
 
 ReviewSchema.index({ salonId: 1, staffId: 1 });
 
+// 20. InventoryConsumption Schema (Audit Trail for Automated Deductions)
+const InventoryConsumptionSchema = new mongoose.Schema({
+  salonId: { type: mongoose.Schema.Types.ObjectId, ref: 'Salon', required: true },
+  branchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch' },
+  productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },
+  productName: { type: String, required: true },
+  quantityConsumed: { type: Number, required: true },
+  unit: { type: String, default: 'units' },
+  serviceId: { type: mongoose.Schema.Types.ObjectId, ref: 'Service' },
+  serviceName: { type: String },
+  customerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Customer' },
+  customerName: { type: String },
+  staffId: { type: mongoose.Schema.Types.ObjectId, ref: 'Staff' },
+  staffName: { type: String },
+  appointmentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Appointment' },
+  date: { type: Date, default: Date.now }
+}, { timestamps: true });
+
+InventoryConsumptionSchema.index({ salonId: 1, date: -1 });
+
 // Export all models
 module.exports = {
   User: mongoose.model('User', UserSchema),
@@ -348,5 +379,6 @@ module.exports = {
   Commission: mongoose.model('Commission', CommissionSchema),
   Subscription: mongoose.model('Subscription', SubscriptionSchema),
   Notification: mongoose.model('Notification', NotificationSchema),
-  Review: mongoose.model('Review', ReviewSchema)
+  Review: mongoose.model('Review', ReviewSchema),
+  InventoryConsumption: mongoose.model('InventoryConsumption', InventoryConsumptionSchema)
 };

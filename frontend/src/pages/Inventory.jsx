@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
-import { Plus, Package, Truck, AlertTriangle, ArrowUpRight, ArrowDownRight, Edit, Search, X } from 'lucide-react';
+import {
+  Plus, Package, Truck, AlertTriangle, ArrowUpRight, ArrowDownRight, Edit, Search, X,
+  Bookmark, History, Clock, User, Scissors, Calendar, CheckCircle2, ShieldAlert
+} from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { EmptyState, DataGridHeader } from '../components/UIComponents';
 
@@ -7,11 +10,12 @@ const Inventory = () => {
   const { tenantFilter, db, addProduct, updateProduct, updateProductQuantity, addSupplier, hasPermission, PERMISSIONS } = useApp();
   const [editingProduct, setEditingProduct] = useState(null);
 
-  const products = tenantFilter(db.products);
-  const suppliers = tenantFilter(db.suppliers);
-  const lowStockProducts = products.filter(p => p.quantity <= (p.lowStockThreshold || 5));
+  const products = tenantFilter(db.products || []);
+  const suppliers = tenantFilter(db.suppliers || []);
+  const consumptionLogs = tenantFilter(db.inventoryConsumptions || []);
+  const lowStockProducts = products.filter(p => p.quantity <= (p.reorderLevel || p.lowStockThreshold || 5));
 
-  const [activePane, setActivePane] = useState('stock'); // 'stock', 'suppliers'
+  const [activePane, setActivePane] = useState('stock'); // 'stock', 'audit', 'suppliers'
   const [searchTerm, setSearchTerm] = useState('');
 
   // Modals
@@ -25,10 +29,13 @@ const Inventory = () => {
   const [prodSku, setProdSku] = useState('');
   const [prodCat, setProdCat] = useState('Hair Care');
   const [prodQty, setProdQty] = useState(0);
+  const [prodUnit, setProdUnit] = useState('units');
+  const [prodMinStock, setProdMinStock] = useState(5);
+  const [prodReorderLevel, setProdReorderLevel] = useState(10);
   const [prodBuyPrice, setProdBuyPrice] = useState(0);
   const [prodSellPrice, setProdSellPrice] = useState(0);
   const [prodSuppId, setProdSuppId] = useState('');
-  const [prodThreshold, setProdThreshold] = useState(5);
+  const [prodExpiryDate, setProdExpiryDate] = useState('');
 
   // Form states - Supplier
   const [suppName, setSuppName] = useState('');
@@ -42,8 +49,17 @@ const Inventory = () => {
 
   // Filtered Products
   const filteredProducts = products.filter(p => 
-    p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.sku.toLowerCase().includes(searchTerm.toLowerCase())
+    (p.name && p.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    (p.sku && p.sku.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    (p.category && p.category.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
+
+  // Filtered Audit Consumption Logs
+  const filteredAuditLogs = consumptionLogs.filter(log =>
+    (log.productName && log.productName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    (log.serviceName && log.serviceName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    (log.customerName && log.customerName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    (log.staffName && log.staffName.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   const handleProductSubmit = (e) => {
@@ -53,10 +69,14 @@ const Inventory = () => {
       sku: prodSku,
       category: prodCat,
       quantity: Number(prodQty),
+      unit: prodUnit || 'units',
+      minStock: Number(prodMinStock),
+      reorderLevel: Number(prodReorderLevel),
+      lowStockThreshold: Number(prodReorderLevel),
       purchasePrice: Number(prodBuyPrice),
       sellingPrice: Number(prodSellPrice),
       supplierId: prodSuppId || null,
-      lowStockThreshold: Number(prodThreshold)
+      expiryDate: prodExpiryDate || null
     };
 
     if (editingProduct) {
@@ -67,15 +87,37 @@ const Inventory = () => {
 
     setShowProdModal(false);
     setEditingProduct(null);
-    
-    // reset
+    resetProductForm();
+  };
+
+  const resetProductForm = () => {
     setProdName('');
     setProdSku('');
+    setProdCat('Hair Care');
     setProdQty(0);
+    setProdUnit('units');
+    setProdMinStock(5);
+    setProdReorderLevel(10);
     setProdBuyPrice(0);
     setProdSellPrice(0);
     setProdSuppId('');
-    setProdThreshold(5);
+    setProdExpiryDate('');
+  };
+
+  const handleOpenEdit = (p) => {
+    setEditingProduct(p);
+    setProdName(p.name);
+    setProdSku(p.sku);
+    setProdCat(p.category || 'Hair Care');
+    setProdQty(p.quantity || 0);
+    setProdUnit(p.unit || 'units');
+    setProdMinStock(p.minStock !== undefined ? p.minStock : 5);
+    setProdReorderLevel(p.reorderLevel !== undefined ? p.reorderLevel : 10);
+    setProdBuyPrice(p.purchasePrice || 0);
+    setProdSellPrice(p.sellingPrice || 0);
+    setProdSuppId(p.supplierId || '');
+    setProdExpiryDate(p.expiryDate ? new Date(p.expiryDate).toISOString().split('T')[0] : '');
+    setShowProdModal(true);
   };
 
   const handleSupplierSubmit = (e) => {
@@ -88,7 +130,6 @@ const Inventory = () => {
     });
     setShowSuppModal(false);
 
-    // reset
     setSuppName('');
     setSuppPhone('');
     setSuppEmail('');
@@ -112,72 +153,69 @@ const Inventory = () => {
   return (
     <div className="page-container animated-fade-in">
       {/* Header */}
-      <div className="page-header" style={{ marginBottom: '2rem' }}>
+      <div className="page-header" style={{ marginBottom: '1.5rem' }}>
         <div>
-          <h1 style={{ fontSize: '1.85rem', color: 'var(--text-primary)' }}>Inventory & Product Logistics</h1>
-          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Track retail stock levels, material treatment supplies, and vendor purchase orders.</p>
+          <h1 style={{ fontSize: '1.85rem', color: 'var(--text-primary)' }}>Service-Linked Inventory System</h1>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+            Real-time consumable product tracking, automated service completion stock deduction, and consumption audit trails.
+          </p>
         </div>
       </div>
 
       {/* KPI Cards */}
-      <div className="grid-3-cols" style={{ marginBottom: '2rem' }}>
+      <div className="grid-3-cols" style={{ marginBottom: '1.5rem' }}>
         <div className="glass-card">
-          <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Total SKU Products</span>
-          <h3 style={{ fontSize: '1.5rem', color: 'var(--text-primary)', marginTop: '0.25rem' }}>{products.length} Items</h3>
+          <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Total Inventory Items</span>
+          <h3 style={{ fontSize: '1.5rem', color: 'var(--text-primary)', marginTop: '0.25rem' }}>{products.length} Products</h3>
         </div>
-        <div className="glass-card" style={{ borderLeft: '3px solid var(--accent-red)' }}>
-          <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Stock Alerts</span>
-          <h3 style={{ fontSize: '1.5rem', color: 'var(--accent-red)', marginTop: '0.25rem' }}>
-            {lowStockProducts.length} Reorders Needed
+        <div className="glass-card" style={{ borderLeft: lowStockProducts.length > 0 ? '3px solid var(--accent-red)' : '3px solid #2ecc71' }}>
+          <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Reorder & Stock Alerts</span>
+          <h3 style={{ fontSize: '1.5rem', color: lowStockProducts.length > 0 ? 'var(--accent-red)' : '#2ecc71', marginTop: '0.25rem' }}>
+            {lowStockProducts.length} Alert Items
           </h3>
         </div>
         <div className="glass-card">
-          <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Active Suppliers</span>
-          <h3 style={{ fontSize: '1.5rem', color: 'var(--gold-primary)', marginTop: '0.25rem' }}>{suppliers.length} Vendors</h3>
+          <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Completed Service Consumptions</span>
+          <h3 style={{ fontSize: '1.5rem', color: 'var(--gold-primary)', marginTop: '0.25rem' }}>{consumptionLogs.length} Deductions Logged</h3>
         </div>
       </div>
 
-      {/* Pane Toggles */}
-      <div style={{ display: 'flex', gap: '1rem', borderBottom: '1px solid rgba(255,255,255,0.05)', marginBottom: '1.5rem' }}>
+      {/* Pane Navigation Toggles */}
+      <div className="crm-workspace-tabs" style={{ marginBottom: '1.5rem' }}>
         <button
+          className={`crm-tab-btn ${activePane === 'stock' ? 'active' : ''}`}
           onClick={() => setActivePane('stock')}
-          style={{
-            background: 'transparent',
-            border: 'none',
-            borderBottom: activePane === 'stock' ? '2px solid var(--gold-primary)' : '2px solid transparent',
-            color: activePane === 'stock' ? 'var(--gold-primary)' : 'var(--text-secondary)',
-            fontWeight: '600',
-            padding: '0.5rem 1rem',
-            cursor: 'pointer'
-          }}
         >
-          Product Catalog & Stock ({products.length})
+          <Package size={15} />
+          <span>Stock Catalog ({products.length})</span>
         </button>
         <button
-          onClick={() => setActivePane('suppliers')}
-          style={{
-            background: 'transparent',
-            border: 'none',
-            borderBottom: activePane === 'suppliers' ? '2px solid var(--gold-primary)' : '2px solid transparent',
-            color: activePane === 'suppliers' ? 'var(--gold-primary)' : 'var(--text-secondary)',
-            fontWeight: '600',
-            padding: '0.5rem 1rem',
-            cursor: 'pointer'
-          }}
+          className={`crm-tab-btn ${activePane === 'audit' ? 'active' : ''}`}
+          onClick={() => setActivePane('audit')}
         >
-          Suppliers & Vendors ({suppliers.length})
+          <History size={15} />
+          <span>Service Consumption Audit History ({consumptionLogs.length})</span>
+        </button>
+        <button
+          className={`crm-tab-btn ${activePane === 'suppliers' ? 'active' : ''}`}
+          onClick={() => setActivePane('suppliers')}
+        >
+          <Truck size={15} />
+          <span>Suppliers & Vendors ({suppliers.length})</span>
         </button>
       </div>
 
-      {/* 1. STOCK PANEL */}
+      {/* ════════════════════════════════════════════════════════════════════
+         PANE 1: STOCK CATALOG & REORDER LEVELS
+         ════════════════════════════════════════════════════════════════════ */}
       {activePane === 'stock' && (
         <div className="glass-card">
           <DataGridHeader
             searchTerm={searchTerm}
             onSearchChange={setSearchTerm}
-            searchPlaceholder="Search product name or SKU..."
+            searchPlaceholder="Search product name, SKU, category..."
             actionButtonLabel={hasPermission(PERMISSIONS.INVENTORY_EDIT) ? "Add Product SKU" : null}
-            onActionButtonClick={() => setShowProdModal(true)}
+            onActionButtonClick={() => { resetProductForm(); setShowProdModal(true); }}
             actionButtonIcon={Plus}
           />
 
@@ -187,65 +225,77 @@ const Inventory = () => {
               title="No Products Found"
               description="There are no inventory items matching your search. Create a new product SKU to get started."
               actionLabel="Add Product SKU"
-              onAction={() => setShowProdModal(true)}
+              onAction={() => { resetProductForm(); setShowProdModal(true); }}
             />
           ) : (
             <div className="table-responsive">
               <table className="premium-table">
                 <thead>
                   <tr>
-                    <th>Product Details</th>
-                    <th>SKU</th>
-                    <th>Quantity</th>
-                    <th>Cost / Retail Price</th>
+                    <th>Product & SKU</th>
+                    <th>Current Stock</th>
+                    <th>Min / Reorder Threshold</th>
+                    <th>Expiry Date</th>
+                    <th>Pricing (Cost / Retail)</th>
                     <th>Supplier</th>
-                    <th>Actions</th>
+                    <th style={{ textAlign: 'center' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredProducts.map(p => {
-                    const isLow = p.quantity <= (p.lowStockThreshold || 5);
-                    const supp = suppliers.find(s => s._id === p.supplierId);
+                    const minStk = p.minStock !== undefined ? p.minStock : 5;
+                    const reorderLvl = p.reorderLevel !== undefined ? p.reorderLevel : 10;
+                    const isLow = p.quantity <= reorderLvl;
+                    const isCritical = p.quantity <= minStk;
+                    const supp = suppliers.find(s => String(s._id) === String(p.supplierId));
+                    const expStr = p.expiryDate ? new Date(p.expiryDate).toLocaleDateString() : 'N/A';
+
                     return (
-                      <tr key={p._id} style={{ borderLeft: isLow ? '3px solid var(--accent-red)' : '3px solid transparent' }}>
+                      <tr key={p._id} style={{ borderLeft: isCritical ? '3px solid var(--accent-red)' : isLow ? '3px solid #e67e22' : '3px solid transparent' }}>
                         <td>
                           <div>
                             <span style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{p.name}</span>
-                            <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{p.category}</p>
+                            <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.15rem' }}>
+                              <span className="gcal-tag">{p.sku}</span>
+                              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{p.category}</span>
+                            </div>
                           </div>
                         </td>
-                        <td><span className="gcal-tag">{p.sku}</span></td>
                         <td>
-                          <span style={{ color: isLow ? 'var(--accent-red)' : '#fff', fontWeight: 'bold' }}>{p.quantity} units</span>
-                          {isLow && (
-                            <span style={{ display: 'flex', alignItems: 'center', gap: '0.2rem', fontSize: '0.65rem', color: 'var(--accent-red)', marginTop: '0.15rem' }}>
-                              <AlertTriangle size={10} /> Low Stock alert
-                            </span>
-                          )}
+                          <div>
+                            <strong style={{ color: isCritical ? 'var(--accent-red)' : isLow ? '#e67e22' : '#fff', fontSize: '0.95rem' }}>
+                              {p.quantity} {p.unit || 'units'}
+                            </strong>
+                            {isLow && (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.2rem', fontSize: '0.65rem', color: isCritical ? 'var(--accent-red)' : '#e67e22', marginTop: '0.15rem' }}>
+                                <AlertTriangle size={10} /> {isCritical ? 'CRITICAL LOW STOCK' : 'Reorder Needed'}
+                              </div>
+                            )}
+                          </div>
                         </td>
                         <td>
-                          <span style={{ fontSize: '0.8rem', color: 'var(--gold-primary)', fontWeight: 'bold' }}>₹{p.sellingPrice}</span>
-                          <p style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Buy: ₹{p.purchasePrice}</p>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                            <div>Min: {minStk} {p.unit || 'units'}</div>
+                            <div>Reorder: {reorderLvl} {p.unit || 'units'}</div>
+                          </div>
+                        </td>
+                        <td>
+                          <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{expStr}</span>
+                        </td>
+                        <td>
+                          <div>
+                            <strong style={{ fontSize: '0.88rem', color: 'var(--gold-primary)' }}>₹{p.sellingPrice}</strong>
+                            <p style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Cost: ₹{p.purchasePrice}</p>
+                          </div>
                         </td>
                         <td>{supp ? supp.name : 'Direct Vendor'}</td>
-                        <td>
-                          <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <td style={{ textAlign: 'center' }}>
+                          <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'center' }}>
                             <button onClick={() => handleOpenStockAdjust(p)} className="outline-btn" style={{ padding: '0.25rem 0.5rem', fontSize: '0.7rem' }}>
                               Stock +/-
                             </button>
                             <button
-                              onClick={() => {
-                                setEditingProduct(p);
-                                setProdName(p.name);
-                                setProdSku(p.sku);
-                                setProdCat(p.category);
-                                setProdQty(p.quantity);
-                                setProdBuyPrice(p.purchasePrice);
-                                setProdSellPrice(p.sellingPrice);
-                                setProdSuppId(p.supplierId || '');
-                                setProdThreshold(p.lowStockThreshold || 5);
-                                setShowProdModal(true);
-                              }}
+                              onClick={() => handleOpenEdit(p)}
                               className="outline-btn"
                               style={{ padding: '0.25rem 0.5rem', fontSize: '0.7rem', borderColor: 'var(--gold-primary)', color: 'var(--gold-primary)' }}
                             >
@@ -263,7 +313,88 @@ const Inventory = () => {
         </div>
       )}
 
-      {/* 2. SUPPLIERS PANEL */}
+
+      {/* ════════════════════════════════════════════════════════════════════
+         PANE 2: SERVICE CONSUMPTION AUDIT LOG HISTORY (AUTOMATED DEDUCTIONS)
+         ════════════════════════════════════════════════════════════════════ */}
+      {activePane === 'audit' && (
+        <div className="glass-card">
+          <div className="flex-between-responsive" style={{ marginBottom: '1.25rem' }}>
+            <div>
+              <h3 style={{ fontSize: '1.1rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <History size={18} style={{ color: 'var(--gold-primary)' }} /> Service Consumption Audit Trail
+              </h3>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                Automated inventory deductions triggered ONLY upon service completion (Appointment status: Completed).
+              </p>
+            </div>
+          </div>
+
+          <DataGridHeader
+            searchTerm={searchTerm}
+            onSearchChange={setSearchTerm}
+            searchPlaceholder="Search product, service, customer, staff..."
+          />
+
+          {filteredAuditLogs.length === 0 ? (
+            <EmptyState
+              icon={History}
+              title="No Consumption Records Logged"
+              description="Inventory consumption records will automatically generate whenever an appointment status transitions to Completed."
+            />
+          ) : (
+            <div className="table-responsive">
+              <table className="premium-table">
+                <thead>
+                  <tr>
+                    <th>Date & Time</th>
+                    <th>Consumable Product</th>
+                    <th>Quantity Consumed</th>
+                    <th>Triggering Service</th>
+                    <th>Client Customer</th>
+                    <th>Assigned Stylist</th>
+                    <th>Appointment ID</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredAuditLogs.map(log => (
+                    <tr key={log._id}>
+                      <td>
+                        <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                          {log.date ? new Date(log.date).toLocaleString() : 'N/A'}
+                        </span>
+                      </td>
+                      <td>
+                        <strong style={{ color: 'var(--gold-primary)' }}>{log.productName}</strong>
+                      </td>
+                      <td>
+                        <strong style={{ color: 'var(--accent-red)' }}>−{log.quantityConsumed} {log.unit || 'units'}</strong>
+                      </td>
+                      <td>
+                        <span className="gcal-tag">{log.serviceName || 'Service'}</span>
+                      </td>
+                      <td>
+                        <span style={{ color: 'var(--text-primary)', fontWeight: '600' }}>{log.customerName || 'Client'}</span>
+                      </td>
+                      <td>
+                        <span style={{ color: 'var(--text-secondary)' }}>{log.staffName || 'Staff'}</span>
+                      </td>
+                      <td>
+                        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>#{String(log.appointmentId || log._id).slice(-6)}</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+
+      {/* ════════════════════════════════════════════════════════════════════
+         PANE 3: SUPPLIERS & VENDORS
+         ════════════════════════════════════════════════════════════════════ */}
       {activePane === 'suppliers' && (
         <div className="glass-card">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
@@ -314,23 +445,25 @@ const Inventory = () => {
         </div>
       )}
 
+
       {/* Add / Edit Product Modal */}
       {showProdModal && (
         <div onClick={(e) => { if (e.target === e.currentTarget) { setShowProdModal(false); setEditingProduct(null); } }} className="modal-backdrop-overlay">
-          <div className="modal-scrollable-content" style={{ maxWidth: '420px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
-              <h3 style={{ color: 'var(--text-primary)' }}>{editingProduct ? 'Edit Catalog Product' : 'Register Catalog Product'}</h3>
+          <div className="modal-scrollable-content" style={{ maxWidth: '520px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
+              <h3 style={{ color: 'var(--text-primary)' }}>{editingProduct ? 'Edit Catalog Product' : 'Register Inventory Product'}</h3>
               <button onClick={() => { setShowProdModal(false); setEditingProduct(null); }} style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)' }}><X size={18} /></button>
             </div>
             <form onSubmit={handleProductSubmit}>
               <div className="form-group">
                 <label>Product Name *</label>
-                <input type="text" required placeholder="Damage Care Hair Oil" className="form-control" value={prodName} onChange={(e) => setProdName(e.target.value)} />
+                <input type="text" required placeholder="L'Oreal Hair Color Shade #5" className="form-control" value={prodName} onChange={(e) => setProdName(e.target.value)} />
               </div>
-              <div className="grid-2-cols">
+
+              <div className="grid-3-cols">
                 <div className="form-group">
                   <label>SKU Code *</label>
-                  <input type="text" required placeholder="OIL-DMG-250" className="form-control" value={prodSku} onChange={(e) => setProdSku(e.target.value)} />
+                  <input type="text" required placeholder="CLR-LUR-05" className="form-control" value={prodSku} onChange={(e) => setProdSku(e.target.value)} />
                 </div>
                 <div className="form-group">
                   <label>Category</label>
@@ -340,6 +473,31 @@ const Inventory = () => {
                     <option>Spa Cosmetics</option>
                     <option>Salon Tooling</option>
                   </select>
+                </div>
+                <div className="form-group">
+                  <label>Measurement Unit</label>
+                  <select className="form-control" value={prodUnit} onChange={(e) => setProdUnit(e.target.value)}>
+                    <option value="units">units</option>
+                    <option value="g">g (grams)</option>
+                    <option value="ml">ml (milliliters)</option>
+                    <option value="bottles">bottles</option>
+                    <option value="pcs">pcs</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid-3-cols">
+                <div className="form-group">
+                  <label>Current Stock</label>
+                  <input type="number" required className="form-control" value={prodQty} onChange={(e) => setProdQty(e.target.value)} />
+                </div>
+                <div className="form-group">
+                  <label>Min Stock Level</label>
+                  <input type="number" className="form-control" value={prodMinStock} onChange={(e) => setProdMinStock(e.target.value)} />
+                </div>
+                <div className="form-group">
+                  <label>Reorder Alert Level</label>
+                  <input type="number" className="form-control" value={prodReorderLevel} onChange={(e) => setProdReorderLevel(e.target.value)} />
                 </div>
               </div>
 
@@ -353,27 +511,21 @@ const Inventory = () => {
                   <input type="number" required placeholder="750" className="form-control" value={prodSellPrice} onChange={(e) => setProdSellPrice(e.target.value)} />
                 </div>
                 <div className="form-group">
-                  <label>{editingProduct ? 'Current Stock' : 'Opening Stock'}</label>
-                  <input type="number" required className="form-control" value={prodQty} onChange={(e) => setProdQty(e.target.value)} />
+                  <label>Expiry Date</label>
+                  <input type="date" className="form-control" value={prodExpiryDate} onChange={(e) => setProdExpiryDate(e.target.value)} />
                 </div>
               </div>
 
-              <div className="grid-2-cols">
-                <div className="form-group">
-                  <label>Supplier Vendor</label>
-                  <select className="form-control" value={prodSuppId} onChange={(e) => setProdSuppId(e.target.value)}>
-                    <option value="">-- No Supplier --</option>
-                    {suppliers.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label>Low Alert Level</label>
-                  <input type="number" className="form-control" value={prodThreshold} onChange={(e) => setProdThreshold(e.target.value)} />
-                </div>
+              <div className="form-group">
+                <label>Supplier Vendor</label>
+                <select className="form-control" value={prodSuppId} onChange={(e) => setProdSuppId(e.target.value)}>
+                  <option value="">-- Direct / No Supplier --</option>
+                  {suppliers.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
+                </select>
               </div>
 
               <button type="submit" className="gold-btn" style={{ width: '100%', justifyContent: 'center' }}>
-                {editingProduct ? 'Update Product Details' : 'Save Product'}
+                {editingProduct ? 'Update Product SKU' : 'Save Product SKU'}
               </button>
             </form>
           </div>
@@ -422,7 +574,7 @@ const Inventory = () => {
             <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '1.25rem' }}>
               <p><strong>Item:</strong> {selectedProd.name}</p>
               <p><strong>SKU:</strong> {selectedProd.sku}</p>
-              <p><strong>Current Stock:</strong> {selectedProd.quantity} units</p>
+              <p><strong>Current Stock:</strong> {selectedProd.quantity} {selectedProd.unit || 'units'}</p>
             </div>
             <form onSubmit={handleStockAdjustSubmit}>
               <div className="form-group">
@@ -461,7 +613,7 @@ const Inventory = () => {
                 </div>
               </div>
               <div className="form-group">
-                <label>Units Quantity</label>
+                <label>Units Quantity ({selectedProd.unit || 'units'})</label>
                 <input type="number" required min="1" className="form-control" value={adjustQty} onChange={(e) => setAdjustQty(e.target.value)} />
               </div>
               <button type="submit" className="gold-btn" style={{ width: '100%', justifyContent: 'center' }}>Commit Stock Adjustment</button>

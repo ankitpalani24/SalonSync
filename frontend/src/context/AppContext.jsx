@@ -212,7 +212,8 @@ export const AppProvider = ({ children }) => {
         ['staff', 'sf_staff'],
         ['attendance', 'sf_attendance'],
         ['commissions', 'sf_commissions'],
-        ['salons', 'sf_salons']
+        ['salons', 'sf_salons'],
+        ['inventory-consumptions', 'sf_inventory_consumptions']
       ];
 
       const results = await Promise.allSettled(
@@ -494,11 +495,64 @@ export const AppProvider = ({ children }) => {
 
   const updateAppointmentStatus = async (id, status) => {
     try {
-      // Optimistic local update
-      setDb(prev => ({
-        ...prev,
-        appointments: prev.appointments.map(a => a._id === id ? { ...a, status } : a)
-      }));
+      setDb(prev => {
+        const targetAppt = prev.appointments.find(a => a._id === id);
+        let updatedProducts = [...prev.products];
+        let newConsumptions = [...(prev.inventoryConsumptions || [])];
+        let wasDeducted = targetAppt?.inventoryDeducted || false;
+
+        if (status === 'Completed' && targetAppt && !wasDeducted) {
+          wasDeducted = true;
+          const cust = (prev.customers || []).find(c => String(c._id) === String(targetAppt.customerId));
+          const staff = (prev.staff || []).find(s => String(s._id) === String(targetAppt.staffId));
+          const servIds = (targetAppt.services || []).map(s => s.serviceId).filter(Boolean);
+          const populatedServices = (prev.services || []).filter(s => servIds.some(sid => String(sid) === String(s._id)));
+
+          populatedServices.forEach(srv => {
+            (srv.requiredProducts || []).forEach(reqProd => {
+              if (reqProd.productId && reqProd.quantity > 0) {
+                const prodIndex = updatedProducts.findIndex(p => String(p._id) === String(reqProd.productId));
+                if (prodIndex !== -1) {
+                  const prod = updatedProducts[prodIndex];
+                  const newQty = Math.max(0, prod.quantity - reqProd.quantity);
+                  updatedProducts[prodIndex] = { ...prod, quantity: newQty };
+
+                  newConsumptions.unshift({
+                    _id: 'cons_' + Date.now() + Math.random(),
+                    salonId: targetAppt.salonId,
+                    branchId: targetAppt.branchId,
+                    productId: prod._id,
+                    productName: prod.name,
+                    quantityConsumed: reqProd.quantity,
+                    unit: reqProd.unit || 'units',
+                    serviceId: srv._id,
+                    serviceName: srv.name,
+                    customerId: targetAppt.customerId,
+                    customerName: cust ? cust.name : 'Client',
+                    staffId: targetAppt.staffId,
+                    staffName: staff ? staff.name : 'Staff',
+                    appointmentId: targetAppt._id,
+                    date: new Date().toISOString()
+                  });
+                }
+              }
+            });
+          });
+        }
+
+        const updatedAppts = prev.appointments.map(a => a._id === id ? { ...a, status, inventoryDeducted: wasDeducted } : a);
+        localStorage.setItem('sf_appointments', JSON.stringify(updatedAppts));
+        localStorage.setItem('sf_products', JSON.stringify(updatedProducts));
+        localStorage.setItem('sf_inventory_consumptions', JSON.stringify(newConsumptions));
+
+        return {
+          ...prev,
+          appointments: updatedAppts,
+          products: updatedProducts,
+          inventoryConsumptions: newConsumptions
+        };
+      });
+
       const token = localStorage.getItem('token');
       if (token) {
         const res = await fetch(`${API_URL}/appointments/${id}`, {

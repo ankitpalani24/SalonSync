@@ -422,12 +422,65 @@ router.post('/appointments', requirePermission('appointments.create'), sanitizeB
 }, 'Failed to create appointment'));
 
 router.put('/appointments/:id', requirePermission('appointments.edit'), validateObjectId, sanitizeBody(['staffId', 'services', 'date', 'time', 'status']), safeHandler(async (req, res) => {
+  const existingAppt = await models.Appointment.findOne({ _id: req.params.id, ...req.tenantFilter });
+  if (!existingAppt) return res.status(404).json({ success: false, message: 'Appointment not found' });
+
+  // Automated inventory deduction upon appointment completion
+  if (req.body.status === 'Completed' && !existingAppt.inventoryDeducted) {
+    const customer = await models.Customer.findById(existingAppt.customerId);
+    const staffMember = await models.Staff.findById(existingAppt.staffId);
+    
+    const serviceIds = (existingAppt.services || []).map(s => s.serviceId).filter(Boolean);
+    const populatedServices = await models.Service.find({ _id: { $in: serviceIds } });
+
+    for (const srv of populatedServices) {
+      if (srv.requiredProducts && srv.requiredProducts.length > 0) {
+        for (const reqProd of srv.requiredProducts) {
+          if (reqProd.productId && reqProd.quantity > 0) {
+            const product = await models.Product.findById(reqProd.productId);
+            if (product) {
+              product.quantity = Math.max(0, product.quantity - reqProd.quantity);
+              await product.save();
+
+              await models.InventoryConsumption.create({
+                salonId: existingAppt.salonId,
+                branchId: existingAppt.branchId,
+                productId: product._id,
+                productName: product.name,
+                quantityConsumed: reqProd.quantity,
+                unit: reqProd.unit || 'units',
+                serviceId: srv._id,
+                serviceName: srv.name,
+                customerId: existingAppt.customerId,
+                customerName: customer ? customer.name : 'Client',
+                staffId: existingAppt.staffId,
+                staffName: staffMember ? staffMember.name : 'Staff',
+                appointmentId: existingAppt._id,
+                date: new Date()
+              });
+
+              if (product.quantity <= (product.reorderLevel || product.lowStockThreshold || 5)) {
+                await models.Notification.create({
+                  salonId: existingAppt.salonId,
+                  customerId: null,
+                  type: 'Low Stock Alert',
+                  message: `Low Stock Alert: ${product.name} is down to ${product.quantity} ${product.unit || 'units'} (Reorder Level: ${product.reorderLevel || 10}).`,
+                  status: 'Sent'
+                });
+              }
+            }
+          }
+        }
+      }
+    }
+    req.body.inventoryDeducted = true;
+  }
+
   const appointment = await models.Appointment.findOneAndUpdate(
     { _id: req.params.id, ...req.tenantFilter },
     req.body,
     { new: true, runValidators: true }
   );
-  if (!appointment) return res.status(404).json({ success: false, message: 'Appointment not found' });
   res.json({ success: true, data: appointment });
 }, 'Failed to update appointment'));
 
@@ -440,7 +493,7 @@ router.delete('/appointments/:id', requirePermission('appointments.cancel'), val
 // ----------------------------------------------------
 // SERVICES AND PACKAGES
 // ----------------------------------------------------
-const SERVICE_FIELDS = ['name', 'category', 'duration', 'price', 'materialCost', 'description'];
+const SERVICE_FIELDS = ['name', 'category', 'duration', 'price', 'materialCost', 'description', 'staffCommissionPercentage', 'taxPercentage', 'discountAmount', 'allocatedCostPercentage', 'requiredProducts'];
 const PACKAGE_FIELDS = ['name', 'includedServices', 'price', 'expiryDate'];
 
 router.get('/services', requirePermission('inventory.view'), safeHandler(async (req, res) => {
@@ -735,8 +788,13 @@ router.post('/invoices', requirePermission('billing.create'), safeHandler(async 
 // ----------------------------------------------------
 // INVENTORY
 // ----------------------------------------------------
-const PRODUCT_FIELDS = ['name', 'sku', 'category', 'quantity', 'purchasePrice', 'sellingPrice', 'supplierId', 'lowStockThreshold', 'branchId'];
+const PRODUCT_FIELDS = ['name', 'sku', 'category', 'quantity', 'purchasePrice', 'sellingPrice', 'supplierId', 'lowStockThreshold', 'unit', 'minStock', 'reorderLevel', 'expiryDate'];
 const SUPPLIER_FIELDS = ['name', 'phone', 'email', 'address', 'outstandingDues'];
+
+router.get('/inventory-consumptions', requirePermission('inventory.view'), safeHandler(async (req, res) => {
+  const logs = await models.InventoryConsumption.find(req.tenantFilter).sort({ date: -1 });
+  res.json({ success: true, data: logs });
+}, 'Failed to fetch inventory consumption logs'));
 
 router.get('/products', requirePermission('inventory.view'), safeHandler(async (req, res) => {
   const products = await models.Product.find(req.tenantFilter).populate('supplierId');
