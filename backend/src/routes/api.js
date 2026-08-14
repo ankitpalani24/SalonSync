@@ -65,6 +65,65 @@ router.get('/public/services', safeHandler(async (req, res) => {
   res.json({ success: true, data: services });
 }, 'Failed to fetch services'));
 
+// @route   GET /api/public/salons/:identifier (by slug or id)
+router.get('/public/salons/:identifier', safeHandler(async (req, res) => {
+  const { identifier } = req.params;
+  let salon;
+
+  if (mongoose.Types.ObjectId.isValid(identifier)) {
+    salon = await models.Salon.findById(identifier);
+  }
+  if (!salon) {
+    salon = await models.Salon.findOne({ slug: identifier });
+  }
+  if (!salon) {
+    salon = await models.Salon.findOne({}); // Fallback default salon
+  }
+
+  if (!salon) {
+    return res.status(404).json({ success: false, message: 'Salon profile not found' });
+  }
+
+  // Fetch sanitized public services
+  const services = await models.Service.find({ salonId: salon._id }).select('name category duration price description _id');
+  
+  // Fetch sanitized public staff (NO salaries, NO phones, NO email, NO commissions)
+  const staff = await models.Staff.find({ salonId: salon._id, status: 'Active' }).select('name specializations experience rating avatar bio _id');
+  
+  // Fetch sanitized public reviews (NO customer phone, NO email)
+  const reviews = await models.Review.find({ salonId: salon._id, status: 'Approved' }).select('customerName rating comment date serviceName _id');
+
+  // Fetch active promotional packages
+  const packages = await models.Package.find({ salonId: salon._id, active: true }).select('name price originalPrice description durationDays includedServices _id');
+
+  res.json({
+    success: true,
+    data: {
+      salon: {
+        _id: salon._id,
+        name: salon.name,
+        slug: salon.slug || 'luxe-salon-bandra',
+        tagline: salon.tagline || 'Premier Luxury Hair, Skincare & Wellness Sanctuary',
+        logoUrl: salon.logoUrl,
+        coverImageUrl: salon.coverImageUrl,
+        description: salon.description,
+        address: salon.address,
+        city: salon.city,
+        state: salon.state,
+        phone: salon.phone,
+        openingHours: salon.openingHours || 'Mon - Sun: 09:00 AM - 09:00 PM',
+        rating: salon.rating || 4.9,
+        totalReviews: salon.totalReviews || 128,
+        galleryImages: salon.galleryImages || []
+      },
+      services,
+      staff,
+      reviews,
+      packages
+    }
+  });
+}, 'Failed to fetch public salon profile'));
+
 // ----------------------------------------------------
 // AUTHENTICATION SYSTEM
 // ----------------------------------------------------

@@ -1698,6 +1698,46 @@ export const AppProvider = ({ children }) => {
       history: subscription ? subscription.history || [] : []
     };
   };
+
+  const getPublicSalonProfile = (identifier = 'luxe-salon-spa-mumbai') => {
+    const salon = (db.salons || mockData.mockSalons).find(s => s.slug === identifier || String(s._id) === String(identifier)) || (db.salons || mockData.mockSalons)[0];
+    const services = (db.services || mockData.mockServices).filter(s => String(s.salonId) === String(salon._id) || !s.salonId);
+    
+    // Privacy: sanitize staff (NO salary, NO phone, NO email)
+    const staff = (db.staff || mockData.mockStaff)
+      .filter(st => String(st.salonId) === String(salon._id) || !st.salonId)
+      .map(st => ({
+        _id: st._id,
+        name: st.name,
+        specializations: st.specializations || [st.role],
+        experience: st.experience || '5+ Years',
+        rating: st.rating || 4.9,
+        avatar: st.avatar,
+        bio: st.bio
+      }));
+
+    // Privacy: sanitize reviews (NO customer phone/email)
+    const reviews = (db.reviews || mockData.mockReviews)
+      .filter(r => String(r.salonId) === String(salon._id) || !r.salonId)
+      .map(r => ({
+        _id: r._id,
+        customerName: r.customerName,
+        rating: r.rating,
+        comment: r.comment,
+        date: r.date,
+        serviceName: r.serviceName
+      }));
+
+    const packages = (db.packages || mockData.mockPackages).filter(pkg => String(pkg.salonId) === String(salon._id) || !pkg.salonId);
+
+    return {
+      salon,
+      services,
+      staff,
+      reviews,
+      packages
+    };
+  };
   const createInvoice = async (invoiceData) => {
     try {
       const token = localStorage.getItem('token');
@@ -1934,6 +1974,8 @@ export const AppProvider = ({ children }) => {
       updateLoyaltyRules, addLoyaltyReward, updateLoyaltyReward, deleteLoyaltyReward, redeemLoyaltyReward, getLoyaltySummary,
       // Salon Membership System
       addMembershipPlan, updateMembershipPlan, deleteMembershipPlan, subscribeCustomerMembership, redeemMembershipBenefit, triggerMembershipExpiryNotifications, getCustomerMembershipSummary,
+      // Public Salon Showcase
+      getPublicSalonProfile,
       // Configurations
       updateSalonDetails, switchBranch, addBranch, updateBranch, deleteBranch, updateSalonSubscription,
       // Marketing

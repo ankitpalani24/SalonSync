@@ -39,6 +39,15 @@ const SalonSchema = new mongoose.Schema({
     enum: ['Active', 'Trial', 'Expired'], 
     default: 'Trial' 
   },
+  slug: { type: String, unique: true, sparse: true },
+  tagline: { type: String },
+  logoUrl: { type: String },
+  coverImageUrl: { type: String },
+  description: { type: String },
+  openingHours: { type: String, default: 'Mon - Sun: 09:00 AM - 09:00 PM' },
+  rating: { type: Number, default: 4.9 },
+  totalReviews: { type: Number, default: 128 },
+  galleryImages: [{ type: String }]
 }, { timestamps: true });
 
 // 3. Branch Schema

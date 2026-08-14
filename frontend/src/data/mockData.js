@@ -5,16 +5,32 @@ export const mockSalons = [
   {
     _id: "salon_luxe_123",
     name: "Luxe & Gold Salon & Spa",
+    slug: "luxe-salon-spa-mumbai",
     ownerName: "Alexander Wright",
     email: "alexander@luxegold.com",
     phone: "+91 98765 43210",
-    address: "7th Avenue, Signature Towers, Block C",
+    address: "7th Avenue, Signature Towers, Block C, Bandra West",
     city: "Mumbai",
     state: "Maharashtra",
     gstNumber: "27AAAAA1111A1Z1",
     businessType: "Premium Salon & Spa Franchise",
     subscriptionPlan: "Franchise",
-    subscriptionStatus: "Active"
+    subscriptionStatus: "Active",
+    tagline: "Bandra's Premier Luxury Hair, Skincare & Wellness Sanctuary",
+    logoUrl: "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?auto=format&fit=crop&w=300&q=80",
+    coverImageUrl: "https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=1600&q=80",
+    description: "Luxe & Gold Salon & Spa is Mumbai's premier luxury beauty sanctuary. Offering bespoke haircutting, balayage, organic skincare facials, deep-tissue body spas, and bridal makeover packages in a tranquil 5-star ambiance.",
+    openingHours: "Mon - Sun: 09:00 AM - 09:00 PM",
+    rating: 4.9,
+    totalReviews: 142,
+    galleryImages: [
+      "https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=800&q=80",
+      "https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f?auto=format&fit=crop&w=800&q=80",
+      "https://images.unsplash.com/photo-1562322140-8baeececf3df?auto=format&fit=crop&w=800&q=80",
+      "https://images.unsplash.com/photo-1516975080664-ed2fc6a32937?auto=format&fit=crop&w=800&q=80",
+      "https://images.unsplash.com/photo-1582095133179-bfd08e2fc6b3?auto=format&fit=crop&w=800&q=80",
+      "https://images.unsplash.com/photo-1527799820374-dcf8d9d4a388?auto=format&fit=crop&w=800&q=80"
+    ]
   },
   {
     _id: "salon_barber_456",
