@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Users, Calendar, Scissors, CreditCard, 
   Package, UserCheck, BarChart3, MessageSquare, Bot, 
   Settings, LogOut, ChevronLeft, ChevronRight, Crown,
-  DollarSign
+  DollarSign, Gift
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
@@ -39,6 +39,7 @@ const Sidebar = ({ activePage, setActivePage, collapsed, setCollapsed, user, log
     {
       title: 'GROWTH',
       items: [
+        { id: 'loyalty', label: 'Loyalty Rewards', icon: Gift, permission: PERMISSIONS.CUSTOMERS_VIEW },
         { id: 'marketing', label: 'Marketing Auto', icon: MessageSquare, roles: ['SALON_OWNER', 'FRANCHISE_OWNER'] },
       ]
     },

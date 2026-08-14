@@ -618,3 +618,114 @@ export const mockNotifications = [
   { _id: "nt_1", salonId: "salon_luxe_123", customerId: "cust_1", type: "WhatsApp", message: "Your booking for Signature Haircut is confirmed.", status: "Sent", sentAt: "2026-06-24T09:30:00Z" },
   { _id: "nt_2", salonId: "salon_luxe_123", customerId: "cust_3", type: "SMS", message: "Reminder: You have a Gold Facial scheduled at 15:00 today.", status: "Sent", sentAt: "2026-06-24T12:00:00Z" }
 ];
+
+export const mockLoyaltyRules = {
+  _id: "rule_luxe_1",
+  salonId: "salon_luxe_123",
+  pointsEarnedPer100Spent: 10, // Every ₹100 = 10 pts
+  pointValueInRupees: 1, // 1 point = ₹1
+  expiryMonths: 12,
+  maxPointsPerInvoice: 5000,
+  maxRedemptionsPerMonth: 10
+};
+
+export const mockLoyaltyRewards = [
+  {
+    _id: "rwd_1",
+    salonId: "salon_luxe_123",
+    name: "₹200 Instant Bill Voucher",
+    type: "Discount",
+    pointsCost: 200,
+    discountValue: 200,
+    description: "Get ₹200 off your final billing invoice instantly on any service or product purchase.",
+    expiryDays: 30,
+    active: true
+  },
+  {
+    _id: "rwd_2",
+    salonId: "salon_luxe_123",
+    name: "Free Swedish Head & Shoulder Spa",
+    type: "Free Service",
+    pointsCost: 350,
+    discountValue: 1500,
+    serviceId: "serv_5",
+    description: "Complimentary 30-minute relaxing muscle-relief scalp & shoulder massage with aromatic oils.",
+    expiryDays: 45,
+    active: true
+  },
+  {
+    _id: "rwd_3",
+    salonId: "salon_luxe_123",
+    name: "Free Premium Argan Elixir Shampoo (250ml)",
+    type: "Product",
+    pointsCost: 450,
+    discountValue: 1200,
+    productId: "prod_1",
+    description: "Take home a complimentary bottle of our signature organic Argan nourishing shampoo.",
+    expiryDays: 60,
+    active: true
+  },
+  {
+    _id: "rwd_4",
+    salonId: "salon_luxe_123",
+    name: "VIP Upgrade to 24K Gold Facial",
+    type: "Upgrade",
+    pointsCost: 400,
+    discountValue: 2000,
+    description: "Upgrade any basic facial service to our ultra-luxury 24K pure gold foil facial.",
+    expiryDays: 30,
+    active: true
+  },
+  {
+    _id: "rwd_5",
+    salonId: "salon_luxe_123",
+    name: "VIP Lounge Pass + 25% Off Next Visit",
+    type: "Special Offer",
+    pointsCost: 600,
+    discountValue: 2500,
+    description: "Enjoy exclusive VIP Suite access, herbal teas, and a 25% discount voucher on your next treatment.",
+    expiryDays: 90,
+    active: true
+  }
+];
+
+export const mockLoyaltyTransactions = [
+  {
+    _id: "tx_1",
+    salonId: "salon_luxe_123",
+    customerId: "cust_1", // Priyanka
+    type: "Earned",
+    points: 298,
+    pointsEarned: 298,
+    balanceAfter: 345,
+    transactionAmount: 2986,
+    invoiceId: "inv_1",
+    description: "Earned 298 pts on Invoice INV-2026-0001 (₹2,986)",
+    date: "2026-06-23T14:30:00Z"
+  },
+  {
+    _id: "tx_2",
+    salonId: "salon_luxe_123",
+    customerId: "cust_3", // Deepika
+    type: "Earned",
+    points: 363,
+    pointsEarned: 363,
+    balanceAfter: 512,
+    transactionAmount: 3630,
+    invoiceId: "inv_2",
+    description: "Earned 363 pts on Invoice INV-2026-0002 (₹3,630)",
+    date: "2026-06-24T10:15:00Z"
+  },
+  {
+    _id: "tx_3",
+    salonId: "salon_luxe_123",
+    customerId: "cust_2", // Ranveer
+    type: "Redeemed",
+    points: -200,
+    pointsRedeemed: 200,
+    balanceAfter: 120,
+    rewardId: "rwd_1",
+    description: "Redeemed reward '₹200 Instant Bill Voucher' (-200 pts)",
+    date: "2026-06-22T11:00:00Z"
+  }
+];

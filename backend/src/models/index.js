@@ -67,6 +67,9 @@ const CustomerSchema = new mongoose.Schema({
   notes: { type: String },
   photo: { type: String },
   loyaltyPoints: { type: Number, default: 0 },
+  totalPointsEarned: { type: Number, default: 0 },
+  totalPointsRedeemed: { type: Number, default: 0 },
+  totalPointsExpired: { type: Number, default: 0 },
   membershipLevel: { 
     type: String, 
     enum: ['None', 'Silver', 'Gold', 'Platinum'], 
@@ -159,17 +162,58 @@ const MembershipSchema = new mongoose.Schema({
 
 MembershipSchema.index({ salonId: 1 });
 
-// 9. LoyaltyPoint Schema
+// 9. LoyaltyPoint / Transaction Schema
 const LoyaltyPointSchema = new mongoose.Schema({
   salonId: { type: mongoose.Schema.Types.ObjectId, ref: 'Salon', required: true },
   customerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Customer', required: true },
+  type: { type: String, enum: ['Earned', 'Redeemed', 'Expired', 'Manual'], required: true },
+  points: { type: Number, required: true },
+  balanceAfter: { type: Number, default: 0 },
   pointsEarned: { type: Number, default: 0 },
   pointsRedeemed: { type: Number, default: 0 },
-  transactionAmount: { type: Number, required: true },
+  transactionAmount: { type: Number, default: 0 },
+  invoiceId: { type: mongoose.Schema.Types.ObjectId, ref: 'Invoice' },
+  rewardId: { type: mongoose.Schema.Types.ObjectId, ref: 'LoyaltyReward' },
+  description: { type: String },
+  idempotencyKey: { type: String, sparse: true },
+  expiryDate: { type: Date },
   date: { type: Date, default: Date.now }
 }, { timestamps: true });
 
-LoyaltyPointSchema.index({ salonId: 1, customerId: 1 });
+LoyaltyPointSchema.index({ salonId: 1, customerId: 1, date: -1 });
+LoyaltyPointSchema.index({ salonId: 1, idempotencyKey: 1 }, { unique: true, sparse: true });
+
+// 9b. LoyaltyReward Schema
+const LoyaltyRewardSchema = new mongoose.Schema({
+  salonId: { type: mongoose.Schema.Types.ObjectId, ref: 'Salon', required: true },
+  name: { type: String, required: true },
+  type: { 
+    type: String, 
+    enum: ['Discount', 'Free Service', 'Product', 'Upgrade', 'Special Offer'], 
+    required: true 
+  },
+  pointsCost: { type: Number, required: true },
+  discountValue: { type: Number, default: 0 },
+  serviceId: { type: mongoose.Schema.Types.ObjectId, ref: 'Service' },
+  productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Product' },
+  description: { type: String },
+  expiryDays: { type: Number, default: 30 },
+  active: { type: Boolean, default: true }
+}, { timestamps: true });
+
+LoyaltyRewardSchema.index({ salonId: 1, active: 1 });
+
+// 9c. LoyaltyRule Schema
+const LoyaltyRuleSchema = new mongoose.Schema({
+  salonId: { type: mongoose.Schema.Types.ObjectId, ref: 'Salon', required: true, unique: true },
+  pointsEarnedPer100Spent: { type: Number, default: 10 },
+  pointValueInRupees: { type: Number, default: 1 },
+  expiryMonths: { type: Number, default: 12 },
+  maxPointsPerInvoice: { type: Number, default: 5000 },
+  maxRedemptionsPerMonth: { type: Number, default: 10 }
+}, { timestamps: true });
+
+LoyaltyRuleSchema.index({ salonId: 1 });
 
 // 10. Invoice Schema
 const InvoiceSchema = new mongoose.Schema({
@@ -382,6 +426,8 @@ module.exports = {
   Package: mongoose.model('Package', PackageSchema),
   Membership: mongoose.model('Membership', MembershipSchema),
   LoyaltyPoint: mongoose.model('LoyaltyPoint', LoyaltyPointSchema),
+  LoyaltyReward: mongoose.model('LoyaltyReward', LoyaltyRewardSchema),
+  LoyaltyRule: mongoose.model('LoyaltyRule', LoyaltyRuleSchema),
   Invoice: mongoose.model('Invoice', InvoiceSchema),
   Expense: mongoose.model('Expense', ExpenseSchema),
   Product: mongoose.model('Product', ProductSchema),

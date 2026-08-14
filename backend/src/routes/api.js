@@ -731,19 +731,42 @@ router.post('/invoices', requirePermission('billing.create'), safeHandler(async 
     staffId: finalStaffId
   });
 
-  // 1. Loyalty Points Rule: ₹100 spent = 1 point earned
+  // 1. Configurable Loyalty Points Crediting with Fraud/Duplicate Prevention
   if (finalCustomerId) {
-    const pointsEarned = Math.floor(finalAmount / 100);
+    let rule = await models.LoyaltyRule.findOne({ salonId: req.user.salonId });
+    const ptsPer100 = rule ? rule.pointsEarnedPer100Spent : 10;
+    const maxPts = rule ? rule.maxPointsPerInvoice : 5000;
+    const rawPts = Math.floor((finalAmount / 100) * ptsPer100);
+    const pointsEarned = Math.min(rawPts, maxPts);
+
     if (pointsEarned > 0) {
-      await models.Customer.findByIdAndUpdate(finalCustomerId, {
-        $inc: { loyaltyPoints: pointsEarned }
-      });
-      await models.LoyaltyPoint.create({
-        salonId: req.user.salonId,
-        customerId: finalCustomerId,
-        pointsEarned,
-        transactionAmount: finalAmount
-      });
+      const idempotencyKey = `invoice_${invoice._id}_earn`;
+      const existingTx = await models.LoyaltyPoint.findOne({ salonId: req.user.salonId, idempotencyKey });
+      
+      if (!existingTx) {
+        const customer = await models.Customer.findById(finalCustomerId);
+        const newBal = (customer ? customer.loyaltyPoints : 0) + pointsEarned;
+
+        await models.Customer.findByIdAndUpdate(finalCustomerId, {
+          $inc: { 
+            loyaltyPoints: pointsEarned,
+            totalPointsEarned: pointsEarned
+          }
+        });
+
+        await models.LoyaltyPoint.create({
+          salonId: req.user.salonId,
+          customerId: finalCustomerId,
+          type: 'Earned',
+          points: pointsEarned,
+          pointsEarned,
+          balanceAfter: newBal,
+          transactionAmount: finalAmount,
+          invoiceId: invoice._id,
+          description: `Earned ${pointsEarned} pts on Invoice ${invoiceNumber} (₹${finalAmount})`,
+          idempotencyKey
+        });
+      }
     }
   }
 
@@ -983,6 +1006,141 @@ router.post('/reviews', safeHandler(async (req, res) => {
 
   res.status(201).json({ success: true, data: review });
 }, 'Failed to submit review'));
+
+// ----------------------------------------------------
+// LOYALTY REWARDS & RULES ENGINE
+// ----------------------------------------------------
+router.get('/loyalty/rules', safeHandler(async (req, res) => {
+  let rule = await models.LoyaltyRule.findOne({ salonId: req.user.salonId });
+  if (!rule) {
+    rule = await models.LoyaltyRule.create({
+      salonId: req.user.salonId,
+      pointsEarnedPer100Spent: 10,
+      pointValueInRupees: 1,
+      expiryMonths: 12,
+      maxPointsPerInvoice: 5000,
+      maxRedemptionsPerMonth: 10
+    });
+  }
+  res.json({ success: true, data: rule });
+}, 'Failed to fetch loyalty rules'));
+
+router.put('/loyalty/rules', requirePermission('staff.manage'), sanitizeBody(['pointsEarnedPer100Spent', 'pointValueInRupees', 'expiryMonths', 'maxPointsPerInvoice', 'maxRedemptionsPerMonth']), safeHandler(async (req, res) => {
+  const rule = await models.LoyaltyRule.findOneAndUpdate(
+    { salonId: req.user.salonId },
+    { ...req.body, salonId: req.user.salonId },
+    { new: true, upsert: true, runValidators: true }
+  );
+  res.json({ success: true, data: rule });
+}, 'Failed to update loyalty rules'));
+
+router.get('/loyalty/rewards', safeHandler(async (req, res) => {
+  const rewards = await models.LoyaltyReward.find({ salonId: req.user.salonId, active: true }).sort({ pointsCost: 1 });
+  res.json({ success: true, data: rewards });
+}, 'Failed to fetch loyalty rewards'));
+
+router.post('/loyalty/rewards', requirePermission('staff.manage'), sanitizeBody(['name', 'type', 'pointsCost', 'discountValue', 'serviceId', 'productId', 'description', 'expiryDays', 'active']), safeHandler(async (req, res) => {
+  const reward = await models.LoyaltyReward.create({
+    ...req.body,
+    salonId: req.user.salonId
+  });
+  res.status(201).json({ success: true, data: reward });
+}, 'Failed to create loyalty reward'));
+
+router.put('/loyalty/rewards/:id', requirePermission('staff.manage'), validateObjectId, safeHandler(async (req, res) => {
+  const reward = await models.LoyaltyReward.findOneAndUpdate(
+    { _id: req.params.id, salonId: req.user.salonId },
+    req.body,
+    { new: true, runValidators: true }
+  );
+  if (!reward) return res.status(404).json({ success: false, message: 'Reward not found' });
+  res.json({ success: true, data: reward });
+}, 'Failed to update loyalty reward'));
+
+router.delete('/loyalty/rewards/:id', requirePermission('staff.manage'), validateObjectId, safeHandler(async (req, res) => {
+  const reward = await models.LoyaltyReward.findOneAndDelete({ _id: req.params.id, salonId: req.user.salonId });
+  if (!reward) return res.status(404).json({ success: false, message: 'Reward not found' });
+  res.json({ success: true, message: 'Reward removed' });
+}, 'Failed to delete loyalty reward'));
+
+router.get('/loyalty/transactions', safeHandler(async (req, res) => {
+  const filter = { salonId: req.user.salonId };
+  if (req.query.customerId) filter.customerId = req.query.customerId;
+  const transactions = await models.LoyaltyPoint.find(filter).sort({ date: -1 }).populate('customerId').populate('rewardId');
+  res.json({ success: true, data: transactions });
+}, 'Failed to fetch loyalty transactions'));
+
+router.post('/loyalty/redeem', safeHandler(async (req, res) => {
+  const { customerId, rewardId, pointsToRedeem, idempotencyKey } = req.body;
+
+  if (!customerId) {
+    return res.status(400).json({ success: false, message: 'Customer ID is required for redemption.' });
+  }
+
+  // Idempotency / duplicate protection check
+  if (idempotencyKey) {
+    const existing = await models.LoyaltyPoint.findOne({ salonId: req.user.salonId, idempotencyKey });
+    if (existing) {
+      return res.status(400).json({ success: false, message: 'This redemption transaction has already been processed.' });
+    }
+  }
+
+  const customer = await models.Customer.findOne({ _id: customerId, salonId: req.user.salonId });
+  if (!customer) {
+    return res.status(404).json({ success: false, message: 'Customer record not found.' });
+  }
+
+  let reward = null;
+  let pointsRequired = 0;
+  let rewardName = 'Custom Points Redemption';
+
+  if (rewardId) {
+    reward = await models.LoyaltyReward.findOne({ _id: rewardId, salonId: req.user.salonId });
+    if (!reward) {
+      return res.status(404).json({ success: false, message: 'Selected reward option is no longer available.' });
+    }
+    pointsRequired = reward.pointsCost;
+    rewardName = reward.name;
+  } else {
+    pointsRequired = Math.max(1, Number(pointsToRedeem) || 0);
+  }
+
+  // FRAUD / BALANCE CHECK: Anti-fraud strict balance validation
+  if ((customer.loyaltyPoints || 0) < pointsRequired) {
+    return res.status(400).json({
+      success: false,
+      message: `Insufficient loyalty points balance. Customer has ${customer.loyaltyPoints || 0} pts, but redemption requires ${pointsRequired} pts.`
+    });
+  }
+
+  // Atomic balance deduction
+  const newBal = (customer.loyaltyPoints || 0) - pointsRequired;
+  customer.loyaltyPoints = newBal;
+  customer.totalPointsRedeemed = (customer.totalPointsRedeemed || 0) + pointsRequired;
+  await customer.save();
+
+  // Create audit transaction record
+  const tx = await models.LoyaltyPoint.create({
+    salonId: req.user.salonId,
+    customerId: customer._id,
+    type: 'Redeemed',
+    points: -pointsRequired,
+    pointsRedeemed: pointsRequired,
+    balanceAfter: newBal,
+    rewardId: reward ? reward._id : null,
+    description: `Redeemed reward "${rewardName}" (-${pointsRequired} pts)`,
+    idempotencyKey: idempotencyKey || `redeem_${customer._id}_${Date.now()}`
+  });
+
+  res.status(201).json({
+    success: true,
+    data: {
+      transaction: tx,
+      remainingPoints: newBal,
+      reward
+    }
+  });
+}, 'Failed to process point redemption'));
 
 router.get('/attendance', requirePermission('staff.view'), safeHandler(async (req, res) => {
   const attendance = await models.Attendance.find(req.tenantFilter).populate('staffId');

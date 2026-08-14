@@ -59,6 +59,9 @@ export const AppProvider = ({ children }) => {
       commissions: getLocal('sf_commissions', mockData.mockCommissions),
       notifications: getLocal('sf_notifications', mockData.mockNotifications),
       reviews: getLocal('sf_reviews', mockData.mockReviews),
+      loyaltyRewards: getLocal('sf_loyalty_rewards', mockData.mockLoyaltyRewards),
+      loyaltyRules: getLocal('sf_loyalty_rules', mockData.mockLoyaltyRules),
+      loyaltyTransactions: getLocal('sf_loyalty_transactions', mockData.mockLoyaltyTransactions),
     };
   });
 
@@ -1172,7 +1175,231 @@ export const AppProvider = ({ children }) => {
     };
   };
 
-  // POS Checkout Billing Generator
+  // ── Loyalty Rewards System ──
+  const updateLoyaltyRules = async (newRules) => {
+    try {
+      setDb(prev => {
+        const updatedRules = { ...(prev.loyaltyRules || mockData.mockLoyaltyRules), ...newRules };
+        localStorage.setItem('sf_loyalty_rules', JSON.stringify(updatedRules));
+        return { ...prev, loyaltyRules: updatedRules };
+      });
+
+      const token = localStorage.getItem('token');
+      if (token) {
+        await fetch(`${API_URL}/loyalty/rules`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(newRules)
+        });
+      }
+      addToast('Loyalty earning & redemption rules updated!', 'success');
+    } catch (err) {
+      console.error('Error updating loyalty rules:', err);
+    }
+  };
+
+  const addLoyaltyReward = async (rewardData) => {
+    try {
+      const newRwd = {
+        _id: 'rwd_' + Date.now() + Math.random().toString(36).substring(2, 6),
+        salonId: currentUser?.salonId || 'salon_luxe_123',
+        name: rewardData.name,
+        type: rewardData.type || 'Discount',
+        pointsCost: Number(rewardData.pointsCost) || 200,
+        discountValue: Number(rewardData.discountValue) || 0,
+        description: rewardData.description || '',
+        expiryDays: Number(rewardData.expiryDays) || 30,
+        active: true
+      };
+
+      setDb(prev => {
+        const updatedRwds = [newRwd, ...(prev.loyaltyRewards || [])];
+        localStorage.setItem('sf_loyalty_rewards', JSON.stringify(updatedRwds));
+        return { ...prev, loyaltyRewards: updatedRwds };
+      });
+
+      const token = localStorage.getItem('token');
+      if (token) {
+        await fetch(`${API_URL}/loyalty/rewards`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(rewardData)
+        });
+      }
+      addToast('New loyalty reward option added to catalogue!', 'success');
+    } catch (err) {
+      console.error('Error adding loyalty reward:', err);
+    }
+  };
+
+  const updateLoyaltyReward = async (id, updatedFields) => {
+    try {
+      setDb(prev => {
+        const updatedRwds = (prev.loyaltyRewards || []).map(r => String(r._id) === String(id) ? { ...r, ...updatedFields } : r);
+        localStorage.setItem('sf_loyalty_rewards', JSON.stringify(updatedRwds));
+        return { ...prev, loyaltyRewards: updatedRwds };
+      });
+
+      const token = localStorage.getItem('token');
+      if (token) {
+        await fetch(`${API_URL}/loyalty/rewards/${id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(updatedFields)
+        });
+      }
+      addToast('Loyalty reward item updated!', 'info');
+    } catch (err) {
+      console.error('Error updating loyalty reward:', err);
+    }
+  };
+
+  const deleteLoyaltyReward = async (id) => {
+    try {
+      setDb(prev => {
+        const updatedRwds = (prev.loyaltyRewards || []).filter(r => String(r._id) !== String(id));
+        localStorage.setItem('sf_loyalty_rewards', JSON.stringify(updatedRwds));
+        return { ...prev, loyaltyRewards: updatedRwds };
+      });
+
+      const token = localStorage.getItem('token');
+      if (token) {
+        await fetch(`${API_URL}/loyalty/rewards/${id}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+      }
+      addToast('Loyalty reward option removed.', 'info');
+    } catch (err) {
+      console.error('Error deleting loyalty reward:', err);
+    }
+  };
+
+  const redeemLoyaltyReward = async ({ customerId, rewardId, pointsToRedeem, idempotencyKey }) => {
+    try {
+      const customer = (db.customers || []).find(c => String(c._id) === String(customerId));
+      if (!customer) {
+        addToast('Customer record not found!', 'error');
+        return { success: false, message: 'Customer record not found!' };
+      }
+
+      const reward = rewardId ? (db.loyaltyRewards || []).find(r => String(r._id) === String(rewardId)) : null;
+      const requiredPts = reward ? reward.pointsCost : Math.max(1, Number(pointsToRedeem) || 0);
+      const rewardName = reward ? reward.name : 'Points Redemption';
+
+      // Anti-fraud balance check
+      if ((customer.loyaltyPoints || 0) < requiredPts) {
+        addToast(`Insufficient point balance! Customer has ${customer.loyaltyPoints || 0} pts, but redemption requires ${requiredPts} pts.`, 'error');
+        return { success: false, message: 'Insufficient points balance' };
+      }
+
+      const key = idempotencyKey || `redeem_${customerId}_${Date.now()}`;
+      const existingTx = (db.loyaltyTransactions || []).find(t => t.idempotencyKey === key);
+      if (existingTx) {
+        addToast('This redemption transaction has already been processed.', 'warning');
+        return { success: false, message: 'Duplicate redemption' };
+      }
+
+      const newBal = (customer.loyaltyPoints || 0) - requiredPts;
+      const newTx = {
+        _id: 'tx_' + Date.now() + Math.random().toString(36).substring(2, 6),
+        salonId: currentUser?.salonId || 'salon_luxe_123',
+        customerId: customer._id,
+        type: 'Redeemed',
+        points: -requiredPts,
+        pointsRedeemed: requiredPts,
+        balanceAfter: newBal,
+        rewardId: reward ? reward._id : null,
+        description: `Redeemed reward "${rewardName}" (-${requiredPts} pts)`,
+        idempotencyKey: key,
+        date: new Date().toISOString()
+      };
+
+      setDb(prev => {
+        const updatedCusts = (prev.customers || []).map(c => 
+          String(c._id) === String(customerId)
+            ? { 
+                ...c, 
+                loyaltyPoints: newBal,
+                totalPointsRedeemed: (c.totalPointsRedeemed || 0) + requiredPts 
+              }
+            : c
+        );
+        const updatedTxs = [newTx, ...(prev.loyaltyTransactions || [])];
+
+        localStorage.setItem('sf_customers', JSON.stringify(updatedCusts));
+        localStorage.setItem('sf_loyalty_transactions', JSON.stringify(updatedTxs));
+
+        return {
+          ...prev,
+          customers: updatedCusts,
+          loyaltyTransactions: updatedTxs
+        };
+      });
+
+      const token = localStorage.getItem('token');
+      if (token) {
+        await fetch(`${API_URL}/loyalty/redeem`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ customerId, rewardId, pointsToRedeem, idempotencyKey: key })
+        });
+      }
+
+      addToast(`🎉 Reward "${rewardName}" redeemed successfully! Balance: ${newBal} pts`, 'success');
+      return { success: true, remainingPoints: newBal, reward };
+    } catch (err) {
+      console.error('Error redeeming loyalty reward:', err);
+      return { success: false, message: err.message };
+    }
+  };
+
+  const getLoyaltySummary = (customerId) => {
+    const customer = (db.customers || []).find(c => String(c._id) === String(customerId));
+    if (!customer) return null;
+
+    const custTxs = (db.loyaltyTransactions || []).filter(t => {
+      const cid = typeof t.customerId === 'object' ? t.customerId._id : t.customerId;
+      return String(cid) === String(customerId);
+    });
+
+    const activeRewards = (db.loyaltyRewards || []).filter(r => r.active);
+    const balance = customer.loyaltyPoints || 0;
+    const totalEarned = custTxs.filter(t => t.type === 'Earned').reduce((sum, t) => sum + (t.pointsEarned || t.points || 0), 0);
+    const totalRedeemed = custTxs.filter(t => t.type === 'Redeemed').reduce((sum, t) => sum + Math.abs(t.pointsRedeemed || t.points || 0), 0);
+    const totalExpired = custTxs.filter(t => t.type === 'Expired').reduce((sum, t) => sum + Math.abs(t.points || 0), 0);
+
+    // Find next available reward target
+    const sortedRewards = [...activeRewards].sort((a, b) => a.pointsCost - b.pointsCost);
+    const nextReward = sortedRewards.find(r => r.pointsCost > balance) || sortedRewards[sortedRewards.length - 1];
+    const targetPoints = nextReward ? nextReward.pointsCost : 500;
+    const progressPercent = Math.min(100, Math.round((balance / targetPoints) * 100));
+
+    return {
+      customer,
+      balance,
+      totalEarned,
+      totalRedeemed,
+      totalExpired,
+      nextReward,
+      targetPoints,
+      progressPercent,
+      transactions: custTxs,
+      availableRewards: activeRewards
+    };
+  };
   const createInvoice = async (invoiceData) => {
     try {
       const token = localStorage.getItem('token');
@@ -1405,6 +1632,8 @@ export const AppProvider = ({ children }) => {
       // HR & Performance
       addStaff, updateStaff, deleteStaff, clockInStaff, clockOutStaff,
       addReview, canViewStaffSalary, getStaffPerformanceMetrics,
+      // Loyalty Rewards System
+      updateLoyaltyRules, addLoyaltyReward, updateLoyaltyReward, deleteLoyaltyReward, redeemLoyaltyReward, getLoyaltySummary,
       // Configurations
       updateSalonDetails, switchBranch, addBranch, updateBranch, deleteBranch, updateSalonSubscription,
       // Marketing
