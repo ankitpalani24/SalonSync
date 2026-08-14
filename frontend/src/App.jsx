@@ -24,6 +24,7 @@ import Marketing from './pages/Marketing';
 import Loyalty from './pages/Loyalty';
 import Memberships from './pages/Memberships';
 import PublicSalonProfile from './pages/PublicSalonProfile';
+import SalonDiscovery from './pages/SalonDiscovery';
 import SuperAdmin from './pages/Admin/SuperAdmin';
 
 function App() {
@@ -110,6 +111,7 @@ function App() {
           'loyalty': PERMISSIONS.CUSTOMERS_VIEW,
           'memberships': PERMISSIONS.CUSTOMERS_VIEW,
           'public-profile': null,
+          'discovery': null,
           'marketing': null
         };
         const reqPerm = pagePermissionMap[activePage];
@@ -163,6 +165,8 @@ function App() {
         return <Memberships />;
       case 'public-profile':
         return <PublicSalonProfile setActivePage={setActivePage} />;
+      case 'discovery':
+        return <SalonDiscovery setActivePage={setActivePage} />;
       case 'super-admin':
         return <SuperAdmin />;
       default:

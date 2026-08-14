@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Users, Calendar, Scissors, CreditCard, 
   Package, UserCheck, BarChart3, MessageSquare, Bot, 
   Settings, LogOut, ChevronLeft, ChevronRight, Crown,
-  DollarSign, Gift, Globe
+  DollarSign, Gift, Globe, Search
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
@@ -39,6 +39,7 @@ const Sidebar = ({ activePage, setActivePage, collapsed, setCollapsed, user, log
     {
       title: 'GROWTH',
       items: [
+        { id: 'discovery', label: 'Find Salons', icon: Search, permission: null },
         { id: 'public-profile', label: 'Public Showcase', icon: Globe, permission: null },
         { id: 'memberships', label: 'Membership Plans', icon: Crown, permission: PERMISSIONS.CUSTOMERS_VIEW },
         { id: 'loyalty', label: 'Loyalty Rewards', icon: Gift, permission: PERMISSIONS.CUSTOMERS_VIEW },

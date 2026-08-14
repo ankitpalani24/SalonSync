@@ -47,7 +47,11 @@ const SalonSchema = new mongoose.Schema({
   openingHours: { type: String, default: 'Mon - Sun: 09:00 AM - 09:00 PM' },
   rating: { type: Number, default: 4.9 },
   totalReviews: { type: Number, default: 128 },
-  galleryImages: [{ type: String }]
+  galleryImages: [{ type: String }],
+  locality: { type: String, default: 'Bandra West' },
+  startingPrice: { type: Number, default: 350 },
+  popularServices: [{ type: String }],
+  availableToday: { type: Boolean, default: true }
 }, { timestamps: true });
 
 // 3. Branch Schema

@@ -1738,6 +1738,45 @@ export const AppProvider = ({ children }) => {
       packages
     };
   };
+
+  const discoverSalons = ({ search = '', city = 'ALL', serviceCategory = 'ALL', minRating = 0, maxPrice = 10000, openOnly = false, sortBy = 'rating' }) => {
+    let salons = [...(db.salons || mockData.mockSalons)];
+
+    if (city && city !== 'ALL') {
+      salons = salons.filter(s => (s.city || '').toLowerCase().includes(city.toLowerCase()));
+    }
+
+    if (search && search.trim()) {
+      const q = search.toLowerCase().trim();
+      salons = salons.filter(s => 
+        (s.name || '').toLowerCase().includes(q) ||
+        (s.locality || '').toLowerCase().includes(q) ||
+        (s.city || '').toLowerCase().includes(q) ||
+        (s.address || '').toLowerCase().includes(q) ||
+        (s.popularServices || []).some(srv => srv.toLowerCase().includes(q))
+      );
+    }
+
+    if (minRating > 0) {
+      salons = salons.filter(s => (s.rating || 0) >= Number(minRating));
+    }
+
+    if (maxPrice > 0) {
+      salons = salons.filter(s => (s.startingPrice || 0) <= Number(maxPrice));
+    }
+
+    if (sortBy === 'rating') {
+      salons.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+    } else if (sortBy === 'price_asc') {
+      salons.sort((a, b) => (a.startingPrice || 0) - (b.startingPrice || 0));
+    } else if (sortBy === 'price_desc') {
+      salons.sort((a, b) => (b.startingPrice || 0) - (a.startingPrice || 0));
+    } else if (sortBy === 'reviews') {
+      salons.sort((a, b) => (b.totalReviews || 0) - (a.totalReviews || 0));
+    }
+
+    return salons;
+  };
   const createInvoice = async (invoiceData) => {
     try {
       const token = localStorage.getItem('token');
@@ -1974,8 +2013,8 @@ export const AppProvider = ({ children }) => {
       updateLoyaltyRules, addLoyaltyReward, updateLoyaltyReward, deleteLoyaltyReward, redeemLoyaltyReward, getLoyaltySummary,
       // Salon Membership System
       addMembershipPlan, updateMembershipPlan, deleteMembershipPlan, subscribeCustomerMembership, redeemMembershipBenefit, triggerMembershipExpiryNotifications, getCustomerMembershipSummary,
-      // Public Salon Showcase
-      getPublicSalonProfile,
+      // Public Salon Showcase & Discovery
+      getPublicSalonProfile, discoverSalons,
       // Configurations
       updateSalonDetails, switchBranch, addBranch, updateBranch, deleteBranch, updateSalonSubscription,
       // Marketing

@@ -122,7 +122,41 @@ router.get('/public/salons/:identifier', safeHandler(async (req, res) => {
       packages
     }
   });
-}, 'Failed to fetch public salon profile'));
+// @route   GET /api/public/salons/discover (Search, filter, & sort registered salons)
+router.get('/public/salons/discover', safeHandler(async (req, res) => {
+  const { search, city, service, minRating, maxPrice, openOnly, sortBy } = req.query;
+  const filter = {};
+
+  if (city && city !== 'ALL') {
+    filter.city = new RegExp(city, 'i');
+  }
+
+  if (search) {
+    filter.$or = [
+      { name: new RegExp(search, 'i') },
+      { address: new RegExp(search, 'i') },
+      { locality: new RegExp(search, 'i') },
+      { city: new RegExp(search, 'i') },
+      { popularServices: new RegExp(search, 'i') }
+    ];
+  }
+
+  if (minRating) {
+    filter.rating = { $gte: Number(minRating) };
+  }
+
+  if (maxPrice) {
+    filter.startingPrice = { $lte: Number(maxPrice) };
+  }
+
+  let sortOption = { rating: -1 };
+  if (sortBy === 'price_asc') sortOption = { startingPrice: 1 };
+  if (sortBy === 'price_desc') sortOption = { startingPrice: -1 };
+  if (sortBy === 'reviews') sortOption = { totalReviews: -1 };
+
+  const salons = await models.Salon.find(filter).sort(sortOption).select('name slug tagline logoUrl coverImageUrl description address locality city state phone openingHours rating totalReviews startingPrice popularServices availableToday _id');
+  res.json({ success: true, count: salons.length, data: salons });
+}, 'Failed to discover salons'));
 
 // ----------------------------------------------------
 // AUTHENTICATION SYSTEM
