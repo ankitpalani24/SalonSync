@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Users, Calendar, Scissors, CreditCard, 
   Package, UserCheck, BarChart3, MessageSquare, Bot, 
   Settings, LogOut, ChevronLeft, ChevronRight, Crown,
-  DollarSign, Gift, Globe, Search
+  DollarSign, Gift, Globe, Search, Activity
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
@@ -34,6 +34,7 @@ const Sidebar = ({ activePage, setActivePage, collapsed, setCollapsed, user, log
         { id: 'expenses', label: 'Expense Ledger', icon: DollarSign, permission: PERMISSIONS.REPORTS_VIEW },
         { id: 'staff', label: 'Staff & Roster', icon: UserCheck, permission: PERMISSIONS.STAFF_VIEW },
         { id: 'analytics', label: 'BI Analytics', icon: BarChart3, permission: PERMISSIONS.REPORTS_VIEW },
+        { id: 'health', label: 'Salon Health Score', icon: Activity, permission: PERMISSIONS.REPORTS_VIEW },
       ]
     },
     {

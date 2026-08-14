@@ -25,6 +25,7 @@ import Loyalty from './pages/Loyalty';
 import Memberships from './pages/Memberships';
 import PublicSalonProfile from './pages/PublicSalonProfile';
 import SalonDiscovery from './pages/SalonDiscovery';
+import SalonHealth from './pages/SalonHealth';
 import SuperAdmin from './pages/Admin/SuperAdmin';
 
 function App() {
@@ -108,6 +109,7 @@ function App() {
           'expenses': PERMISSIONS.REPORTS_VIEW,
           'staff': PERMISSIONS.STAFF_VIEW,
           'analytics': PERMISSIONS.REPORTS_VIEW,
+          'health': PERMISSIONS.REPORTS_VIEW,
           'loyalty': PERMISSIONS.CUSTOMERS_VIEW,
           'memberships': PERMISSIONS.CUSTOMERS_VIEW,
           'public-profile': null,
@@ -157,6 +159,8 @@ function App() {
         return <Staff />;
       case 'analytics':
         return <Analytics />;
+      case 'health':
+        return <SalonHealth setActivePage={setActivePage} />;
       case 'marketing':
         return <Marketing />;
       case 'loyalty':

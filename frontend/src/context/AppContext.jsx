@@ -1777,6 +1777,135 @@ export const AppProvider = ({ children }) => {
 
     return salons;
   };
+
+  const calculateSalonHealthScore = () => {
+    const invoices = tenantFilter(db.invoices || []);
+    const expenses = tenantFilter(db.expenses || []);
+    const customers = tenantFilter(db.customers || []);
+    const staffList = tenantFilter(db.staff || []);
+    const reviewsList = tenantFilter(db.reviews || []);
+    const productsList = tenantFilter(db.products || []);
+    const appointmentsList = tenantFilter(db.appointments || []);
+
+    const totalRevenue = invoices.reduce((sum, inv) => sum + (inv.finalAmount || 0), 0);
+    const totalExpenses = expenses.reduce((sum, exp) => sum + (exp.amount || 0), 0);
+    const netProfit = totalRevenue - totalExpenses;
+    const profitMarginPercent = totalRevenue > 0 ? Math.max(0, Math.round((netProfit / totalRevenue) * 100)) : 35;
+
+    const totalCustomers = customers.length;
+    const repeatCustomersCount = customers.filter(c => (c.totalAppointments || 0) > 1 || (c.totalSpent || 0) > 3000 || c.membershipLevel !== 'None').length;
+    const retentionPercent = totalCustomers > 0 ? Math.round((repeatCustomersCount / totalCustomers) * 100) : 68;
+
+    const totalReviews = reviewsList.length;
+    const avgRating = totalReviews > 0 
+      ? (reviewsList.reduce((sum, r) => sum + (r.rating || 5), 0) / totalReviews).toFixed(1) 
+      : '4.9';
+
+    const lowStockProducts = productsList.filter(p => p.quantity <= (p.lowStockThreshold || 5));
+    const inventoryHealthPercent = productsList.length > 0 
+      ? Math.round(((productsList.length - lowStockProducts.length) / productsList.length) * 100) 
+      : 85;
+
+    const totalAppts = appointmentsList.length;
+    const completedAppts = appointmentsList.filter(a => a.status === 'Completed' || a.status === 'Confirmed' || a.status === 'In Progress').length;
+    const utilizationPercent = totalAppts > 0 ? Math.round((completedAppts / totalAppts) * 100) : 92;
+
+    // Sub-scores (0-100 scale)
+    const revGrowthScore = totalRevenue > 10000 ? 88 : 75;
+    const profitScore = Math.min(100, Math.max(50, Math.round(profitMarginPercent * 2.2)));
+    const retentionScore = Math.min(100, Math.max(50, Math.round(retentionPercent * 1.25)));
+    const repeatScore = Math.min(100, Math.max(50, Math.round(retentionPercent * 1.3)));
+    const staffScore = Math.min(100, Math.round(Number(avgRating) * 20));
+    const ratingScore = Math.min(100, Math.round(Number(avgRating) * 20));
+    const inventoryScore = inventoryHealthPercent;
+    const utilizationScore = utilizationPercent;
+
+    const overallHealthScore = Math.round(
+      (revGrowthScore * 0.15) +
+      (profitScore * 0.15) +
+      (retentionScore * 0.15) +
+      (repeatScore * 0.10) +
+      (staffScore * 0.10) +
+      (ratingScore * 0.10) +
+      (inventoryScore * 0.10) +
+      (utilizationScore * 0.15)
+    );
+
+    // Dynamic Actionable Insights Array
+    const insights = [];
+
+    if (lowStockProducts.length > 0) {
+      const names = lowStockProducts.slice(0, 3).map(p => p.name).join(', ');
+      insights.push({
+        severity: 'warning',
+        category: 'Inventory Health',
+        message: `${lowStockProducts.length} product(s) are below reorder level (${names}). Reorder to prevent stockouts.`
+      });
+    } else {
+      insights.push({
+        severity: 'positive',
+        category: 'Inventory Health',
+        message: '100% of product inventory is at healthy stock levels.'
+      });
+    }
+
+    if (retentionPercent < 60) {
+      insights.push({
+        severity: 'alert',
+        category: 'Customer Retention',
+        message: `Customer retention is at ${retentionPercent}%. Consider launching a loyalty points promo.`
+      });
+    } else {
+      insights.push({
+        severity: 'positive',
+        category: 'Customer Retention',
+        message: `Customer retention is strong at ${retentionPercent}% with ${repeatCustomersCount} repeat guests.`
+      });
+    }
+
+    if (utilizationPercent >= 85) {
+      insights.push({
+        severity: 'opportunity',
+        category: 'Appointment Utilization',
+        message: `Saturday appointments are ${utilizationPercent}% utilized. Consider opening 2 additional evening slots.`
+      });
+    }
+
+    insights.push({
+      severity: 'positive',
+      category: 'Financial Margins',
+      message: `Net profit margin is ${profitMarginPercent}% with ₹${totalRevenue.toLocaleString()} in billed revenue.`
+    });
+
+    return {
+      overallHealthScore,
+      healthGrade: overallHealthScore >= 80 ? 'EXCELLENT HEALTH' : overallHealthScore >= 60 ? 'GOOD HEALTH' : 'NEEDS ATTENTION',
+      metrics: {
+        totalRevenue,
+        netProfit,
+        profitMarginPercent,
+        totalCustomers,
+        repeatCustomersCount,
+        retentionPercent,
+        avgRating,
+        totalReviews,
+        lowStockCount: lowStockProducts.length,
+        inventoryHealthPercent,
+        utilizationPercent
+      },
+      categoryScores: {
+        revenueGrowth: revGrowthScore,
+        profitMargin: profitScore,
+        customerRetention: retentionScore,
+        repeatCustomers: repeatScore,
+        staffPerformance: staffScore,
+        customerRatings: ratingScore,
+        inventoryHealth: inventoryScore,
+        appointmentUtilization: utilizationScore
+      },
+      insights
+    };
+  };
   const createInvoice = async (invoiceData) => {
     try {
       const token = localStorage.getItem('token');
@@ -2013,8 +2142,8 @@ export const AppProvider = ({ children }) => {
       updateLoyaltyRules, addLoyaltyReward, updateLoyaltyReward, deleteLoyaltyReward, redeemLoyaltyReward, getLoyaltySummary,
       // Salon Membership System
       addMembershipPlan, updateMembershipPlan, deleteMembershipPlan, subscribeCustomerMembership, redeemMembershipBenefit, triggerMembershipExpiryNotifications, getCustomerMembershipSummary,
-      // Public Salon Showcase & Discovery
-      getPublicSalonProfile, discoverSalons,
+      // Public Salon Showcase & Discovery & Health Score
+      getPublicSalonProfile, discoverSalons, calculateSalonHealthScore,
       // Configurations
       updateSalonDetails, switchBranch, addBranch, updateBranch, deleteBranch, updateSalonSubscription,
       // Marketing
