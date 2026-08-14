@@ -340,10 +340,18 @@ export const mockStaff = [
     branchId: "branch_mumbai_1",
     name: "Emma Watson",
     phone: "9876500001",
+    email: "9876500001@salonsync.com",
     role: "Senior Hair Stylist",
-    salary: 30000,
+    salary: 35000,
     commissionPercentage: 15,
-    rating: 4.9
+    rating: 4.9,
+    specialization: ["Signature Haircut", "Global Balayage", "Keratin Treatment"],
+    services: ["serv_1", "serv_2"],
+    experienceYears: 6,
+    experienceLevel: "Master Artist",
+    bio: "Certified senior hair architect specializing in precision couture cuts and multi-tonal hand balayage techniques.",
+    avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200",
+    status: "Active"
   },
   {
     _id: "staff_2",
@@ -351,10 +359,18 @@ export const mockStaff = [
     branchId: "branch_mumbai_1",
     name: "Brad Pitt",
     phone: "9876500002",
+    email: "9876500002@salonsync.com",
     role: "Skin Care Expert",
-    salary: 28000,
+    salary: 30000,
     commissionPercentage: 12,
-    rating: 4.8
+    rating: 4.8,
+    specialization: ["24K Gold Facial", "Swedish Spa Therapy", "Anti-Aging Peel"],
+    services: ["serv_3", "serv_5"],
+    experienceYears: 5,
+    experienceLevel: "Senior Specialist",
+    bio: "Dermatology-certified aesthetician dedicated to cellular glow skin therapies and holistic muscle release massage.",
+    avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200",
+    status: "Active"
   },
   {
     _id: "staff_3",
@@ -362,10 +378,18 @@ export const mockStaff = [
     branchId: "branch_mumbai_1",
     name: "Angelina Jolie",
     phone: "9876500003",
+    email: "daniel@luxegold.com",
     role: "Master Makeup Artist",
-    salary: 40000,
+    salary: 45000,
     commissionPercentage: 20,
-    rating: 5.0
+    rating: 5.0,
+    specialization: ["Bridal HD Airbrush", "Glamour Makeup", "Couture Styling"],
+    services: ["serv_4", "serv_1"],
+    experienceYears: 8,
+    experienceLevel: "Celebrity Master",
+    bio: "Renowned bridal makeup virtuoso with 8+ years creating flawless runway aesthetics for luxury clientele.",
+    avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200",
+    status: "Active"
   },
   {
     _id: "staff_aarav",
@@ -373,10 +397,76 @@ export const mockStaff = [
     branchId: "branch_mumbai_1",
     name: "Aarav Sharma",
     phone: "+91 98765 00003",
+    email: "aarav@luxegold.com",
     role: "Stylist & Grooming Expert",
-    salary: 25000,
+    salary: 26000,
     commissionPercentage: 15,
-    rating: 4.7
+    rating: 4.7,
+    specialization: ["Gentlemen Grooming", "Beard Sculpting", "Hair Spa"],
+    services: ["serv_1"],
+    experienceYears: 4,
+    experienceLevel: "Lead Specialist",
+    bio: "Modern men's grooming expert specializing in razor fade cuts, royal beard sculpting, and hair revitalization.",
+    avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200",
+    status: "Active"
+  }
+];
+
+export const mockReviews = [
+  {
+    _id: "rev_1",
+    salonId: "salon_luxe_123",
+    staffId: "staff_1",
+    customerId: "cust_1",
+    customerName: "Priyanka Chopra",
+    serviceName: "Signature Haircut & Styling",
+    rating: 5,
+    comment: "Emma transformed my hair completely! The balayage tone is rich and gorgeous. Truly world-class styling.",
+    date: "2026-06-20"
+  },
+  {
+    _id: "rev_2",
+    salonId: "salon_luxe_123",
+    staffId: "staff_1",
+    customerId: "cust_3",
+    customerName: "Deepika Padukone",
+    serviceName: "Global Balayage & Highlights",
+    rating: 5,
+    comment: "Always a 5-star treatment with Emma. Punctual, meticulous, and listens carefully to what I want.",
+    date: "2026-06-15"
+  },
+  {
+    _id: "rev_3",
+    salonId: "salon_luxe_123",
+    staffId: "staff_2",
+    customerId: "cust_3",
+    customerName: "Deepika Padukone",
+    serviceName: "24K Gold Luxury Facial",
+    rating: 5,
+    comment: "Brad's facial massage is deeply soothing. My skin felt instantly rejuvenated and hydrated.",
+    date: "2026-06-18"
+  },
+  {
+    _id: "rev_4",
+    salonId: "salon_luxe_123",
+    staffId: "staff_3",
+    customerId: "cust_1",
+    customerName: "Priyanka Chopra",
+    serviceName: "Bridal HD Airbrush Makeup",
+    rating: 5,
+    comment: "Angelina's airbrush technique is legendary! Flawless coverage that lasted all evening through photo shoots.",
+    date: "2026-06-10"
+  },
+  {
+    _id: "rev_5",
+    salonId: "salon_luxe_123",
+    staffId: "staff_aarav",
+    customerId: "cust_2",
+    customerName: "Ranveer Singh",
+    serviceName: "Gentlemen Grooming",
+    rating: 4.8,
+    comment: "Super sharp edge lineup and beard trim by Aarav. Highly energetic and friendly service!",
+    date: "2026-06-12"
   }
 ];
 

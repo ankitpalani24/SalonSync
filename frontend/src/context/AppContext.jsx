@@ -58,6 +58,7 @@ export const AppProvider = ({ children }) => {
       attendance: getLocal('sf_attendance', mockData.mockAttendance),
       commissions: getLocal('sf_commissions', mockData.mockCommissions),
       notifications: getLocal('sf_notifications', mockData.mockNotifications),
+      reviews: getLocal('sf_reviews', mockData.mockReviews),
     };
   });
 
@@ -809,27 +810,83 @@ export const AppProvider = ({ children }) => {
 
   const addStaff = async (member) => {
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_URL}/staff`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          ...member,
-          branchId: currentBranch ? currentBranch._id : null
-        })
+      const newStaff = {
+        _id: 'staff_' + Date.now() + Math.random().toString(36).substring(2, 6),
+        salonId: currentUser?.salonId || 'salon_luxe_123',
+        branchId: currentBranch ? currentBranch._id : 'branch_mumbai_1',
+        name: member.name,
+        phone: member.phone,
+        email: member.email || `${member.phone}@salonsync.com`,
+        role: member.role || 'Stylist',
+        salary: Number(member.salary) || 0,
+        commissionPercentage: Number(member.commissionPercentage) || 10,
+        rating: 5.0,
+        specialization: member.specialization || [],
+        services: member.services || [],
+        experienceYears: Number(member.experienceYears) || 3,
+        experienceLevel: member.experienceLevel || 'Senior Specialist',
+        bio: member.bio || '',
+        avatar: member.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200',
+        status: member.status || 'Active'
+      };
+
+      setDb(prev => {
+        const updatedStaff = [newStaff, ...(prev.staff || [])];
+        localStorage.setItem('sf_staff', JSON.stringify(updatedStaff));
+        return { ...prev, staff: updatedStaff };
       });
-      const data = await res.json();
-      if (data.success) {
-        const creds = data.credentials || { email: member.email || `${member.phone}@salonsync.com`, password: member.password || 'password123' };
-        addToast(`✅ Staff registered! Login Email/Phone: ${member.email || member.phone} | Password: ${creds.password}`, 'success', 10000);
-        await syncBackendData(token);
-        return data;
+
+      const token = localStorage.getItem('token');
+      if (token) {
+        const res = await fetch(`${API_URL}/staff`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            ...member,
+            branchId: currentBranch ? currentBranch._id : null
+          })
+        });
+        const data = await res.json();
+        if (data.success) {
+          const creds = data.credentials || { email: member.email || `${member.phone}@salonsync.com`, password: member.password || 'password123' };
+          addToast(`✅ Staff registered! Login Email/Phone: ${member.email || member.phone} | Password: ${creds.password}`, 'success', 10000);
+          await syncBackendData(token);
+          return data;
+        }
       }
     } catch (err) {
       console.error('Error adding staff:', err);
+    }
+  };
+
+  const updateStaff = async (staffId, updatedFields) => {
+    try {
+      setDb(prev => {
+        const updatedStaff = (prev.staff || []).map(s => String(s._id) === String(staffId) ? { ...s, ...updatedFields } : s);
+        localStorage.setItem('sf_staff', JSON.stringify(updatedStaff));
+        return { ...prev, staff: updatedStaff };
+      });
+
+      const token = localStorage.getItem('token');
+      if (token) {
+        const res = await fetch(`${API_URL}/staff/${staffId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(updatedFields)
+        });
+        const data = await res.json();
+        if (data.success) {
+          await syncBackendData(token);
+        }
+      }
+    } catch (err) {
+      console.error('Error updating staff:', err);
     }
   };
 
@@ -853,25 +910,6 @@ export const AppProvider = ({ children }) => {
     }
   };
 
-  const updateStaff = async (staffId, updatedFields) => {
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_URL}/staff/${staffId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(updatedFields)
-      });
-      const data = await res.json();
-      if (data.success) {
-        await syncBackendData(token);
-      }
-    } catch (err) {
-      console.error('Error updating staff:', err);
-    }
-  };
 
   const updateProduct = async (productId, updatedFields) => {
     try {
@@ -956,6 +994,182 @@ export const AppProvider = ({ children }) => {
         notifications: updatedNotifs
       };
     });
+  };
+
+  const addReview = async (reviewData) => {
+    try {
+      const newRev = {
+        _id: 'rev_' + Date.now() + Math.random().toString(36).substring(2, 6),
+        salonId: currentUser?.salonId || 'salon_luxe_123',
+        staffId: reviewData.staffId,
+        customerId: reviewData.customerId || null,
+        customerName: reviewData.customerName || 'Valued Client',
+        serviceName: reviewData.serviceName || 'Salon Service',
+        rating: Number(reviewData.rating) || 5,
+        comment: reviewData.comment || '',
+        date: new Date().toISOString().split('T')[0]
+      };
+
+      setDb(prev => {
+        const updatedReviews = [newRev, ...(prev.reviews || [])];
+        localStorage.setItem('sf_reviews', JSON.stringify(updatedReviews));
+
+        // Update staff average rating optimistically
+        let updatedStaff = prev.staff;
+        if (reviewData.staffId) {
+          const staffRevs = updatedReviews.filter(r => String(r.staffId) === String(reviewData.staffId));
+          const avg = staffRevs.length > 0
+            ? Math.round((staffRevs.reduce((sum, r) => sum + r.rating, 0) / staffRevs.length) * 10) / 10
+            : 5.0;
+          updatedStaff = (prev.staff || []).map(s => String(s._id) === String(reviewData.staffId) ? { ...s, rating: avg } : s);
+          localStorage.setItem('sf_staff', JSON.stringify(updatedStaff));
+        }
+
+        return { ...prev, reviews: updatedReviews, staff: updatedStaff };
+      });
+
+      const token = localStorage.getItem('token');
+      if (token) {
+        await fetch(`${API_URL}/reviews`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(reviewData)
+        });
+      }
+      addToast('Customer review submitted successfully!', 'success');
+    } catch (err) {
+      console.error('Error adding review:', err);
+    }
+  };
+
+  const canViewStaffSalary = (staffMemberOrId) => {
+    if (!currentUser) return false;
+    const managerRoles = ['SUPER_ADMIN', 'SALON_OWNER', 'SALON_MANAGER', 'FRANCHISE_OWNER'];
+    if (managerRoles.includes(currentUser.role)) return true;
+
+    const staffId = typeof staffMemberOrId === 'object' ? staffMemberOrId?._id : staffMemberOrId;
+    const myStaffRecord = (db.staff || []).find(s => 
+      String(s.userId) === String(currentUser._id) ||
+      (s.phone && currentUser?.phone && s.phone.replace(/[\s+-]/g, '').endsWith(currentUser?.phone.replace(/[\s+-]/g, '').slice(-10))) ||
+      (s.email && currentUser?.email && s.email.toLowerCase() === currentUser?.email.toLowerCase()) ||
+      (s.name && currentUser?.name && s.name.toLowerCase() === currentUser?.name.toLowerCase())
+    );
+    return myStaffRecord && String(myStaffRecord._id) === String(staffId);
+  };
+
+  const getStaffPerformanceMetrics = (staffId, timeFilter = 'all') => {
+    const staffMember = (db.staff || []).find(s => String(s._id) === String(staffId));
+    if (!staffMember) return null;
+
+    const now = new Date();
+    let startDate = null;
+    if (timeFilter === 'this_month') {
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+    } else if (timeFilter === 'last_month') {
+      startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    } else if (timeFilter === 'this_year') {
+      startDate = new Date(now.getFullYear(), 0, 1);
+    }
+
+    const filterByDate = (dateStr) => {
+      if (!startDate || !dateStr) return true;
+      const d = new Date(dateStr);
+      if (timeFilter === 'last_month') {
+        const endDate = new Date(now.getFullYear(), now.getMonth(), 0);
+        return d >= startDate && d <= endDate;
+      }
+      return d >= startDate;
+    };
+
+    // Completed appointments
+    const staffAppts = (db.appointments || []).filter(a => 
+      String(a.staffId) === String(staffId) && 
+      filterByDate(a.date)
+    );
+    const completedAppts = staffAppts.filter(a => a.status === 'Completed');
+    const servicesCompletedCount = completedAppts.reduce((sum, a) => sum + (a.services?.length || 1), 0);
+
+    // Invoices & Revenue
+    const staffInvoices = (db.invoices || []).filter(inv => 
+      String(inv.staffId) === String(staffId) && 
+      filterByDate(inv.createdAt || inv.date)
+    );
+    const totalRevenue = staffInvoices.reduce((sum, inv) => sum + (inv.finalAmount || 0), 0);
+
+    // Commissions
+    const staffCommissions = (db.commissions || []).filter(c => 
+      String(c.staffId) === String(staffId) && 
+      filterByDate(c.date || c.createdAt)
+    );
+    const totalCommission = staffCommissions.reduce((sum, c) => sum + (c.commissionEarned || 0), 0);
+
+    // Customer Retention & Repeat Customers
+    const customerApptsMap = {};
+    completedAppts.forEach(a => {
+      if (a.customerId) {
+        customerApptsMap[a.customerId] = (customerApptsMap[a.customerId] || 0) + 1;
+      }
+    });
+    staffInvoices.forEach(inv => {
+      if (inv.customerId) {
+        const key = typeof inv.customerId === 'object' ? inv.customerId._id : inv.customerId;
+        customerApptsMap[key] = (customerApptsMap[key] || 1);
+      }
+    });
+
+    const uniqueCustomersCount = Object.keys(customerApptsMap).length;
+    const repeatCustomersCount = Object.values(customerApptsMap).filter(count => count > 1).length;
+    const repeatRate = uniqueCustomersCount > 0 ? Math.round((repeatCustomersCount / uniqueCustomersCount) * 100) : 0;
+
+    // Reviews & Star Rating
+    const staffReviews = (db.reviews || []).filter(r => 
+      String(r.staffId) === String(staffId) && 
+      filterByDate(r.date)
+    );
+    const avgRating = staffReviews.length > 0
+      ? Math.round((staffReviews.reduce((sum, r) => sum + r.rating, 0) / staffReviews.length) * 10) / 10
+      : (staffMember.rating || 5.0);
+
+    // Attendance
+    const staffAttendance = (db.attendance || []).filter(att => {
+      const attStaffId = typeof att.staffId === 'object' ? att.staffId._id : att.staffId;
+      return String(attStaffId) === String(staffId) && filterByDate(att.date);
+    });
+    const totalDaysTracked = Math.max(1, staffAttendance.length);
+    const presentDays = staffAttendance.filter(att => att.checkIn).length;
+    const attendanceRate = Math.min(100, Math.round((presentDays / totalDaysTracked) * 100));
+
+    // Performance Score (0-100)
+    const ratingScore = (avgRating / 5) * 100;
+    const volumeScore = Math.min(100, (servicesCompletedCount / 5) * 100);
+    const performanceScore = Math.min(100, Math.round(
+      (ratingScore * 0.35) + 
+      (attendanceRate * 0.25) + 
+      (repeatRate * 0.20) + 
+      (volumeScore * 0.20)
+    ));
+
+    return {
+      staffMember,
+      totalRevenue,
+      servicesCompletedCount,
+      uniqueCustomersCount,
+      repeatCustomersCount,
+      repeatRate,
+      avgRating,
+      reviewCount: staffReviews.length,
+      totalCommission,
+      attendanceRate,
+      presentDays,
+      totalDaysTracked,
+      performanceScore,
+      appointments: staffAppts,
+      invoices: staffInvoices,
+      reviews: staffReviews
+    };
   };
 
   // POS Checkout Billing Generator
@@ -1188,8 +1402,9 @@ export const AppProvider = ({ children }) => {
       addService, updateService, deleteService, addPackage,
       // Finance & Inventory
       addExpense, updateExpense, deleteExpense, fetchFinancialAnalytics, addProduct, updateProduct, updateProductQuantity, deleteProduct, addSupplier, createInvoice,
-      // HR
+      // HR & Performance
       addStaff, updateStaff, deleteStaff, clockInStaff, clockOutStaff,
+      addReview, canViewStaffSalary, getStaffPerformanceMetrics,
       // Configurations
       updateSalonDetails, switchBranch, addBranch, updateBranch, deleteBranch, updateSalonSubscription,
       // Marketing

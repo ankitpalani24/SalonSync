@@ -272,6 +272,13 @@ const StaffSchema = new mongoose.Schema({
   salary: { type: Number, default: 0 },
   commissionPercentage: { type: Number, default: 10 }, // e.g. 10%
   rating: { type: Number, default: 5 },
+  specialization: [{ type: String }],
+  services: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Service' }],
+  experienceYears: { type: Number, default: 3 },
+  experienceLevel: { type: String, default: 'Senior Specialist' },
+  bio: { type: String },
+  avatar: { type: String },
+  status: { type: String, enum: ['Active', 'On Leave', 'Inactive'], default: 'Active' }
 }, { timestamps: true });
 
 StaffSchema.index({ salonId: 1, branchId: 1 });
@@ -336,6 +343,7 @@ const ReviewSchema = new mongoose.Schema({
   staffId: { type: mongoose.Schema.Types.ObjectId, ref: 'Staff' },
   customerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Customer' },
   customerName: { type: String, required: true },
+  serviceName: { type: String },
   rating: { type: Number, required: true, min: 1, max: 5 },
   comment: { type: String },
   date: { type: Date, default: Date.now }

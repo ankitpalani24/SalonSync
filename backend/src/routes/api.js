@@ -857,15 +857,30 @@ router.delete('/suppliers/:id', requirePermission('inventory.edit'), validateObj
 // ----------------------------------------------------
 // STAFF & ATTENDANCE
 // ----------------------------------------------------
-const STAFF_FIELDS = ['name', 'phone', 'email', 'role', 'salary', 'commissionPercentage', 'branchId', 'password'];
+const STAFF_FIELDS = ['name', 'phone', 'email', 'role', 'salary', 'commissionPercentage', 'branchId', 'password', 'specialization', 'services', 'experienceYears', 'experienceLevel', 'bio', 'avatar', 'status'];
 
 router.get('/staff', requirePermission('staff.view'), safeHandler(async (req, res) => {
-  const staff = await models.Staff.find(req.tenantFilter);
+  let staff = await models.Staff.find(req.tenantFilter).populate('services');
+  
+  // Confidentiality Enforcement:
+  // If requesting user is STAFF role, mask salary for other staff members
+  const isManagerOrOwner = ['SUPER_ADMIN', 'SALON_OWNER', 'SALON_MANAGER', 'FRANCHISE_OWNER'].includes(req.user.role);
+  if (!isManagerOrOwner) {
+    staff = staff.map(s => {
+      const staffObj = s.toObject();
+      // Only keep salary if it matches the current user's linked staff record
+      if (String(s.userId) !== String(req.user._id) && s.phone !== req.user.phone && s.email !== req.user.email) {
+        delete staffObj.salary; // Do not expose confidential salary info
+      }
+      return staffObj;
+    });
+  }
+  
   res.json({ success: true, data: staff });
 }, 'Failed to fetch staff'));
 
 router.post('/staff', requirePermission('staff.manage'), sanitizeBody([...STAFF_FIELDS]), safeHandler(async (req, res) => {
-  const { name, phone, email, role, salary, commissionPercentage, password } = req.body;
+  const { name, phone, email, role, salary, commissionPercentage, password, specialization, services, experienceYears, experienceLevel, bio, avatar, status } = req.body;
   
   // 1. Create Staff document
   const staff = await models.Staff.create({
@@ -876,7 +891,14 @@ router.post('/staff', requirePermission('staff.manage'), sanitizeBody([...STAFF_
     email: email || `${phone}@salonsync.com`,
     role: role || 'Stylist',
     salary: salary || 0,
-    commissionPercentage: commissionPercentage || 10
+    commissionPercentage: commissionPercentage || 10,
+    specialization: specialization || [],
+    services: services || [],
+    experienceYears: experienceYears || 3,
+    experienceLevel: experienceLevel || 'Senior Specialist',
+    bio: bio || '',
+    avatar: avatar || '',
+    status: status || 'Active'
   });
 
   // 2. Create User Login Account for Staff
@@ -884,7 +906,6 @@ router.post('/staff', requirePermission('staff.manage'), sanitizeBody([...STAFF_
   let user = await models.User.findOne({ $or: [{ email: staffEmail }, { phone }] });
   
   if (!user) {
-    // Generate random password if none provided (never returned to the caller)
     const crypto = require('crypto');
     const actualPassword = password || crypto.randomBytes(12).toString('base64url');
     const salt = await bcrypt.genSalt(BCRYPT_SALT_ROUNDS);
@@ -905,7 +926,6 @@ router.post('/staff', requirePermission('staff.manage'), sanitizeBody([...STAFF_
     await staff.save();
   }
 
-  // SECURITY: Never return passwords in the response
   res.status(201).json({
     success: true,
     data: staff,
@@ -914,7 +934,7 @@ router.post('/staff', requirePermission('staff.manage'), sanitizeBody([...STAFF_
   });
 }, 'Failed to create staff'));
 
-router.put('/staff/:id', requirePermission('staff.manage'), validateObjectId, sanitizeBody(['name', 'phone', 'email', 'role', 'salary', 'commissionPercentage']), safeHandler(async (req, res) => {
+router.put('/staff/:id', requirePermission('staff.manage'), validateObjectId, sanitizeBody([...STAFF_FIELDS]), safeHandler(async (req, res) => {
   const staff = await models.Staff.findOneAndUpdate(
     { _id: req.params.id, ...req.tenantFilter },
     req.body,
@@ -929,6 +949,40 @@ router.delete('/staff/:id', requirePermission('staff.manage'), validateObjectId,
   if (!staff) return res.status(404).json({ success: false, message: 'Staff member not found' });
   res.json({ success: true, message: 'Staff member removed' });
 }, 'Failed to delete staff'));
+
+// ----------------------------------------------------
+// REVIEWS & FEEDBACK
+// ----------------------------------------------------
+router.get('/reviews', safeHandler(async (req, res) => {
+  const filter = { ...req.tenantFilter };
+  if (req.query.staffId) filter.staffId = req.query.staffId;
+  const reviews = await models.Review.find(filter).sort({ date: -1 });
+  res.json({ success: true, data: reviews });
+}, 'Failed to fetch reviews'));
+
+router.post('/reviews', safeHandler(async (req, res) => {
+  const { staffId, customerId, customerName, serviceName, rating, comment } = req.body;
+  const review = await models.Review.create({
+    salonId: req.user ? req.user.salonId : req.body.salonId,
+    staffId,
+    customerId,
+    customerName: customerName || 'Valued Client',
+    serviceName: serviceName || 'Salon Service',
+    rating: Number(rating) || 5,
+    comment: comment || ''
+  });
+
+  // Re-calculate staff average rating
+  if (staffId) {
+    const allStaffReviews = await models.Review.find({ staffId });
+    if (allStaffReviews.length > 0) {
+      const avg = allStaffReviews.reduce((sum, r) => sum + r.rating, 0) / allStaffReviews.length;
+      await models.Staff.findByIdAndUpdate(staffId, { rating: Math.round(avg * 10) / 10 });
+    }
+  }
+
+  res.status(201).json({ success: true, data: review });
+}, 'Failed to submit review'));
 
 router.get('/attendance', requirePermission('staff.view'), safeHandler(async (req, res) => {
   const attendance = await models.Attendance.find(req.tenantFilter).populate('staffId');
