@@ -22,6 +22,7 @@ import Analytics from './pages/Analytics';
 import Expenses from './pages/Expenses';
 import Marketing from './pages/Marketing';
 import Loyalty from './pages/Loyalty';
+import Memberships from './pages/Memberships';
 import SuperAdmin from './pages/Admin/SuperAdmin';
 
 function App() {
@@ -106,6 +107,7 @@ function App() {
           'staff': PERMISSIONS.STAFF_VIEW,
           'analytics': PERMISSIONS.REPORTS_VIEW,
           'loyalty': PERMISSIONS.CUSTOMERS_VIEW,
+          'memberships': PERMISSIONS.CUSTOMERS_VIEW,
           'marketing': null
         };
         const reqPerm = pagePermissionMap[activePage];
@@ -155,6 +157,8 @@ function App() {
         return <Marketing />;
       case 'loyalty':
         return <Loyalty />;
+      case 'memberships':
+        return <Memberships />;
       case 'super-admin':
         return <SuperAdmin />;
       default:

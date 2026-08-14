@@ -62,6 +62,7 @@ export const AppProvider = ({ children }) => {
       loyaltyRewards: getLocal('sf_loyalty_rewards', mockData.mockLoyaltyRewards),
       loyaltyRules: getLocal('sf_loyalty_rules', mockData.mockLoyaltyRules),
       loyaltyTransactions: getLocal('sf_loyalty_transactions', mockData.mockLoyaltyTransactions),
+      customerMemberships: getLocal('sf_customer_memberships', mockData.mockCustomerMemberships),
     };
   });
 
@@ -1400,6 +1401,303 @@ export const AppProvider = ({ children }) => {
       availableRewards: activeRewards
     };
   };
+
+  // ── Salon Membership System ──
+  const addMembershipPlan = async (planData) => {
+    try {
+      const newPlan = {
+        _id: 'm_' + Date.now() + Math.random().toString(36).substring(2, 6),
+        salonId: currentUser?.salonId || 'salon_luxe_123',
+        name: planData.name,
+        tier: planData.tier || 'Gold',
+        discountPercentage: Number(planData.discountPercentage) || 15,
+        price: Number(planData.price) || 10000,
+        validityMonths: Number(planData.validityMonths) || 12,
+        includedServices: planData.includedServices || [],
+        priorityBooking: planData.priorityBooking !== false,
+        loyaltyMultiplier: Number(planData.loyaltyMultiplier) || 1.5,
+        specialOffers: planData.specialOffers || [],
+        description: planData.description || '',
+        active: true
+      };
+
+      setDb(prev => {
+        const updatedPlans = [newPlan, ...(prev.memberships || [])];
+        localStorage.setItem('sf_memberships', JSON.stringify(updatedPlans));
+        return { ...prev, memberships: updatedPlans };
+      });
+
+      const token = localStorage.getItem('token');
+      if (token) {
+        await fetch(`${API_URL}/memberships`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(planData)
+        });
+      }
+      addToast(`New Membership Plan "${planData.name}" created!`, 'success');
+    } catch (err) {
+      console.error('Error adding membership plan:', err);
+    }
+  };
+
+  const updateMembershipPlan = async (id, updatedFields) => {
+    try {
+      setDb(prev => {
+        const updatedPlans = (prev.memberships || []).map(p => String(p._id) === String(id) ? { ...p, ...updatedFields } : p);
+        localStorage.setItem('sf_memberships', JSON.stringify(updatedPlans));
+        return { ...prev, memberships: updatedPlans };
+      });
+
+      const token = localStorage.getItem('token');
+      if (token) {
+        await fetch(`${API_URL}/memberships/${id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(updatedFields)
+        });
+      }
+      addToast('Membership plan updated!', 'info');
+    } catch (err) {
+      console.error('Error updating membership plan:', err);
+    }
+  };
+
+  const deleteMembershipPlan = async (id) => {
+    try {
+      setDb(prev => {
+        const updatedPlans = (prev.memberships || []).filter(p => String(p._id) !== String(id));
+        localStorage.setItem('sf_memberships', JSON.stringify(updatedPlans));
+        return { ...prev, memberships: updatedPlans };
+      });
+
+      const token = localStorage.getItem('token');
+      if (token) {
+        await fetch(`${API_URL}/memberships/${id}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+      }
+      addToast('Membership plan removed.', 'info');
+    } catch (err) {
+      console.error('Error deleting membership plan:', err);
+    }
+  };
+
+  const subscribeCustomerMembership = async ({ customerId, membershipPlanId, startDate }) => {
+    try {
+      const plan = (db.memberships || []).find(m => String(m._id) === String(membershipPlanId));
+      if (!plan) {
+        addToast('Selected membership plan not found.', 'error');
+        return { success: false };
+      }
+
+      const start = startDate ? new Date(startDate) : new Date();
+      const expiry = new Date(start);
+      expiry.setMonth(expiry.getMonth() + (plan.validityMonths || 12));
+
+      const benefits = (plan.includedServices || []).map(srv => ({
+        serviceId: srv.serviceId,
+        serviceName: srv.name,
+        sessionsUsed: 0,
+        totalSessions: srv.sessionsCount || 1
+      }));
+
+      const newSub = {
+        _id: 'csub_' + Date.now() + Math.random().toString(36).substring(2, 6),
+        salonId: currentUser?.salonId || 'salon_luxe_123',
+        customerId,
+        membershipPlanId: plan._id,
+        tier: plan.tier || plan.name,
+        startDate: start.toISOString().split('T')[0],
+        expiryDate: expiry.toISOString().split('T')[0],
+        status: 'Active',
+        pricePaid: plan.price,
+        discountPercentage: plan.discountPercentage,
+        benefitsUsed: benefits,
+        history: [
+          { date: new Date().toISOString().split('T')[0], action: 'Subscribed', details: `Subscribed to ${plan.name} for ₹${plan.price}` }
+        ],
+        expiryNotified: false
+      };
+
+      setDb(prev => {
+        const updatedSubs = [newSub, ...(prev.customerMemberships || [])];
+        const updatedCusts = (prev.customers || []).map(c => String(c._id) === String(customerId) ? { ...c, membershipLevel: plan.tier || plan.name } : c);
+
+        localStorage.setItem('sf_customer_memberships', JSON.stringify(updatedSubs));
+        localStorage.setItem('sf_customers', JSON.stringify(updatedCusts));
+
+        return {
+          ...prev,
+          customerMemberships: updatedSubs,
+          customers: updatedCusts
+        };
+      });
+
+      const token = localStorage.getItem('token');
+      if (token) {
+        await fetch(`${API_URL}/customer-memberships`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ customerId, membershipPlanId, startDate })
+        });
+      }
+
+      addToast(`🎉 Customer subscribed to ${plan.name}! Valid until ${expiry.toISOString().split('T')[0]}`, 'success');
+      return { success: true, subscription: newSub };
+    } catch (err) {
+      console.error('Error subscribing customer membership:', err);
+      return { success: false, message: err.message };
+    }
+  };
+
+  const redeemMembershipBenefit = async ({ subscriptionId, serviceId }) => {
+    try {
+      const sub = (db.customerMemberships || []).find(s => String(s._id) === String(subscriptionId));
+      if (!sub) return { success: false, message: 'Subscription not found' };
+
+      const benefitIndex = (sub.benefitsUsed || []).findIndex(b => String(b.serviceId) === String(serviceId));
+      if (benefitIndex === -1) {
+        addToast('Selected service benefit is not included in this plan.', 'error');
+        return { success: false };
+      }
+
+      const benefit = sub.benefitsUsed[benefitIndex];
+      if (benefit.sessionsUsed >= benefit.totalSessions) {
+        addToast(`All ${benefit.totalSessions} sessions of ${benefit.serviceName} have already been used.`, 'warning');
+        return { success: false };
+      }
+
+      const updatedBenefits = [...sub.benefitsUsed];
+      updatedBenefits[benefitIndex] = {
+        ...benefit,
+        sessionsUsed: benefit.sessionsUsed + 1
+      };
+
+      const updatedHistory = [
+        ...(sub.history || []),
+        { date: new Date().toISOString().split('T')[0], action: 'Benefit Used', details: `Redeemed 1 session of ${benefit.serviceName} (${benefit.sessionsUsed + 1}/${benefit.totalSessions} used)` }
+      ];
+
+      setDb(prev => {
+        const updatedSubs = (prev.customerMemberships || []).map(s => String(s._id) === String(subscriptionId) ? { ...s, benefitsUsed: updatedBenefits, history: updatedHistory } : s);
+        localStorage.setItem('sf_customer_memberships', JSON.stringify(updatedSubs));
+        return { ...prev, customerMemberships: updatedSubs };
+      });
+
+      const token = localStorage.getItem('token');
+      if (token) {
+        await fetch(`${API_URL}/customer-memberships/${subscriptionId}/redeem-benefit`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ serviceId })
+        });
+      }
+
+      addToast(`Redeemed 1 session of ${benefit.serviceName}! Remaining: ${benefit.totalSessions - (benefit.sessionsUsed + 1)}`, 'success');
+      return { success: true };
+    } catch (err) {
+      console.error('Error redeeming membership benefit:', err);
+      return { success: false, message: err.message };
+    }
+  };
+
+  const triggerMembershipExpiryNotifications = async () => {
+    try {
+      const now = new Date();
+      const thirtyDaysLater = new Date();
+      thirtyDaysLater.setDate(now.getDate() + 30);
+
+      const expiringSubs = (db.customerMemberships || []).filter(sub => {
+        if (sub.status === 'Cancelled' || sub.expiryNotified) return false;
+        const exp = new Date(sub.expiryDate);
+        return exp <= thirtyDaysLater;
+      });
+
+      const newNotifs = [];
+      const updatedSubIds = [];
+
+      expiringSubs.forEach(sub => {
+        const cust = (db.customers || []).find(c => String(c._id) === String(sub.customerId));
+        if (cust) {
+          newNotifs.push({
+            _id: 'nt_' + Date.now() + Math.random().toString(36).substring(2, 6),
+            salonId: currentUser?.salonId || 'salon_luxe_123',
+            customerId: cust._id,
+            type: 'WhatsApp',
+            message: `Dear ${cust.name}, your SalonSync ${sub.tier} Membership expires on ${sub.expiryDate}. Renew today to keep enjoying ${sub.discountPercentage}% discounts!`,
+            status: 'Sent',
+            sentAt: new Date().toISOString()
+          });
+          updatedSubIds.push(sub._id);
+        }
+      });
+
+      if (newNotifs.length > 0) {
+        setDb(prev => {
+          const updatedNotifsList = [...newNotifs, ...(prev.notifications || [])];
+          const updatedSubsList = (prev.customerMemberships || []).map(s => updatedSubIds.includes(s._id) ? { ...s, status: 'Expiring Soon', expiryNotified: true } : s);
+          localStorage.setItem('sf_notifications', JSON.stringify(updatedNotifsList));
+          localStorage.setItem('sf_customer_memberships', JSON.stringify(updatedSubsList));
+          return { ...prev, notifications: updatedNotifsList, customerMemberships: updatedSubsList };
+        });
+
+        addToast(`📢 Sent expiry reminder notifications to ${newNotifs.length} member(s)!`, 'success');
+      } else {
+        addToast('No memberships expiring within the next 30 days requiring notification.', 'info');
+      }
+
+      const token = localStorage.getItem('token');
+      if (token) {
+        await fetch(`${API_URL}/customer-memberships/check-expiries`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+      }
+    } catch (err) {
+      console.error('Error triggering expiry notifications:', err);
+    }
+  };
+
+  const getCustomerMembershipSummary = (customerId) => {
+    const customer = (db.customers || []).find(c => String(c._id) === String(customerId));
+    if (!customer) return null;
+
+    const subscription = (db.customerMemberships || []).find(sub => {
+      const cid = typeof sub.customerId === 'object' ? sub.customerId._id : sub.customerId;
+      return String(cid) === String(customerId) && (sub.status === 'Active' || sub.status === 'Expiring Soon');
+    }) || (db.customerMemberships || []).find(sub => {
+      const cid = typeof sub.customerId === 'object' ? sub.customerId._id : sub.customerId;
+      return String(cid) === String(customerId);
+    });
+
+    const activePlan = subscription ? (db.memberships || []).find(m => String(m._id) === String(subscription.membershipPlanId)) : null;
+
+    return {
+      customer,
+      subscription,
+      activePlan,
+      tier: subscription ? subscription.tier : 'None',
+      discountPercentage: subscription ? subscription.discountPercentage : 0,
+      expiryDate: subscription ? subscription.expiryDate : null,
+      startDate: subscription ? subscription.startDate : null,
+      benefitsUsed: subscription ? subscription.benefitsUsed || [] : [],
+      history: subscription ? subscription.history || [] : []
+    };
+  };
   const createInvoice = async (invoiceData) => {
     try {
       const token = localStorage.getItem('token');
@@ -1634,6 +1932,8 @@ export const AppProvider = ({ children }) => {
       addReview, canViewStaffSalary, getStaffPerformanceMetrics,
       // Loyalty Rewards System
       updateLoyaltyRules, addLoyaltyReward, updateLoyaltyReward, deleteLoyaltyReward, redeemLoyaltyReward, getLoyaltySummary,
+      // Salon Membership System
+      addMembershipPlan, updateMembershipPlan, deleteMembershipPlan, subscribeCustomerMembership, redeemMembershipBenefit, triggerMembershipExpiryNotifications, getCustomerMembershipSummary,
       // Configurations
       updateSalonDetails, switchBranch, addBranch, updateBranch, deleteBranch, updateSalonSubscription,
       // Marketing

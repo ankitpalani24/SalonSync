@@ -556,6 +556,151 @@ router.delete('/packages/:id', requirePermission('inventory.edit'), validateObje
 }, 'Failed to delete package'));
 
 // ----------------------------------------------------
+// SALON MEMBERSHIP PLANS & CUSTOMER SUBSCRIPTIONS
+// ----------------------------------------------------
+const MEMBERSHIP_FIELDS = ['name', 'tier', 'discountPercentage', 'price', 'validityMonths', 'includedServices', 'priorityBooking', 'loyaltyMultiplier', 'specialOffers', 'description', 'active'];
+
+router.get('/memberships', safeHandler(async (req, res) => {
+  const plans = await models.Membership.find({ salonId: req.user.salonId, active: true }).sort({ price: 1 });
+  res.json({ success: true, data: plans });
+}, 'Failed to fetch membership plans'));
+
+router.post('/memberships', requirePermission('inventory.edit'), sanitizeBody([...MEMBERSHIP_FIELDS]), safeHandler(async (req, res) => {
+  const plan = await models.Membership.create({
+    ...req.body,
+    salonId: req.user.salonId
+  });
+  res.status(201).json({ success: true, data: plan });
+}, 'Failed to create membership plan'));
+
+router.put('/memberships/:id', requirePermission('inventory.edit'), validateObjectId, sanitizeBody([...MEMBERSHIP_FIELDS]), safeHandler(async (req, res) => {
+  const plan = await models.Membership.findOneAndUpdate(
+    { _id: req.params.id, salonId: req.user.salonId },
+    req.body,
+    { new: true, runValidators: true }
+  );
+  if (!plan) return res.status(404).json({ success: false, message: 'Membership plan not found' });
+  res.json({ success: true, data: plan });
+}, 'Failed to update membership plan'));
+
+router.delete('/memberships/:id', requirePermission('inventory.edit'), validateObjectId, safeHandler(async (req, res) => {
+  const plan = await models.Membership.findOneAndDelete({ _id: req.params.id, salonId: req.user.salonId });
+  if (!plan) return res.status(404).json({ success: false, message: 'Membership plan not found' });
+  res.json({ success: true, message: 'Membership plan removed' });
+}, 'Failed to delete membership plan'));
+
+router.get('/customer-memberships', safeHandler(async (req, res) => {
+  const filter = { salonId: req.user.salonId };
+  if (req.query.customerId) filter.customerId = req.query.customerId;
+  const subscriptions = await models.CustomerMembership.find(filter).populate('customerId').populate('membershipPlanId').sort({ expiryDate: -1 });
+  res.json({ success: true, data: subscriptions });
+}, 'Failed to fetch customer memberships'));
+
+router.post('/customer-memberships', safeHandler(async (req, res) => {
+  const { customerId, membershipPlanId, startDate } = req.body;
+  const plan = await models.Membership.findById(membershipPlanId);
+  if (!plan) return res.status(404).json({ success: false, message: 'Membership plan not found' });
+
+  const start = startDate ? new Date(startDate) : new Date();
+  const expiry = new Date(start);
+  expiry.setMonth(expiry.getMonth() + (plan.validityMonths || 12));
+
+  const benefits = (plan.includedServices || []).map(srv => ({
+    serviceId: srv.serviceId,
+    serviceName: srv.name,
+    sessionsUsed: 0,
+    totalSessions: srv.sessionsCount || 1
+  }));
+
+  const subscription = await models.CustomerMembership.create({
+    salonId: req.user.salonId,
+    customerId,
+    membershipPlanId: plan._id,
+    tier: plan.name || plan.tier,
+    startDate: start,
+    expiryDate: expiry,
+    status: 'Active',
+    pricePaid: plan.price,
+    discountPercentage: plan.discountPercentage,
+    benefitsUsed: benefits,
+    history: [{
+      date: new Date(),
+      action: 'Subscribed',
+      details: `Subscribed to ${plan.name} Membership plan for ₹${plan.price}`
+    }]
+  });
+
+  // Update Customer membershipLevel
+  await models.Customer.findByIdAndUpdate(customerId, {
+    membershipLevel: plan.name
+  });
+
+  res.status(201).json({ success: true, data: subscription });
+}, 'Failed to subscribe customer membership'));
+
+router.post('/customer-memberships/:id/redeem-benefit', validateObjectId, safeHandler(async (req, res) => {
+  const { serviceId } = req.body;
+  const sub = await models.CustomerMembership.findOne({ _id: req.params.id, salonId: req.user.salonId });
+  if (!sub) return res.status(404).json({ success: false, message: 'Subscription record not found' });
+
+  const benefitIndex = (sub.benefitsUsed || []).findIndex(b => String(b.serviceId) === String(serviceId));
+  if (benefitIndex === -1) {
+    return res.status(400).json({ success: false, message: 'Selected benefit service is not included in this membership plan.' });
+  }
+
+  const benefit = sub.benefitsUsed[benefitIndex];
+  if (benefit.sessionsUsed >= benefit.totalSessions) {
+    return res.status(400).json({ success: false, message: `All ${benefit.totalSessions} sessions of ${benefit.serviceName} have already been used.` });
+  }
+
+  sub.benefitsUsed[benefitIndex].sessionsUsed += 1;
+  sub.history.push({
+    date: new Date(),
+    action: 'Benefit Used',
+    details: `Redeemed 1 session of ${benefit.serviceName} (${sub.benefitsUsed[benefitIndex].sessionsUsed}/${benefit.totalSessions} used)`
+  });
+
+  await sub.save();
+  res.json({ success: true, data: sub });
+}, 'Failed to redeem membership benefit'));
+
+router.post('/customer-memberships/check-expiries', safeHandler(async (req, res) => {
+  const thirtyDaysLater = new Date();
+  thirtyDaysLater.setDate(thirtyDaysLater.getDate() + 30);
+
+  const expiringSubs = await models.CustomerMembership.find({
+    salonId: req.user.salonId,
+    status: 'Active',
+    expiryDate: { $lte: thirtyDaysLater },
+    expiryNotified: false
+  }).populate('customerId');
+
+  const notificationsSent = [];
+  for (const sub of expiringSubs) {
+    if (sub.customerId) {
+      const formattedDate = new Date(sub.expiryDate).toLocaleDateString();
+      const msg = `Dear ${sub.customerId.name}, your SalonSync ${sub.tier} Membership expires on ${formattedDate}. Renew today to continue enjoying ${sub.discountPercentage}% discounts!`;
+
+      await models.Notification.create({
+        salonId: req.user.salonId,
+        customerId: sub.customerId._id,
+        type: 'WhatsApp',
+        message: msg,
+        status: 'Sent'
+      });
+
+      sub.status = 'Expiring Soon';
+      sub.expiryNotified = true;
+      await sub.save();
+
+      notificationsSent.push({ customerName: sub.customerId.name, expiryDate: formattedDate });
+    }
+  }
+
+  res.json({ success: true, count: notificationsSent.length, notificationsSent });
+}, 'Failed to check membership expiries'));
+
+// ----------------------------------------------------
 // EXPENSE TRACKING
 // ----------------------------------------------------
 const EXPENSE_FIELDS = ['category', 'amount', 'description', 'date', 'paymentMethod', 'vendor', 'receiptUrl', 'createdBy', 'branchId'];

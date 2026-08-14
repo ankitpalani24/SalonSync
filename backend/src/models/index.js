@@ -151,16 +151,58 @@ const PackageSchema = new mongoose.Schema({
 
 PackageSchema.index({ salonId: 1 });
 
-// 8. Membership Schema
+// 8. Membership Plan Schema
 const MembershipSchema = new mongoose.Schema({
   salonId: { type: mongoose.Schema.Types.ObjectId, ref: 'Salon', required: true },
-  name: { type: String, enum: ['Silver', 'Gold', 'Platinum'], required: true },
+  name: { type: String, required: true },
+  tier: { type: String, enum: ['Silver', 'Gold', 'Platinum', 'VIP'], default: 'Gold' },
   discountPercentage: { type: Number, required: true },
   price: { type: Number, required: true },
   validityMonths: { type: Number, default: 12 },
+  includedServices: [{
+    serviceId: { type: mongoose.Schema.Types.ObjectId, ref: 'Service' },
+    name: String,
+    sessionsCount: { type: Number, default: 1 }
+  }],
+  priorityBooking: { type: Boolean, default: true },
+  loyaltyMultiplier: { type: Number, default: 1.5 },
+  specialOffers: [{ type: String }],
+  description: { type: String },
+  active: { type: Boolean, default: true }
 }, { timestamps: true });
 
-MembershipSchema.index({ salonId: 1 });
+MembershipSchema.index({ salonId: 1, active: 1 });
+
+// 8b. Customer Membership Subscription Schema
+const CustomerMembershipSchema = new mongoose.Schema({
+  salonId: { type: mongoose.Schema.Types.ObjectId, ref: 'Salon', required: true },
+  customerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Customer', required: true },
+  membershipPlanId: { type: mongoose.Schema.Types.ObjectId, ref: 'Membership', required: true },
+  tier: { type: String, required: true },
+  startDate: { type: Date, default: Date.now },
+  expiryDate: { type: Date, required: true },
+  status: { 
+    type: String, 
+    enum: ['Active', 'Expiring Soon', 'Expired', 'Cancelled'], 
+    default: 'Active' 
+  },
+  pricePaid: { type: Number, default: 0 },
+  discountPercentage: { type: Number, default: 10 },
+  benefitsUsed: [{
+    serviceId: { type: mongoose.Schema.Types.ObjectId, ref: 'Service' },
+    serviceName: String,
+    sessionsUsed: { type: Number, default: 0 },
+    totalSessions: { type: Number, default: 1 }
+  }],
+  history: [{
+    date: { type: Date, default: Date.now },
+    action: String,
+    details: String
+  }],
+  expiryNotified: { type: Boolean, default: false }
+}, { timestamps: true });
+
+CustomerMembershipSchema.index({ salonId: 1, customerId: 1, status: 1 });
 
 // 9. LoyaltyPoint / Transaction Schema
 const LoyaltyPointSchema = new mongoose.Schema({
@@ -425,6 +467,7 @@ module.exports = {
   Service: mongoose.model('Service', ServiceSchema),
   Package: mongoose.model('Package', PackageSchema),
   Membership: mongoose.model('Membership', MembershipSchema),
+  CustomerMembership: mongoose.model('CustomerMembership', CustomerMembershipSchema),
   LoyaltyPoint: mongoose.model('LoyaltyPoint', LoyaltyPointSchema),
   LoyaltyReward: mongoose.model('LoyaltyReward', LoyaltyRewardSchema),
   LoyaltyRule: mongoose.model('LoyaltyRule', LoyaltyRuleSchema),

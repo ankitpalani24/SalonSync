@@ -328,9 +328,126 @@ export const mockPackages = [
 ];
 
 export const mockMemberships = [
-  { _id: "m_silver", salonId: "salon_luxe_123", name: "Silver", discountPercentage: 10, price: 5000, validityMonths: 12 },
-  { _id: "m_gold", salonId: "salon_luxe_123", name: "Gold", discountPercentage: 15, price: 10000, validityMonths: 12 },
-  { _id: "m_platinum", salonId: "salon_luxe_123", name: "Platinum", discountPercentage: 20, price: 20000, validityMonths: 12 }
+  {
+    _id: "m_silver",
+    salonId: "salon_luxe_123",
+    name: "Silver Tier Pass",
+    tier: "Silver",
+    discountPercentage: 10,
+    price: 5000,
+    validityMonths: 6,
+    includedServices: [
+      { serviceId: "serv_1", name: "Signature Haircut & Styling", sessionsCount: 2 }
+    ],
+    priorityBooking: true,
+    loyaltyMultiplier: 1.25,
+    specialOffers: ["10% off all retail products", "Complimentary birthday blow dry"],
+    description: "Ideal entry membership plan with 10% discount on all services and 2 complimentary haircuts.",
+    active: true
+  },
+  {
+    _id: "m_gold",
+    salonId: "salon_luxe_123",
+    name: "Gold Royalty Pass",
+    tier: "Gold",
+    discountPercentage: 15,
+    price: 10000,
+    validityMonths: 12,
+    includedServices: [
+      { serviceId: "serv_1", name: "Signature Haircut & Styling", sessionsCount: 4 },
+      { serviceId: "serv_3", name: "24K Gold Luxury Facial", sessionsCount: 2 }
+    ],
+    priorityBooking: true,
+    loyaltyMultiplier: 1.5,
+    specialOffers: ["15% off all retail products", "VIP Lounge Access", "Weekend Fast-Track Booking"],
+    description: "Our most popular annual membership offering 15% discount, complimentary gold facials & priority booking.",
+    active: true
+  },
+  {
+    _id: "m_platinum",
+    salonId: "salon_luxe_123",
+    name: "Platinum Elite Club",
+    tier: "Platinum",
+    discountPercentage: 20,
+    price: 20000,
+    validityMonths: 12,
+    includedServices: [
+      { serviceId: "serv_1", name: "Signature Haircut & Styling", sessionsCount: 6 },
+      { serviceId: "serv_3", name: "24K Gold Luxury Facial", sessionsCount: 4 },
+      { serviceId: "serv_5", name: "Deep Tissue Swedish Spa", sessionsCount: 2 }
+    ],
+    priorityBooking: true,
+    loyaltyMultiplier: 2.0,
+    specialOffers: ["20% off all retail products", "Free Birthday Spa & Gift Hamper", "Unlimited VIP Suite Access", "Dedicated Stylist Concierge"],
+    description: "The ultimate luxury salon experience with 20% discount on all services, complimentary spa packages, and 2x points.",
+    active: true
+  }
+];
+
+export const mockCustomerMemberships = [
+  {
+    _id: "csub_1",
+    salonId: "salon_luxe_123",
+    customerId: "cust_1", // Priyanka Chopra
+    membershipPlanId: "m_platinum",
+    tier: "Platinum",
+    startDate: "2026-01-01",
+    expiryDate: "2026-12-31",
+    status: "Active",
+    pricePaid: 20000,
+    discountPercentage: 20,
+    benefitsUsed: [
+      { serviceId: "serv_1", serviceName: "Signature Haircut & Styling", sessionsUsed: 2, totalSessions: 6 },
+      { serviceId: "serv_3", serviceName: "24K Gold Luxury Facial", sessionsUsed: 1, totalSessions: 4 },
+      { serviceId: "serv_5", serviceName: "Deep Tissue Swedish Spa", sessionsUsed: 0, totalSessions: 2 }
+    ],
+    history: [
+      { date: "2026-01-01", action: "Subscribed", details: "Subscribed to Platinum Elite Club for ₹20,000" },
+      { date: "2026-03-10", action: "Benefit Used", details: "Redeemed 1 session of Signature Haircut & Styling" }
+    ],
+    expiryNotified: false
+  },
+  {
+    _id: "csub_2",
+    salonId: "salon_luxe_123",
+    customerId: "cust_3", // Deepika Padukone
+    membershipPlanId: "m_platinum",
+    tier: "Platinum",
+    startDate: "2025-09-01",
+    expiryDate: "2026-08-31", // Expiring soon!
+    status: "Expiring Soon",
+    pricePaid: 20000,
+    discountPercentage: 20,
+    benefitsUsed: [
+      { serviceId: "serv_1", serviceName: "Signature Haircut & Styling", sessionsUsed: 5, totalSessions: 6 },
+      { serviceId: "serv_3", serviceName: "24K Gold Luxury Facial", sessionsUsed: 3, totalSessions: 4 },
+      { serviceId: "serv_5", serviceName: "Deep Tissue Swedish Spa", sessionsUsed: 2, totalSessions: 2 }
+    ],
+    history: [
+      { date: "2025-09-01", action: "Subscribed", details: "Subscribed to Platinum Elite Club for ₹20,000" }
+    ],
+    expiryNotified: true
+  },
+  {
+    _id: "csub_3",
+    salonId: "salon_luxe_123",
+    customerId: "cust_2", // Ranveer Singh
+    membershipPlanId: "m_gold",
+    tier: "Gold",
+    startDate: "2026-02-15",
+    expiryDate: "2027-02-14",
+    status: "Active",
+    pricePaid: 10000,
+    discountPercentage: 15,
+    benefitsUsed: [
+      { serviceId: "serv_1", serviceName: "Signature Haircut & Styling", sessionsUsed: 1, totalSessions: 4 },
+      { serviceId: "serv_3", serviceName: "24K Gold Luxury Facial", sessionsUsed: 0, totalSessions: 2 }
+    ],
+    history: [
+      { date: "2026-02-15", action: "Subscribed", details: "Subscribed to Gold Royalty Pass for ₹10,000" }
+    ],
+    expiryNotified: false
+  }
 ];
 
 export const mockStaff = [

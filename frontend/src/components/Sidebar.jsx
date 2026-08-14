@@ -39,6 +39,7 @@ const Sidebar = ({ activePage, setActivePage, collapsed, setCollapsed, user, log
     {
       title: 'GROWTH',
       items: [
+        { id: 'memberships', label: 'Membership Plans', icon: Crown, permission: PERMISSIONS.CUSTOMERS_VIEW },
         { id: 'loyalty', label: 'Loyalty Rewards', icon: Gift, permission: PERMISSIONS.CUSTOMERS_VIEW },
         { id: 'marketing', label: 'Marketing Auto', icon: MessageSquare, roles: ['SALON_OWNER', 'FRANCHISE_OWNER'] },
       ]
