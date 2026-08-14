@@ -31,6 +31,7 @@ import NotificationCenter from './pages/NotificationCenter';
 import AuditLogs from './pages/AuditLogs';
 import RolePermissionMatrix from './pages/RolePermissionMatrix';
 import FranchiseOverview from './pages/FranchiseOverview';
+import SubscriptionBilling from './pages/SubscriptionBilling';
 import SuperAdmin from './pages/Admin/SuperAdmin';
 
 function App() {
@@ -124,6 +125,7 @@ function App() {
           'audit-logs': PERMISSIONS.REPORTS_VIEW,
           'permissions': PERMISSIONS.REPORTS_VIEW,
           'franchise': PERMISSIONS.REPORTS_VIEW,
+          'subscription': PERMISSIONS.REPORTS_VIEW,
           'marketing': null
         };
         const reqPerm = pagePermissionMap[activePage];
@@ -191,6 +193,8 @@ function App() {
         return <RolePermissionMatrix />;
       case 'franchise':
         return <FranchiseOverview setActivePage={setActivePage} />;
+      case 'subscription':
+        return <SubscriptionBilling />;
       case 'super-admin':
         return <SuperAdmin />;
       default:

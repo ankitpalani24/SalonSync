@@ -1209,3 +1209,13 @@ export const mockAuditLogs = [
     timestamp: "2026-06-23T14:10:00Z"
   }
 ];
+
+export const mockSubscription = {
+  plan: 'PROFESSIONAL',
+  status: 'Active',
+  billingCycle: 'Monthly',
+  renewalDate: '2026-12-31',
+  gracePeriodDays: 7,
+  autoRenew: true
+};
+

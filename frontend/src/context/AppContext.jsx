@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import * as mockData from '../data/mockData';
 import { API_URL } from '../config/api';
+import { hasPlanFeature, PLAN_LIMITS } from '../config/subscriptions';
 
 const AppContext = createContext();
 
@@ -67,6 +68,7 @@ export const AppProvider = ({ children }) => {
       whatsAppTemplates: getLocal('sf_whatsapp_templates', mockData.mockWhatsAppTemplates),
       notificationPrefs: getLocal('sf_notification_prefs', mockData.mockNotificationPrefs),
       auditLogs: getLocal('sf_audit_logs', mockData.mockAuditLogs),
+      subscription: getLocal('sf_subscription', mockData.mockSubscription),
     };
   });
 
@@ -2292,21 +2294,55 @@ export const AppProvider = ({ children }) => {
   };
 
   // Super Admin: Update subscription
-  const updateSalonSubscription = async (salonId, plan, status) => {
+  const updateSalonSubscription = async (param1, plan, status) => {
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_URL}/superadmin/salons/${salonId}/subscription`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ plan, status })
-      });
-      const data = await res.json();
-      if (data.success) {
-        await syncBackendData(token);
+      let newPlan = param1;
+      let targetSalonId = currentUser?.salonId;
+
+      if (plan) {
+        // Called from SuperAdmin: updateSalonSubscription(salonId, plan, status)
+        targetSalonId = param1;
+        newPlan = plan;
       }
+
+      const updatedSub = {
+        ...(db.subscription || mockData.mockSubscription),
+        plan: newPlan,
+        status: status || 'Active',
+        renewalDate: '2026-12-31'
+      };
+
+      setDb(prev => {
+        const updated = { ...prev, subscription: updatedSub };
+        localStorage.setItem('sf_subscription', JSON.stringify(updatedSub));
+        return updated;
+      });
+
+      const token = localStorage.getItem('token');
+      if (token) {
+        if (plan) {
+          await fetch(`${API_URL}/superadmin/salons/${targetSalonId}/subscription`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ plan, status })
+          });
+        } else {
+          await fetch(`${API_URL}/subscription`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ subscriptionPlan: newPlan })
+          });
+        }
+      }
+
+      addToast(`Subscription updated to ${newPlan} Plan!`, 'success');
+      return updatedSub;
     } catch (err) {
       console.error('Error updating subscription:', err);
     }
@@ -2448,6 +2484,24 @@ export const AppProvider = ({ children }) => {
     return userPerms.includes(permission);
   };
 
+  // ── SaaS Subscription & Feature-Access System ──
+  const hasFeature = (featureKey) => {
+    const plan = db.subscription?.plan || 'PROFESSIONAL';
+    return hasPlanFeature(plan, featureKey);
+  };
+
+  const checkPlanLimit = (limitKey, currentCount = 0) => {
+    const plan = db.subscription?.plan || 'PROFESSIONAL';
+    const limitObj = PLAN_LIMITS[plan] || PLAN_LIMITS.PROFESSIONAL;
+    const maxVal = limitObj[limitKey] || 999;
+    return {
+      allowed: currentCount < maxVal,
+      current: currentCount,
+      max: maxVal,
+      plan
+    };
+  };
+
   return (
     <AppContext.Provider value={{
       darkMode, setDarkMode,
@@ -2476,13 +2530,14 @@ export const AppProvider = ({ children }) => {
       updateLoyaltyRules, addLoyaltyReward, updateLoyaltyReward, deleteLoyaltyReward, redeemLoyaltyReward, getLoyaltySummary,
       // Salon Membership System
       addMembershipPlan, updateMembershipPlan, deleteMembershipPlan, subscribeCustomerMembership, redeemMembershipBenefit, triggerMembershipExpiryNotifications, getCustomerMembershipSummary,
-      // Public Salon Showcase & Discovery & Health Score & WhatsApp & Notifications & Audit Logs
+      // Public Salon Showcase & Discovery & Health Score & WhatsApp & Notifications & Audit Logs & Subscription
       getPublicSalonProfile, discoverSalons, calculateSalonHealthScore,
       updateWhatsAppConfig, updateWhatsAppTemplates, toggleWhatsAppTrigger, dispatchWhatsAppMessage,
       markNotificationAsRead, markAllNotificationsAsRead, deleteNotification, addRealEventNotification, updateNotificationPreferences,
       logAuditEvent,
+      hasFeature, checkPlanLimit, updateSalonSubscription,
       // Configurations
-      updateSalonDetails, switchBranch, addBranch, updateBranch, deleteBranch, updateSalonSubscription,
+      updateSalonDetails, switchBranch, addBranch, updateBranch, deleteBranch,
       // Marketing
       addNotification,
       // Toast
