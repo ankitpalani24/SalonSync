@@ -27,6 +27,7 @@ import PublicSalonProfile from './pages/PublicSalonProfile';
 import SalonDiscovery from './pages/SalonDiscovery';
 import SalonHealth from './pages/SalonHealth';
 import WhatsAppHub from './pages/WhatsAppHub';
+import NotificationCenter from './pages/NotificationCenter';
 import SuperAdmin from './pages/Admin/SuperAdmin';
 
 function App() {
@@ -102,6 +103,7 @@ function App() {
       } else {
         const pagePermissionMap = {
           'dashboard': null,
+          'notifications': null,
           'customers': PERMISSIONS.CUSTOMERS_VIEW,
           'appointments': PERMISSIONS.APPOINTMENTS_VIEW,
           'services': PERMISSIONS.INVENTORY_VIEW,
@@ -165,6 +167,8 @@ function App() {
         return <SalonHealth setActivePage={setActivePage} />;
       case 'whatsapp':
         return <WhatsAppHub />;
+      case 'notifications':
+        return <NotificationCenter />;
       case 'marketing':
         return <Marketing />;
       case 'loyalty':
@@ -269,6 +273,7 @@ function App() {
           toggleMobileSidebar={() => setMobileSidebarOpen(!mobileSidebarOpen)} 
           onOpenProfile={() => setShowProfileModal(true)} 
           onOpenCommandPalette={() => setShowCommandPalette(true)}
+          setActivePage={setActivePage}
         />
         
         {/* Render page */}

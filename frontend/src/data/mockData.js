@@ -853,9 +853,132 @@ export const mockCommissions = [
 ];
 
 export const mockNotifications = [
-  { _id: "nt_1", salonId: "salon_luxe_123", customerId: "cust_1", type: "WhatsApp", message: "Your booking for Signature Haircut is confirmed.", status: "Sent", sentAt: "2026-06-24T09:30:00Z" },
-  { _id: "nt_2", salonId: "salon_luxe_123", customerId: "cust_3", type: "SMS", message: "Reminder: You have a Gold Facial scheduled at 15:00 today.", status: "Sent", sentAt: "2026-06-24T12:00:00Z" }
+  // Customer Notifications
+  {
+    _id: "nt_cust_1",
+    salonId: "salon_luxe_123",
+    targetRole: "Customer",
+    recipientId: "cust_1",
+    recipientName: "Priyanka Chopra",
+    category: "Appointment",
+    type: "WhatsApp",
+    title: "Appointment Confirmed",
+    message: "Your booking for Signature Haircut & Styling at Luxe & Gold Salon is confirmed for today at 10:30 AM.",
+    read: false,
+    status: "Sent",
+    providerUsed: "MetaCloudAPI",
+    createdAt: "2026-06-24T09:30:00Z"
+  },
+  {
+    _id: "nt_cust_2",
+    salonId: "salon_luxe_123",
+    targetRole: "Customer",
+    recipientId: "cust_2",
+    recipientName: "Ranveer Singh",
+    category: "Payment",
+    type: "InApp",
+    title: "Payment Received",
+    message: "Payment of ₹3,630 received via UPI for Invoice #INV-2026-0002. Thank you for visiting Luxe & Gold!",
+    read: true,
+    status: "Sent",
+    providerUsed: "Internal",
+    createdAt: "2026-06-24T10:15:00Z"
+  },
+  {
+    _id: "nt_cust_3",
+    salonId: "salon_luxe_123",
+    targetRole: "Customer",
+    recipientId: "cust_3",
+    recipientName: "Deepika Padukone",
+    category: "Loyalty",
+    type: "WhatsApp",
+    title: "Loyalty Points Credited",
+    message: "🎉 You've earned 363 Loyalty Points on your recent visit! Current balance: 512 PTS.",
+    read: false,
+    status: "Sent",
+    providerUsed: "MetaCloudAPI",
+    createdAt: "2026-06-24T11:00:00Z"
+  },
+  // Staff Notifications
+  {
+    _id: "nt_staff_1",
+    salonId: "salon_luxe_123",
+    targetRole: "Staff",
+    recipientId: "staff_1",
+    recipientName: "Emma Watson",
+    category: "Appointment",
+    type: "InApp",
+    title: "New Appointment Assigned",
+    message: "New 24K Gold Facial appointment assigned with client Deepika Padukone today at 14:00 PM.",
+    read: false,
+    status: "Sent",
+    providerUsed: "Internal",
+    createdAt: "2026-06-24T09:00:00Z"
+  },
+  {
+    _id: "nt_staff_2",
+    salonId: "salon_luxe_123",
+    targetRole: "Staff",
+    recipientId: "staff_2",
+    recipientName: "David Beckham",
+    category: "Review",
+    type: "InApp",
+    title: "New 5-Star Review Received",
+    message: "Client Rahul S. rated your Executive Beard Grooming service 5.0 ★: 'David is an absolute master barber!'",
+    read: true,
+    status: "Sent",
+    providerUsed: "Internal",
+    createdAt: "2026-06-23T18:45:00Z"
+  },
+  // Owner / Manager Notifications
+  {
+    _id: "nt_owner_1",
+    salonId: "salon_luxe_123",
+    targetRole: "Owner",
+    category: "Inventory",
+    type: "InApp",
+    title: "Low Inventory Alert",
+    message: "⚠️ 2 products are below reorder threshold: Argan Hair Oil (3 left) and Keratin Repair Conditioner (2 left).",
+    read: false,
+    status: "Sent",
+    providerUsed: "Internal",
+    createdAt: "2026-06-24T08:30:00Z"
+  },
+  {
+    _id: "nt_owner_2",
+    salonId: "salon_luxe_123",
+    targetRole: "Owner",
+    category: "Expense",
+    type: "InApp",
+    title: "Unusual Expense Flagged",
+    message: "Expense entry of ₹15,000 for 'Spa Salon Equipment Overhaul' exceeds monthly threshold by +35%.",
+    read: false,
+    status: "Sent",
+    providerUsed: "Internal",
+    createdAt: "2026-06-24T07:15:00Z"
+  },
+  {
+    _id: "nt_owner_3",
+    salonId: "salon_luxe_123",
+    targetRole: "Owner",
+    category: "DailySummary",
+    type: "InApp",
+    title: "Daily Business Summary",
+    message: "📈 Yesterday's Revenue: ₹28,500 across 18 completed appointments. 100% staff attendance.",
+    read: true,
+    status: "Sent",
+    providerUsed: "Internal",
+    createdAt: "2026-06-24T06:00:00Z"
+  }
 ];
+
+export const mockNotificationPrefs = {
+  _id: "pref_luxe_1",
+  salonId: "salon_luxe_123",
+  customerChannels: { InApp: true, WhatsApp: true, SMS: true, Email: false },
+  staffChannels: { InApp: true, WhatsApp: true, SMS: false, Email: true },
+  ownerChannels: { InApp: true, WhatsApp: true, SMS: true, Email: true }
+};
 
 export const mockLoyaltyRules = {
   _id: "rule_luxe_1",

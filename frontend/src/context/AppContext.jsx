@@ -65,6 +65,7 @@ export const AppProvider = ({ children }) => {
       customerMemberships: getLocal('sf_customer_memberships', mockData.mockCustomerMemberships),
       whatsAppConfig: getLocal('sf_whatsapp_config', mockData.mockWhatsAppConfig),
       whatsAppTemplates: getLocal('sf_whatsapp_templates', mockData.mockWhatsAppTemplates),
+      notificationPrefs: getLocal('sf_notification_prefs', mockData.mockNotificationPrefs),
     };
   });
 
@@ -2064,6 +2065,136 @@ export const AppProvider = ({ children }) => {
       return { success: false, message: err.message };
     }
   };
+
+  // ── Centralized Notification Center Actions ──
+  const markNotificationAsRead = async (id) => {
+    try {
+      setDb(prev => {
+        const updated = (prev.notifications || []).map(n => String(n._id) === String(id) ? { ...n, read: true } : n);
+        localStorage.setItem('sf_notifications', JSON.stringify(updated));
+        return { ...prev, notifications: updated };
+      });
+
+      const token = localStorage.getItem('token');
+      if (token) {
+        await fetch(`${API_URL}/notifications/${id}/read`, {
+          method: 'PUT',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+      }
+    } catch (err) {
+      console.error('Error marking notification as read:', err);
+    }
+  };
+
+  const markAllNotificationsAsRead = async () => {
+    try {
+      setDb(prev => {
+        const updated = (prev.notifications || []).map(n => ({ ...n, read: true }));
+        localStorage.setItem('sf_notifications', JSON.stringify(updated));
+        return { ...prev, notifications: updated };
+      });
+
+      const token = localStorage.getItem('token');
+      if (token) {
+        await fetch(`${API_URL}/notifications/read-all`, {
+          method: 'PUT',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+      }
+      addToast('All notifications marked as read!', 'info');
+    } catch (err) {
+      console.error('Error marking all notifications as read:', err);
+    }
+  };
+
+  const deleteNotification = async (id) => {
+    try {
+      setDb(prev => {
+        const updated = (prev.notifications || []).filter(n => String(n._id) !== String(id));
+        localStorage.setItem('sf_notifications', JSON.stringify(updated));
+        return { ...prev, notifications: updated };
+      });
+
+      const token = localStorage.getItem('token');
+      if (token) {
+        await fetch(`${API_URL}/notifications/${id}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+      }
+      addToast('Notification removed.', 'info');
+    } catch (err) {
+      console.error('Error deleting notification:', err);
+    }
+  };
+
+  const addRealEventNotification = async ({ targetRole = 'Customer', category = 'Appointment', title, message, recipientId = null, recipientName = '', type = 'InApp' }) => {
+    try {
+      const newNotif = {
+        _id: 'nt_' + Date.now() + Math.random().toString(36).substring(2, 6),
+        salonId: currentUser?.salonId || 'salon_luxe_123',
+        targetRole,
+        category,
+        type,
+        title,
+        message,
+        recipientId,
+        recipientName,
+        read: false,
+        status: 'Sent',
+        providerUsed: 'Internal',
+        sentAt: new Date().toISOString()
+      };
+
+      setDb(prev => {
+        const updated = [newNotif, ...(prev.notifications || [])];
+        localStorage.setItem('sf_notifications', JSON.stringify(updated));
+        return { ...prev, notifications: updated };
+      });
+
+      const token = localStorage.getItem('token');
+      if (token) {
+        await fetch(`${API_URL}/notifications`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(newNotif)
+        });
+      }
+
+      return newNotif;
+    } catch (err) {
+      console.error('Error adding real event notification:', err);
+    }
+  };
+
+  const updateNotificationPreferences = async (prefData) => {
+    try {
+      setDb(prev => {
+        const updated = { ...(prev.notificationPrefs || mockData.mockNotificationPrefs), ...prefData };
+        localStorage.setItem('sf_notification_prefs', JSON.stringify(updated));
+        return { ...prev, notificationPrefs: updated };
+      });
+
+      const token = localStorage.getItem('token');
+      if (token) {
+        await fetch(`${API_URL}/notifications/preferences`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(prefData)
+        });
+      }
+      addToast('Notification channel preferences updated!', 'success');
+    } catch (err) {
+      console.error('Error updating notification preferences:', err);
+    }
+  };
   const createInvoice = async (invoiceData) => {
     try {
       const token = localStorage.getItem('token');
@@ -2300,9 +2431,10 @@ export const AppProvider = ({ children }) => {
       updateLoyaltyRules, addLoyaltyReward, updateLoyaltyReward, deleteLoyaltyReward, redeemLoyaltyReward, getLoyaltySummary,
       // Salon Membership System
       addMembershipPlan, updateMembershipPlan, deleteMembershipPlan, subscribeCustomerMembership, redeemMembershipBenefit, triggerMembershipExpiryNotifications, getCustomerMembershipSummary,
-      // Public Salon Showcase & Discovery & Health Score & WhatsApp
+      // Public Salon Showcase & Discovery & Health Score & WhatsApp & Notifications
       getPublicSalonProfile, discoverSalons, calculateSalonHealthScore,
       updateWhatsAppConfig, updateWhatsAppTemplates, toggleWhatsAppTrigger, dispatchWhatsAppMessage,
+      markNotificationAsRead, markAllNotificationsAsRead, deleteNotification, addRealEventNotification, updateNotificationPreferences,
       // Configurations
       updateSalonDetails, switchBranch, addBranch, updateBranch, deleteBranch, updateSalonSubscription,
       // Marketing

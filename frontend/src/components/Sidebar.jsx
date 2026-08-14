@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Users, Calendar, Scissors, CreditCard, 
   Package, UserCheck, BarChart3, MessageSquare, Bot, 
   Settings, LogOut, ChevronLeft, ChevronRight, Crown,
-  DollarSign, Gift, Globe, Search, Activity
+  DollarSign, Gift, Globe, Search, Activity, Bell
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
@@ -21,6 +21,7 @@ const Sidebar = ({ activePage, setActivePage, collapsed, setCollapsed, user, log
       title: 'OPERATIONS',
       items: [
         { id: 'dashboard', label: 'Overview', icon: LayoutDashboard, permission: null },
+        { id: 'notifications', label: 'Notification Center', icon: Bell, permission: null },
         { id: 'appointments', label: 'Calendar Bookings', icon: Calendar, permission: PERMISSIONS.APPOINTMENTS_VIEW },
         { id: 'customers', label: 'Customer CRM', icon: Users, permission: PERMISSIONS.CUSTOMERS_VIEW },
         { id: 'services', label: 'Services & Packages', icon: Scissors, permission: PERMISSIONS.INVENTORY_VIEW },

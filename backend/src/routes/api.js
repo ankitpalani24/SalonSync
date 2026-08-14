@@ -1039,6 +1039,71 @@ router.get('/whatsapp/outbox', safeHandler(async (req, res) => {
 }, 'Failed to fetch WhatsApp outbox'));
 
 // ----------------------------------------------------
+// CENTRALIZED NOTIFICATION CENTER & REAL EVENTS
+// ----------------------------------------------------
+
+router.get('/notifications', safeHandler(async (req, res) => {
+  const notifications = await models.Notification.find({ salonId: req.user.salonId }).sort({ createdAt: -1 }).limit(150);
+  res.json({ success: true, data: notifications });
+}, 'Failed to fetch notifications'));
+
+router.post('/notifications', sanitizeBody(['targetRole', 'category', 'type', 'title', 'message', 'recipientId', 'recipientName']), safeHandler(async (req, res) => {
+  const notification = await models.Notification.create({
+    ...req.body,
+    salonId: req.user.salonId,
+    read: false,
+    sentAt: new Date()
+  });
+  res.status(201).json({ success: true, data: notification });
+}, 'Failed to create notification'));
+
+router.put('/notifications/:id/read', validateObjectId, safeHandler(async (req, res) => {
+  const notification = await models.Notification.findOneAndUpdate(
+    { _id: req.params.id, salonId: req.user.salonId },
+    { read: true },
+    { new: true }
+  );
+  if (!notification) return res.status(404).json({ success: false, message: 'Notification not found' });
+  res.json({ success: true, data: notification });
+}, 'Failed to mark notification as read'));
+
+router.put('/notifications/read-all', safeHandler(async (req, res) => {
+  await models.Notification.updateMany(
+    { salonId: req.user.salonId, read: false },
+    { read: true }
+  );
+  res.json({ success: true, message: 'All notifications marked as read' });
+}, 'Failed to mark all notifications as read'));
+
+router.delete('/notifications/:id', validateObjectId, safeHandler(async (req, res) => {
+  const notification = await models.Notification.findOneAndDelete({ _id: req.params.id, salonId: req.user.salonId });
+  if (!notification) return res.status(404).json({ success: false, message: 'Notification not found' });
+  res.json({ success: true, message: 'Notification deleted' });
+}, 'Failed to delete notification'));
+
+router.get('/notifications/preferences', safeHandler(async (req, res) => {
+  let prefs = await models.NotificationPref.findOne({ salonId: req.user.salonId });
+  if (!prefs) {
+    prefs = await models.NotificationPref.create({
+      salonId: req.user.salonId,
+      customerChannels: { InApp: true, WhatsApp: true, SMS: true, Email: false },
+      staffChannels: { InApp: true, WhatsApp: true, SMS: false, Email: true },
+      ownerChannels: { InApp: true, WhatsApp: true, SMS: true, Email: true }
+    });
+  }
+  res.json({ success: true, data: prefs });
+}, 'Failed to fetch notification preferences'));
+
+router.put('/notifications/preferences', sanitizeBody(['customerChannels', 'staffChannels', 'ownerChannels']), safeHandler(async (req, res) => {
+  const prefs = await models.NotificationPref.findOneAndUpdate(
+    { salonId: req.user.salonId },
+    { ...req.body, salonId: req.user.salonId },
+    { new: true, upsert: true }
+  );
+  res.json({ success: true, data: prefs });
+}, 'Failed to update notification preferences'));
+
+// ----------------------------------------------------
 // EXPENSE TRACKING
 // ----------------------------------------------------
 const EXPENSE_FIELDS = ['category', 'amount', 'description', 'date', 'paymentMethod', 'vendor', 'receiptUrl', 'createdBy', 'branchId'];

@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { MapPin, ShieldAlert, Award, Menu, LogOut, Search, Command } from 'lucide-react';
+import { MapPin, ShieldAlert, Award, Menu, LogOut, Search, Command, Bell } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
-const Header = ({ toggleMobileSidebar, onOpenProfile, onOpenCommandPalette }) => {
+const Header = ({ toggleMobileSidebar, onOpenProfile, onOpenCommandPalette, setActivePage }) => {
   const {
     demoMode, setDemoMode,
     currentUser, setCurrentUser,
@@ -94,7 +94,49 @@ const Header = ({ toggleMobileSidebar, onOpenProfile, onOpenCommandPalette }) =>
       {/* Control Actions */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
 
-
+        {/* Centralized Notification Center Bell Icon */}
+        <div style={{ position: 'relative' }}>
+          <button
+            onClick={() => setActivePage ? setActivePage('notifications') : null}
+            style={{
+              background: 'rgba(255,255,255,0.04)',
+              border: '1px solid var(--border-light)',
+              borderRadius: '50%',
+              width: '38px',
+              height: '38px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'var(--text-primary)',
+              cursor: 'pointer',
+              position: 'relative'
+            }}
+            title="Notification Center"
+          >
+            <Bell size={18} />
+            {(() => {
+              const unreadCount = (db.notifications || []).filter(n => !n.read).length;
+              if (unreadCount === 0) return null;
+              return (
+                <span style={{
+                  position: 'absolute',
+                  top: '-3px',
+                  right: '-3px',
+                  background: 'var(--accent-red)',
+                  color: '#fff',
+                  fontSize: '0.62rem',
+                  fontWeight: '800',
+                  borderRadius: '10px',
+                  padding: '0.1rem 0.4rem',
+                  lineHeight: 1,
+                  boxShadow: '0 0 8px rgba(231,76,60,0.6)'
+                }}>
+                  {unreadCount}
+                </span>
+              );
+            })()}
+          </button>
+        </div>
 
         {/* User Card */}
         <div onClick={onOpenProfile} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', borderLeft: '1px solid var(--border-light)', paddingLeft: '1.25rem', cursor: 'pointer' }}>

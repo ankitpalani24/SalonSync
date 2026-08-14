@@ -424,25 +424,28 @@ const SubscriptionSchema = new mongoose.Schema({
 
 SubscriptionSchema.index({ salonId: 1, status: 1 });
 
-// 18. Notification Schema (SMS/WhatsApp logs)
+// 18. Notification Schema (Centralized Multi-Role Notifications)
 const NotificationSchema = new mongoose.Schema({
   salonId: { type: mongoose.Schema.Types.ObjectId, ref: 'Salon', required: true },
-  customerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Customer' },
-  customerPhone: { type: String },
-  customerName: { type: String },
-  type: { type: String, enum: ['WhatsApp', 'SMS', 'Email'], required: true },
-  triggerType: { 
+  targetRole: { type: String, enum: ['Customer', 'Staff', 'Owner', 'All'], default: 'Customer' },
+  recipientId: { type: String },
+  recipientName: { type: String },
+  recipientPhone: { type: String },
+  category: { 
     type: String, 
-    enum: ['Confirmation', 'Reminder', 'Cancellation', 'Rescheduled', 'Invoice', 'Payment', 'Birthday', 'MembershipExpiry', 'Loyalty', 'Revisit', 'Promo', 'General'], 
-    default: 'General' 
+    enum: ['Appointment', 'Payment', 'Loyalty', 'Membership', 'Review', 'Inventory', 'Expense', 'StaffSchedule', 'DailySummary', 'General'], 
+    default: 'Appointment' 
   },
+  type: { type: String, enum: ['InApp', 'WhatsApp', 'SMS', 'Email'], default: 'InApp' },
+  title: { type: String, required: true },
   message: { type: String, required: true },
+  read: { type: Boolean, default: false },
   status: { type: String, enum: ['Sent', 'Queued', 'Provider Required', 'Failed'], default: 'Sent' },
-  providerUsed: { type: String, default: 'Unconfigured' },
+  providerUsed: { type: String, default: 'Internal' },
   sentAt: { type: Date, default: Date.now }
 }, { timestamps: true });
 
-NotificationSchema.index({ salonId: 1, customerId: 1, createdAt: -1 });
+NotificationSchema.index({ salonId: 1, targetRole: 1, read: 1, createdAt: -1 });
 
 // 18b. WhatsApp Config & Template Schema
 const WhatsAppConfigSchema = new mongoose.Schema({
@@ -456,6 +459,31 @@ const WhatsAppConfigSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 WhatsAppConfigSchema.index({ salonId: 1 }, { unique: true });
+
+// 18c. Notification Preferences Schema
+const NotificationPrefSchema = new mongoose.Schema({
+  salonId: { type: mongoose.Schema.Types.ObjectId, ref: 'Salon', required: true },
+  customerChannels: {
+    InApp: { type: Boolean, default: true },
+    WhatsApp: { type: Boolean, default: true },
+    SMS: { type: Boolean, default: true },
+    Email: { type: Boolean, default: false }
+  },
+  staffChannels: {
+    InApp: { type: Boolean, default: true },
+    WhatsApp: { type: Boolean, default: true },
+    SMS: { type: Boolean, default: false },
+    Email: { type: Boolean, default: true }
+  },
+  ownerChannels: {
+    InApp: { type: Boolean, default: true },
+    WhatsApp: { type: Boolean, default: true },
+    SMS: { type: Boolean, default: true },
+    Email: { type: Boolean, default: true }
+  }
+}, { timestamps: true });
+
+NotificationPrefSchema.index({ salonId: 1 }, { unique: true });
 
 // 19. Review Schema
 const ReviewSchema = new mongoose.Schema({
@@ -510,6 +538,7 @@ module.exports = {
   Subscription: mongoose.model('Subscription', SubscriptionSchema),
   Notification: mongoose.model('Notification', NotificationSchema),
   WhatsAppConfig: mongoose.model('WhatsAppConfig', WhatsAppConfigSchema),
+  NotificationPref: mongoose.model('NotificationPref', NotificationPrefSchema),
   Review: mongoose.model('Review', ReviewSchema),
   InventoryConsumption: mongoose.model('InventoryConsumption', InventoryConsumptionSchema)
 };
