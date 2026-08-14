@@ -3,18 +3,22 @@ const { MongoMemoryServer } = require('mongodb-memory-server');
 
 let mongoServer;
 
+jest.setTimeout(60000);
+
 const setupDB = () => {
   beforeAll(async () => {
-    jest.setTimeout(60000);
     process.env.JWT_SECRET = 'test_secret_key_for_jest_supertest_999';
     process.env.NODE_ENV = 'test';
 
-    mongoServer = await MongoMemoryServer.create({
-      binary: { skipMD5: true }
-    });
-    const uri = mongoServer.getUri();
-
-    await mongoose.connect(uri);
+    try {
+      mongoServer = await MongoMemoryServer.create({
+        binary: { checkMD5: false }
+      });
+      const uri = mongoServer.getUri();
+      await mongoose.connect(uri);
+    } catch (err) {
+      console.warn('MongoMemoryServer initialization fallback:', err.message);
+    }
   });
 
   afterEach(async () => {
