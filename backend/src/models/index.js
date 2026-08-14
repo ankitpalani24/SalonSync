@@ -514,6 +514,34 @@ const InventoryConsumptionSchema = new mongoose.Schema({
 
 InventoryConsumptionSchema.index({ salonId: 1, createdAt: -1 });
 
+// 21. AuditLog Schema (Immutable Business & Security Event Logs)
+const AuditLogSchema = new mongoose.Schema({
+  salonId: { type: mongoose.Schema.Types.ObjectId, ref: 'Salon', required: true },
+  branchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch' },
+  branchName: { type: String },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  userName: { type: String, required: true },
+  userRole: { type: String, required: true },
+  action: { 
+    type: String, 
+    enum: ['CREATE', 'UPDATE', 'DELETE', 'PRICE_CHANGE', 'PERMISSION_CHANGE', 'STATUS_CHANGE'], 
+    required: true 
+  },
+  entity: { 
+    type: String, 
+    enum: ['Customer', 'Appointment', 'Invoice', 'Expense', 'Product', 'Service', 'Staff', 'User', 'Membership', 'Loyalty'], 
+    required: true 
+  },
+  entityId: { type: String },
+  entityName: { type: String },
+  previousValue: { type: mongoose.Schema.Types.Mixed },
+  newValue: { type: mongoose.Schema.Types.Mixed },
+  timestamp: { type: Date, default: Date.now }
+}, { timestamps: true });
+
+AuditLogSchema.index({ salonId: 1, createdAt: -1 });
+AuditLogSchema.index({ salonId: 1, entity: 1, action: 1 });
+
 // Export all models
 module.exports = {
   User: mongoose.model('User', UserSchema),
@@ -540,5 +568,6 @@ module.exports = {
   WhatsAppConfig: mongoose.model('WhatsAppConfig', WhatsAppConfigSchema),
   NotificationPref: mongoose.model('NotificationPref', NotificationPrefSchema),
   Review: mongoose.model('Review', ReviewSchema),
-  InventoryConsumption: mongoose.model('InventoryConsumption', InventoryConsumptionSchema)
+  InventoryConsumption: mongoose.model('InventoryConsumption', InventoryConsumptionSchema),
+  AuditLog: mongoose.model('AuditLog', AuditLogSchema)
 };

@@ -1104,6 +1104,42 @@ router.put('/notifications/preferences', sanitizeBody(['customerChannels', 'staf
 }, 'Failed to update notification preferences'));
 
 // ----------------------------------------------------
+// IMMUTABLE AUDIT LOGGING SYSTEM
+// ----------------------------------------------------
+
+router.get('/audit-logs', requireRole('SALON_OWNER', 'FRANCHISE_OWNER', 'SUPER_ADMIN'), safeHandler(async (req, res) => {
+  const { entity, action, search } = req.query;
+  const filter = { salonId: req.user.salonId };
+
+  if (entity && entity !== 'ALL') filter.entity = entity;
+  if (action && action !== 'ALL') filter.action = action;
+
+  if (search && search.trim()) {
+    const q = search.trim();
+    filter.$or = [
+      { userName: { $regex: q, $options: 'i' } },
+      { entityName: { $regex: q, $options: 'i' } },
+      { entityId: { $regex: q, $options: 'i' } }
+    ];
+  }
+
+  const logs = await models.AuditLog.find(filter).sort({ createdAt: -1 }).limit(200);
+  res.json({ success: true, data: logs });
+}, 'Failed to fetch audit logs'));
+
+router.post('/audit-logs', sanitizeBody(['action', 'entity', 'entityId', 'entityName', 'previousValue', 'newValue', 'branchName']), safeHandler(async (req, res) => {
+  const log = await models.AuditLog.create({
+    ...req.body,
+    salonId: req.user.salonId,
+    userId: req.user.id || req.user._id,
+    userName: req.user.name || 'Alexander Wright',
+    userRole: req.user.role || 'SALON_OWNER',
+    timestamp: new Date()
+  });
+  res.status(201).json({ success: true, data: log });
+}, 'Failed to create audit log'));
+
+// ----------------------------------------------------
 // EXPENSE TRACKING
 // ----------------------------------------------------
 const EXPENSE_FIELDS = ['category', 'amount', 'description', 'date', 'paymentMethod', 'vendor', 'receiptUrl', 'createdBy', 'branchId'];

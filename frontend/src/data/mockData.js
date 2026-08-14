@@ -1126,3 +1126,86 @@ export const mockWhatsAppTemplates = {
   Revisit: "We miss you {{customerName}}! It's been a while since your last pampering session at {{salonName}}. Book your next haircut or facial today & get 15% OFF! Reply BOOK.",
   Promo: "✨ Exclusive Offer from {{salonName}}! Book any facial package this weekend & receive a FREE scalp spa! Limited slots available. Reply to book now."
 };
+
+export const mockAuditLogs = [
+  {
+    _id: "log_101",
+    salonId: "salon_luxe_123",
+    branchId: "branch_mumbai_1",
+    branchName: "Bandra Flagship",
+    userId: "usr_owner_1",
+    userName: "Alexander Wright",
+    userRole: "SALON_OWNER",
+    action: "PRICE_CHANGE",
+    entity: "Service",
+    entityId: "srv_1",
+    entityName: "Signature Haircut & Styling",
+    previousValue: { price: 500, duration: 45 },
+    newValue: { price: 750, duration: 45 },
+    timestamp: "2026-06-24T11:45:00Z"
+  },
+  {
+    _id: "log_102",
+    salonId: "salon_luxe_123",
+    branchId: "branch_mumbai_1",
+    branchName: "Bandra Flagship",
+    userId: "usr_owner_1",
+    userName: "Alexander Wright",
+    userRole: "SALON_OWNER",
+    action: "UPDATE",
+    entity: "Customer",
+    entityId: "cust_1",
+    entityName: "Priyanka Chopra",
+    previousValue: { membershipLevel: "Silver Pass", totalSpent: 2800 },
+    newValue: { membershipLevel: "Gold Pass", totalSpent: 3630 },
+    timestamp: "2026-06-24T10:30:00Z"
+  },
+  {
+    _id: "log_103",
+    salonId: "salon_luxe_123",
+    branchId: "branch_mumbai_1",
+    branchName: "Bandra Flagship",
+    userId: "usr_mgr_1",
+    userName: "Victoria Beckham",
+    userRole: "SALON_MANAGER",
+    action: "STATUS_CHANGE",
+    entity: "Appointment",
+    entityId: "appt_1",
+    entityName: "24K Gold Facial (Priyanka Chopra)",
+    previousValue: { status: "Confirmed" },
+    newValue: { status: "Completed" },
+    timestamp: "2026-06-24T09:15:00Z"
+  },
+  {
+    _id: "log_104",
+    salonId: "salon_luxe_123",
+    branchId: "branch_mumbai_1",
+    branchName: "Bandra Flagship",
+    userId: "usr_owner_1",
+    userName: "Alexander Wright",
+    userRole: "SALON_OWNER",
+    action: "PERMISSION_CHANGE",
+    entity: "Staff",
+    entityId: "staff_1",
+    entityName: "Emma Watson",
+    previousValue: { role: "Stylist", commissionPercentage: 10 },
+    newValue: { role: "Senior Specialist", commissionPercentage: 15 },
+    timestamp: "2026-06-23T16:20:00Z"
+  },
+  {
+    _id: "log_105",
+    salonId: "salon_luxe_123",
+    branchId: "branch_mumbai_1",
+    branchName: "Bandra Flagship",
+    userId: "usr_mgr_1",
+    userName: "Victoria Beckham",
+    userRole: "SALON_MANAGER",
+    action: "CREATE",
+    entity: "Expense",
+    entityId: "exp_1",
+    entityName: "Spa Equipment Maintenance",
+    previousValue: null,
+    newValue: { amount: 15000, category: "Equipment" },
+    timestamp: "2026-06-23T14:10:00Z"
+  }
+];

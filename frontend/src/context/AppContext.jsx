@@ -66,6 +66,7 @@ export const AppProvider = ({ children }) => {
       whatsAppConfig: getLocal('sf_whatsapp_config', mockData.mockWhatsAppConfig),
       whatsAppTemplates: getLocal('sf_whatsapp_templates', mockData.mockWhatsAppTemplates),
       notificationPrefs: getLocal('sf_notification_prefs', mockData.mockNotificationPrefs),
+      auditLogs: getLocal('sf_audit_logs', mockData.mockAuditLogs),
     };
   });
 
@@ -2195,6 +2196,50 @@ export const AppProvider = ({ children }) => {
       console.error('Error updating notification preferences:', err);
     }
   };
+
+  // ── Immutable Audit Logging System ──
+  const logAuditEvent = async ({ action, entity, entityId = '', entityName = '', previousValue = null, newValue = null }) => {
+    try {
+      const newLog = {
+        _id: 'log_' + Date.now() + Math.random().toString(36).substring(2, 6),
+        salonId: currentUser?.salonId || 'salon_luxe_123',
+        branchId: currentBranch?._id || 'branch_mumbai_1',
+        branchName: currentBranch?.name || 'Bandra Flagship',
+        userId: currentUser?.id || currentUser?._id || 'usr_owner_1',
+        userName: currentUser?.name || 'Alexander Wright',
+        userRole: currentUser?.role || 'SALON_OWNER',
+        action,
+        entity,
+        entityId,
+        entityName,
+        previousValue,
+        newValue,
+        timestamp: new Date().toISOString()
+      };
+
+      setDb(prev => {
+        const updated = [newLog, ...(prev.auditLogs || [])];
+        localStorage.setItem('sf_audit_logs', JSON.stringify(updated));
+        return { ...prev, auditLogs: updated };
+      });
+
+      const token = localStorage.getItem('token');
+      if (token) {
+        await fetch(`${API_URL}/audit-logs`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(newLog)
+        });
+      }
+
+      return newLog;
+    } catch (err) {
+      console.error('Error logging audit event:', err);
+    }
+  };
   const createInvoice = async (invoiceData) => {
     try {
       const token = localStorage.getItem('token');
@@ -2431,10 +2476,11 @@ export const AppProvider = ({ children }) => {
       updateLoyaltyRules, addLoyaltyReward, updateLoyaltyReward, deleteLoyaltyReward, redeemLoyaltyReward, getLoyaltySummary,
       // Salon Membership System
       addMembershipPlan, updateMembershipPlan, deleteMembershipPlan, subscribeCustomerMembership, redeemMembershipBenefit, triggerMembershipExpiryNotifications, getCustomerMembershipSummary,
-      // Public Salon Showcase & Discovery & Health Score & WhatsApp & Notifications
+      // Public Salon Showcase & Discovery & Health Score & WhatsApp & Notifications & Audit Logs
       getPublicSalonProfile, discoverSalons, calculateSalonHealthScore,
       updateWhatsAppConfig, updateWhatsAppTemplates, toggleWhatsAppTrigger, dispatchWhatsAppMessage,
       markNotificationAsRead, markAllNotificationsAsRead, deleteNotification, addRealEventNotification, updateNotificationPreferences,
+      logAuditEvent,
       // Configurations
       updateSalonDetails, switchBranch, addBranch, updateBranch, deleteBranch, updateSalonSubscription,
       // Marketing
