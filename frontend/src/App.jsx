@@ -29,6 +29,7 @@ import SalonHealth from './pages/SalonHealth';
 import WhatsAppHub from './pages/WhatsAppHub';
 import NotificationCenter from './pages/NotificationCenter';
 import AuditLogs from './pages/AuditLogs';
+import RolePermissionMatrix from './pages/RolePermissionMatrix';
 import SuperAdmin from './pages/Admin/SuperAdmin';
 
 function App() {
@@ -120,6 +121,7 @@ function App() {
           'public-profile': null,
           'discovery': null,
           'audit-logs': PERMISSIONS.REPORTS_VIEW,
+          'permissions': PERMISSIONS.REPORTS_VIEW,
           'marketing': null
         };
         const reqPerm = pagePermissionMap[activePage];
@@ -183,6 +185,8 @@ function App() {
         return <SalonDiscovery setActivePage={setActivePage} />;
       case 'audit-logs':
         return <AuditLogs />;
+      case 'permissions':
+        return <RolePermissionMatrix />;
       case 'super-admin':
         return <SuperAdmin />;
       default:
