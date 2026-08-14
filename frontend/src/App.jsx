@@ -26,6 +26,7 @@ import Memberships from './pages/Memberships';
 import PublicSalonProfile from './pages/PublicSalonProfile';
 import SalonDiscovery from './pages/SalonDiscovery';
 import SalonHealth from './pages/SalonHealth';
+import WhatsAppHub from './pages/WhatsAppHub';
 import SuperAdmin from './pages/Admin/SuperAdmin';
 
 function App() {
@@ -110,6 +111,7 @@ function App() {
           'staff': PERMISSIONS.STAFF_VIEW,
           'analytics': PERMISSIONS.REPORTS_VIEW,
           'health': PERMISSIONS.REPORTS_VIEW,
+          'whatsapp': PERMISSIONS.CUSTOMERS_VIEW,
           'loyalty': PERMISSIONS.CUSTOMERS_VIEW,
           'memberships': PERMISSIONS.CUSTOMERS_VIEW,
           'public-profile': null,
@@ -161,6 +163,8 @@ function App() {
         return <Analytics />;
       case 'health':
         return <SalonHealth setActivePage={setActivePage} />;
+      case 'whatsapp':
+        return <WhatsAppHub />;
       case 'marketing':
         return <Marketing />;
       case 'loyalty':

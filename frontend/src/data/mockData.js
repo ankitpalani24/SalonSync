@@ -967,3 +967,39 @@ export const mockLoyaltyTransactions = [
     date: "2026-06-22T11:00:00Z"
   }
 ];
+
+export const mockWhatsAppConfig = {
+  _id: "wcfg_luxe_1",
+  salonId: "salon_luxe_123",
+  provider: "Unconfigured", // 'MetaCloudAPI', 'Twilio', 'Interakt', 'AISensy', 'Unconfigured'
+  apiKey: "",
+  phoneNumberId: "",
+  webhookSecret: "",
+  enabledTriggers: {
+    Confirmation: true,
+    Reminder: true,
+    Cancellation: true,
+    Rescheduled: true,
+    Invoice: true,
+    Payment: true,
+    Birthday: true,
+    MembershipExpiry: true,
+    Loyalty: true,
+    Revisit: true,
+    Promo: true
+  }
+};
+
+export const mockWhatsAppTemplates = {
+  Confirmation: "Hello {{customerName}}! 🎉 Your booking for {{serviceName}} at {{salonName}} is CONFIRMED for {{appointmentDate}} at {{appointmentTime}}. Stylist: {{staffName}}. We look forward to welcoming you!",
+  Reminder: "Hi {{customerName}}, reminder for your upcoming session: {{serviceName}} today at {{appointmentTime}} with {{staffName}} at {{salonName}}. Need to adjust? Reply to this message.",
+  Cancellation: "Dear {{customerName}}, your appointment for {{serviceName}} on {{appointmentDate}} at {{salonName}} has been CANCELLED as requested. We hope to see you soon!",
+  Rescheduled: "Hello {{customerName}}, your appointment at {{salonName}} has been RESCHEDULED to {{appointmentDate}} at {{appointmentTime}} for {{serviceName}} with {{staffName}}.",
+  Invoice: "Hi {{customerName}}, thank you for visiting {{salonName}}! Your tax invoice #{{invoiceNumber}} for {{invoiceAmount}} is ready. Download receipt: {{invoiceUrl}}. Thank you!",
+  Payment: "Dear {{customerName}}, payment of {{amountPaid}} received via {{paymentMethod}} at {{salonName}}. Invoice #{{invoiceNumber}}. Thank you for your business!",
+  Birthday: "🎉 Happy Birthday {{customerName}}! 🎂 Celebrate with {{salonName}} — enjoy a complimentary Birthday Blowdry & 20% OFF your visit this week! Reply to claim.",
+  MembershipExpiry: "Dear {{customerName}}, your {{salonName}} {{membershipTier}} Membership expires on {{expiryDate}}. Renew today to keep your {{discountPercentage}}% discount privileges!",
+  Loyalty: "🎉 Congratulations {{customerName}}! You've earned {{pointsEarned}} Loyalty Points at {{salonName}}. Current Balance: {{loyaltyBalance}} PTS. Redeem for instant vouchers on your next visit!",
+  Revisit: "We miss you {{customerName}}! It's been a while since your last pampering session at {{salonName}}. Book your next haircut or facial today & get 15% OFF! Reply BOOK.",
+  Promo: "✨ Exclusive Offer from {{salonName}}! Book any facial package this weekend & receive a FREE scalp spa! Limited slots available. Reply to book now."
+};

@@ -42,6 +42,7 @@ const Sidebar = ({ activePage, setActivePage, collapsed, setCollapsed, user, log
       items: [
         { id: 'discovery', label: 'Find Salons', icon: Search, permission: null },
         { id: 'public-profile', label: 'Public Showcase', icon: Globe, permission: null },
+        { id: 'whatsapp', label: 'WhatsApp Hub', icon: MessageSquare, permission: PERMISSIONS.CUSTOMERS_VIEW },
         { id: 'memberships', label: 'Membership Plans', icon: Crown, permission: PERMISSIONS.CUSTOMERS_VIEW },
         { id: 'loyalty', label: 'Loyalty Rewards', icon: Gift, permission: PERMISSIONS.CUSTOMERS_VIEW },
         { id: 'marketing', label: 'Marketing Auto', icon: MessageSquare, roles: ['SALON_OWNER', 'FRANCHISE_OWNER'] },

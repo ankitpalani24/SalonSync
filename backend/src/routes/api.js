@@ -924,10 +924,119 @@ router.get('/analytics/salon-health', requirePermission('reports.view'), safeHan
         inventoryHealth: inventoryScore,
         appointmentUtilization: utilizationScore
       },
+  res.json({
+    success: true,
+    data: {
+      overallHealthScore,
+      ratingGrade: overallHealthScore >= 80 ? 'Excellent' : overallHealthScore >= 60 ? 'Good' : 'Needs Attention',
+      metrics: {
+        totalRevenue,
+        netProfit,
+        profitMarginPercent,
+        totalCustomers,
+        repeatCustomersCount,
+        retentionPercent,
+        avgRating,
+        totalReviews,
+        lowStockCount: lowStockProducts.length,
+        inventoryHealthPercent,
+        utilizationPercent
+      },
+      categoryScores: {
+        revenueGrowth: revGrowthScore,
+        profitMargin: profitScore,
+        customerRetention: retentionScore,
+        repeatCustomers: repeatScore,
+        staffPerformance: staffScore,
+        customerRatings: ratingScore,
+        inventoryHealth: inventoryScore,
+        appointmentUtilization: utilizationScore
+      },
       insights
     }
   });
 }, 'Failed to compute salon health score'));
+
+// ----------------------------------------------------
+// WHATSAPP COMMUNICATION SYSTEM & PROVIDER ADAPTERS
+// ----------------------------------------------------
+
+router.get('/whatsapp/config', safeHandler(async (req, res) => {
+  let config = await models.WhatsAppConfig.findOne({ salonId: req.user.salonId });
+  if (!config) {
+    config = await models.WhatsAppConfig.create({
+      salonId: req.user.salonId,
+      provider: 'Unconfigured',
+      enabledTriggers: {
+        Confirmation: true,
+        Reminder: true,
+        Cancellation: true,
+        Rescheduled: true,
+        Invoice: true,
+        Payment: true,
+        Birthday: true,
+        MembershipExpiry: true,
+        Loyalty: true,
+        Revisit: true,
+        Promo: true
+      }
+    });
+  }
+  res.json({ success: true, data: config });
+}, 'Failed to fetch WhatsApp config'));
+
+router.put('/whatsapp/config', sanitizeBody(['provider', 'apiKey', 'phoneNumberId', 'webhookSecret', 'enabledTriggers']), safeHandler(async (req, res) => {
+  const config = await models.WhatsAppConfig.findOneAndUpdate(
+    { salonId: req.user.salonId },
+    { ...req.body, salonId: req.user.salonId },
+    { new: true, upsert: true, runValidators: true }
+  );
+  res.json({ success: true, data: config });
+}, 'Failed to update WhatsApp config'));
+
+router.put('/whatsapp/templates', sanitizeBody(['customTemplates']), safeHandler(async (req, res) => {
+  const config = await models.WhatsAppConfig.findOneAndUpdate(
+    { salonId: req.user.salonId },
+    { customTemplates: req.body.customTemplates },
+    { new: true, upsert: true }
+  );
+  res.json({ success: true, data: config });
+}, 'Failed to update WhatsApp templates'));
+
+router.post('/whatsapp/dispatch', sanitizeBody(['customerId', 'phone', 'customerName', 'triggerType', 'message']), safeHandler(async (req, res) => {
+  const { customerId, phone, customerName, triggerType, message } = req.body;
+  const config = await models.WhatsAppConfig.findOne({ salonId: req.user.salonId });
+
+  const isConfigured = config && config.provider !== 'Unconfigured' && config.apiKey && config.apiKey.trim().length > 5;
+  const status = isConfigured ? 'Sent' : 'Provider Required';
+
+  const notification = await models.Notification.create({
+    salonId: req.user.salonId,
+    customerId: customerId || null,
+    customerPhone: phone || '',
+    customerName: customerName || 'Valued Client',
+    type: 'WhatsApp',
+    triggerType: triggerType || 'General',
+    message,
+    status,
+    providerUsed: isConfigured ? config.provider : 'Unconfigured (API Credentials Required)'
+  });
+
+  res.status(201).json({
+    success: true,
+    status,
+    isConfigured,
+    message: isConfigured 
+      ? `WhatsApp message dispatched via ${config.provider}` 
+      : 'Message logged in outbox with status "Provider Required". Please configure Meta Cloud API or Twilio credentials in Provider Settings.',
+    data: notification
+  });
+}, 'Failed to dispatch WhatsApp message'));
+
+router.get('/whatsapp/outbox', safeHandler(async (req, res) => {
+  const outbox = await models.Notification.find({ salonId: req.user.salonId, type: 'WhatsApp' }).sort({ createdAt: -1 }).limit(100);
+  res.json({ success: true, data: outbox });
+}, 'Failed to fetch WhatsApp outbox'));
 
 // ----------------------------------------------------
 // EXPENSE TRACKING

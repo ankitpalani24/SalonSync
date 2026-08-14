@@ -428,13 +428,34 @@ SubscriptionSchema.index({ salonId: 1, status: 1 });
 const NotificationSchema = new mongoose.Schema({
   salonId: { type: mongoose.Schema.Types.ObjectId, ref: 'Salon', required: true },
   customerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Customer' },
+  customerPhone: { type: String },
+  customerName: { type: String },
   type: { type: String, enum: ['WhatsApp', 'SMS', 'Email'], required: true },
+  triggerType: { 
+    type: String, 
+    enum: ['Confirmation', 'Reminder', 'Cancellation', 'Rescheduled', 'Invoice', 'Payment', 'Birthday', 'MembershipExpiry', 'Loyalty', 'Revisit', 'Promo', 'General'], 
+    default: 'General' 
+  },
   message: { type: String, required: true },
-  status: { type: String, enum: ['Sent', 'Pending', 'Failed'], default: 'Sent' },
+  status: { type: String, enum: ['Sent', 'Queued', 'Provider Required', 'Failed'], default: 'Sent' },
+  providerUsed: { type: String, default: 'Unconfigured' },
   sentAt: { type: Date, default: Date.now }
 }, { timestamps: true });
 
-NotificationSchema.index({ salonId: 1, customerId: 1 });
+NotificationSchema.index({ salonId: 1, customerId: 1, createdAt: -1 });
+
+// 18b. WhatsApp Config & Template Schema
+const WhatsAppConfigSchema = new mongoose.Schema({
+  salonId: { type: mongoose.Schema.Types.ObjectId, ref: 'Salon', required: true },
+  provider: { type: String, enum: ['MetaCloudAPI', 'Twilio', 'Interakt', 'AISensy', 'Unconfigured'], default: 'Unconfigured' },
+  apiKey: { type: String, default: '' },
+  phoneNumberId: { type: String, default: '' },
+  webhookSecret: { type: String, default: '' },
+  enabledTriggers: { type: Object, default: {} },
+  customTemplates: { type: Object, default: {} }
+}, { timestamps: true });
+
+WhatsAppConfigSchema.index({ salonId: 1 }, { unique: true });
 
 // 19. Review Schema
 const ReviewSchema = new mongoose.Schema({
@@ -458,17 +479,12 @@ const InventoryConsumptionSchema = new mongoose.Schema({
   productName: { type: String, required: true },
   quantityConsumed: { type: Number, required: true },
   unit: { type: String, default: 'units' },
-  serviceId: { type: mongoose.Schema.Types.ObjectId, ref: 'Service' },
   serviceName: { type: String },
-  customerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Customer' },
-  customerName: { type: String },
-  staffId: { type: mongoose.Schema.Types.ObjectId, ref: 'Staff' },
-  staffName: { type: String },
   appointmentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Appointment' },
-  date: { type: Date, default: Date.now }
+  performedByStaffName: { type: String }
 }, { timestamps: true });
 
-InventoryConsumptionSchema.index({ salonId: 1, date: -1 });
+InventoryConsumptionSchema.index({ salonId: 1, createdAt: -1 });
 
 // Export all models
 module.exports = {
@@ -493,6 +509,7 @@ module.exports = {
   Commission: mongoose.model('Commission', CommissionSchema),
   Subscription: mongoose.model('Subscription', SubscriptionSchema),
   Notification: mongoose.model('Notification', NotificationSchema),
+  WhatsAppConfig: mongoose.model('WhatsAppConfig', WhatsAppConfigSchema),
   Review: mongoose.model('Review', ReviewSchema),
   InventoryConsumption: mongoose.model('InventoryConsumption', InventoryConsumptionSchema)
 };

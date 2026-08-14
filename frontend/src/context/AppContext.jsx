@@ -63,6 +63,8 @@ export const AppProvider = ({ children }) => {
       loyaltyRules: getLocal('sf_loyalty_rules', mockData.mockLoyaltyRules),
       loyaltyTransactions: getLocal('sf_loyalty_transactions', mockData.mockLoyaltyTransactions),
       customerMemberships: getLocal('sf_customer_memberships', mockData.mockCustomerMemberships),
+      whatsAppConfig: getLocal('sf_whatsapp_config', mockData.mockWhatsAppConfig),
+      whatsAppTemplates: getLocal('sf_whatsapp_templates', mockData.mockWhatsAppTemplates),
     };
   });
 
@@ -1906,6 +1908,162 @@ export const AppProvider = ({ children }) => {
       insights
     };
   };
+
+  // ── WhatsApp Communication System ──
+  const updateWhatsAppConfig = async (configData) => {
+    try {
+      setDb(prev => {
+        const updatedConfig = { ...(prev.whatsAppConfig || mockData.mockWhatsAppConfig), ...configData };
+        localStorage.setItem('sf_whatsapp_config', JSON.stringify(updatedConfig));
+        return { ...prev, whatsAppConfig: updatedConfig };
+      });
+
+      const token = localStorage.getItem('token');
+      if (token) {
+        await fetch(`${API_URL}/whatsapp/config`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(configData)
+        });
+      }
+      addToast('WhatsApp Provider API settings saved!', 'success');
+    } catch (err) {
+      console.error('Error updating WhatsApp config:', err);
+    }
+  };
+
+  const updateWhatsAppTemplates = async (templatesData) => {
+    try {
+      setDb(prev => {
+        const updatedTemplates = { ...(prev.whatsAppTemplates || mockData.mockWhatsAppTemplates), ...templatesData };
+        localStorage.setItem('sf_whatsapp_templates', JSON.stringify(updatedTemplates));
+        return { ...prev, whatsAppTemplates: updatedTemplates };
+      });
+
+      const token = localStorage.getItem('token');
+      if (token) {
+        await fetch(`${API_URL}/whatsapp/templates`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ customTemplates: templatesData })
+        });
+      }
+      addToast('Custom WhatsApp message templates saved!', 'success');
+    } catch (err) {
+      console.error('Error updating WhatsApp templates:', err);
+    }
+  };
+
+  const toggleWhatsAppTrigger = async (triggerKey, enabled) => {
+    try {
+      const currentConfig = db.whatsAppConfig || mockData.mockWhatsAppConfig;
+      const updatedTriggers = { ...(currentConfig.enabledTriggers || {}), [triggerKey]: enabled };
+      await updateWhatsAppConfig({ enabledTriggers: updatedTriggers });
+    } catch (err) {
+      console.error('Error toggling WhatsApp trigger:', err);
+    }
+  };
+
+  const dispatchWhatsAppMessage = async ({ customerId, phone, customerName, triggerType = 'General', variables = {}, rawMessage = null }) => {
+    try {
+      const config = db.whatsAppConfig || mockData.mockWhatsAppConfig;
+      const templates = db.whatsAppTemplates || mockData.mockWhatsAppTemplates;
+
+      // Check trigger enabled status
+      if (config.enabledTriggers && config.enabledTriggers[triggerType] === false) {
+        addToast(`Notification trigger "${triggerType}" is currently disabled in salon settings.`, 'warning');
+        return { success: false, status: 'Disabled' };
+      }
+
+      let messageText = rawMessage;
+      if (!messageText) {
+        let templateStr = templates[triggerType] || templates.Confirmation;
+        messageText = templateStr;
+
+        const vars = {
+          customerName: customerName || 'Valued Client',
+          salonName: currentSalon?.name || 'SalonSync Luxe Spa',
+          appointmentDate: variables.date || new Date().toLocaleDateString(),
+          appointmentTime: variables.time || '10:30 AM',
+          serviceName: variables.service || 'Signature Treatment',
+          staffName: variables.staff || 'Senior Stylist',
+          invoiceNumber: variables.invoiceNumber || 'INV-2026-0001',
+          invoiceAmount: variables.amount ? `₹${variables.amount}` : '₹1,500',
+          amountPaid: variables.amount ? `₹${variables.amount}` : '₹1,500',
+          paymentMethod: variables.paymentMethod || 'UPI',
+          loyaltyPoints: variables.points || '250',
+          pointsEarned: variables.pointsEarned || '50',
+          membershipTier: variables.tier || 'Gold Pass',
+          discountPercentage: variables.discount || '15',
+          expiryDate: variables.expiryDate || '2026-12-31',
+          ...variables
+        };
+
+        Object.keys(vars).forEach(key => {
+          const regex = new RegExp(`{{\\s*${key}\\s*}}`, 'g');
+          messageText = messageText.replace(regex, vars[key]);
+        });
+      }
+
+      const isConfigured = config.provider !== 'Unconfigured' && config.apiKey && config.apiKey.trim().length > 5;
+      const status = isConfigured ? 'Sent' : 'Provider Required';
+
+      const newNotification = {
+        _id: 'nt_wa_' + Date.now() + Math.random().toString(36).substring(2, 6),
+        salonId: currentUser?.salonId || 'salon_luxe_123',
+        customerId: customerId || null,
+        customerName: customerName || 'Valued Client',
+        customerPhone: phone || '+91 98765 43210',
+        type: 'WhatsApp',
+        triggerType,
+        message: messageText,
+        status,
+        providerUsed: isConfigured ? config.provider : 'Unconfigured (API Credentials Required)',
+        sentAt: new Date().toISOString()
+      };
+
+      setDb(prev => {
+        const updatedNotifs = [newNotification, ...(prev.notifications || [])];
+        localStorage.setItem('sf_notifications', JSON.stringify(updatedNotifs));
+        return { ...prev, notifications: updatedNotifs };
+      });
+
+      const token = localStorage.getItem('token');
+      if (token) {
+        await fetch(`${API_URL}/whatsapp/dispatch`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            customerId,
+            phone,
+            customerName,
+            triggerType,
+            message: messageText
+          })
+        });
+      }
+
+      if (isConfigured) {
+        addToast(`🎉 WhatsApp ${triggerType} message dispatched via ${config.provider}!`, 'success');
+      } else {
+        addToast(`Logged message in outbox with status "Provider Required" (API Key required).`, 'info');
+      }
+
+      return { success: true, status, notification: newNotification };
+    } catch (err) {
+      console.error('Error dispatching WhatsApp message:', err);
+      return { success: false, message: err.message };
+    }
+  };
   const createInvoice = async (invoiceData) => {
     try {
       const token = localStorage.getItem('token');
@@ -2142,8 +2300,9 @@ export const AppProvider = ({ children }) => {
       updateLoyaltyRules, addLoyaltyReward, updateLoyaltyReward, deleteLoyaltyReward, redeemLoyaltyReward, getLoyaltySummary,
       // Salon Membership System
       addMembershipPlan, updateMembershipPlan, deleteMembershipPlan, subscribeCustomerMembership, redeemMembershipBenefit, triggerMembershipExpiryNotifications, getCustomerMembershipSummary,
-      // Public Salon Showcase & Discovery & Health Score
+      // Public Salon Showcase & Discovery & Health Score & WhatsApp
       getPublicSalonProfile, discoverSalons, calculateSalonHealthScore,
+      updateWhatsAppConfig, updateWhatsAppTemplates, toggleWhatsAppTrigger, dispatchWhatsAppMessage,
       // Configurations
       updateSalonDetails, switchBranch, addBranch, updateBranch, deleteBranch, updateSalonSubscription,
       // Marketing
