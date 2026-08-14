@@ -101,33 +101,33 @@ const Sidebar = ({ activePage, setActivePage, collapsed, setCollapsed, user, log
         display: 'flex',
         alignItems: 'center',
         gap: '0.75rem',
-        borderBottom: '1px solid rgba(220, 228, 200, 0.15)',
+        borderBottom: '1px solid var(--border-light)',
         height: '75px',
         overflow: 'hidden'
       }}>
         <div style={{
-          width: '34px',
-          height: '34px',
-          borderRadius: '8px',
-          background: 'var(--color-primary)',
+          width: '32px',
+          height: '32px',
+          borderRadius: '6px',
+          background: 'linear-gradient(135deg, var(--gold-primary) 0%, #b38f20 100%)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          color: '#FFFFFF',
-          fontWeight: '700',
-          fontSize: '1rem',
-          letterSpacing: '0.5px',
+          color: '#000',
+          fontWeight: 'bold',
+          fontSize: '1.1rem',
           flexShrink: 0
         }}>
           SS
         </div>
         {!collapsed && (
           <span style={{
-            fontSize: '1.1rem',
+            fontSize: '1.15rem',
             fontWeight: '700',
-            color: '#FFFFFF',
-            letterSpacing: '1.5px',
-            textTransform: 'uppercase',
+            background: 'linear-gradient(135deg, var(--text-primary) 0%, var(--gold-primary) 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            letterSpacing: '1px',
             whiteSpace: 'nowrap'
           }}>
             SalonSync
@@ -159,7 +159,7 @@ const Sidebar = ({ activePage, setActivePage, collapsed, setCollapsed, user, log
           return (
             <div key={sec.title} style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
               {!collapsed && (
-                <div style={{ fontSize: '0.62rem', fontWeight: '800', color: 'var(--color-primary-light)', letterSpacing: '0.8px', padding: '0.25rem 0.75rem', textTransform: 'uppercase' }}>
+                <div style={{ fontSize: '0.62rem', fontWeight: '800', color: 'var(--text-muted)', letterSpacing: '0.8px', padding: '0.25rem 0.75rem', textTransform: 'uppercase' }}>
                   {sec.title}
                 </div>
               )}
@@ -175,13 +175,13 @@ const Sidebar = ({ activePage, setActivePage, collapsed, setCollapsed, user, log
                       display: 'flex',
                       alignItems: 'center',
                       gap: '0.85rem',
-                      padding: '0.65rem 0.85rem',
+                      padding: '0.7rem 0.85rem',
                       width: '100%',
-                      background: isActive ? 'rgba(124, 77, 158, 0.28)' : 'transparent',
-                      color: isActive ? '#FFFFFF' : 'var(--color-primary-soft)',
+                      background: isActive ? 'var(--sidebar-active-bg)' : 'transparent',
+                      color: isActive ? 'var(--gold-primary)' : 'var(--sidebar-text-inactive)',
                       border: 'none',
-                      borderLeft: isActive ? '3px solid var(--color-accent-light)' : '3px solid transparent',
-                      borderRadius: '8px',
+                      borderLeft: isActive ? '3px solid var(--gold-primary)' : '3px solid transparent',
+                      borderRadius: '4px',
                       textAlign: 'left',
                       fontSize: '0.85rem',
                       fontWeight: isActive ? '600' : '400',
@@ -190,7 +190,7 @@ const Sidebar = ({ activePage, setActivePage, collapsed, setCollapsed, user, log
                     }}
                     className="sidebar-link"
                   >
-                    <Icon size={17} style={{ flexShrink: 0, color: isActive ? 'var(--color-accent-light)' : 'var(--color-primary-light)' }} />
+                    <Icon size={17} style={{ flexShrink: 0, color: isActive ? 'var(--gold-primary)' : 'inherit' }} />
                     {!collapsed && <span>{item.label}</span>}
                   </button>
                 );

@@ -53,25 +53,25 @@ const LandingPage = ({ onStartTrial, onLogin }) => {
   };
 
   return (
-    <div style={{ background: 'var(--color-dark-bg)', color: 'var(--color-dark-text)', minHeight: '100vh', fontFamily: "var(--font-sans)" }}>
+    <div style={{ background: '#050505', color: '#ffffff', minHeight: '100vh', fontFamily: "'Montserrat', sans-serif" }}>
       
       {/* ─── 1. NAVIGATION BAR ─────────────────────────────────────────────── */}
       <nav className="landing-nav" style={{
         position: 'fixed', top: 0, left: 0, right: 0, zIndex: 1000,
-        background: 'rgba(63, 77, 39, 0.92)', backdropFilter: 'blur(16px)',
-        borderBottom: '1px solid rgba(220, 228, 200, 0.15)', padding: '1rem 3rem',
+        background: 'rgba(5, 5, 5, 0.85)', backdropFilter: 'blur(16px)',
+        borderBottom: '1px solid rgba(212,175,55,0.15)', padding: '1rem 3rem',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between'
       }}>
         {/* Brand */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', cursor: 'pointer' }} onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
           <div style={{
             width: '38px', height: '38px', borderRadius: '10px',
-            background: 'var(--color-primary)',
+            background: 'linear-gradient(135deg, var(--gold-primary) 0%, #b38f20 100%)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '1rem', fontWeight: '800', color: '#ffffff', letterSpacing: '0.5px'
+            fontSize: '1.1rem', fontWeight: '800', color: '#000', letterSpacing: '0.5px'
           }}>SS</div>
           <span style={{ fontSize: '1.35rem', fontWeight: '800', letterSpacing: '1px', color: '#ffffff' }}>
-            Salon<span style={{ color: 'var(--color-primary-light)' }}>Sync</span>
+            Salon<span style={{ color: 'var(--gold-primary)' }}>Sync</span>
           </span>
         </div>
 
@@ -81,9 +81,9 @@ const LandingPage = ({ onStartTrial, onLogin }) => {
             <a
               key={link}
               href={`#${link.toLowerCase().replace(/\s+/g, '-')}`}
-              style={{ color: 'var(--color-primary-soft)', fontSize: '0.85rem', fontWeight: '500', textDecoration: 'none', transition: 'color 0.2s' }}
-              onMouseEnter={e => e.target.style.color = '#ffffff'}
-              onMouseLeave={e => e.target.style.color = 'var(--color-primary-soft)'}
+              style={{ color: '#aaa', fontSize: '0.85rem', fontWeight: '500', textDecoration: 'none', transition: 'color 0.2s' }}
+              onMouseEnter={e => e.target.style.color = 'var(--gold-primary)'}
+              onMouseLeave={e => e.target.style.color = '#aaa'}
             >
               {link}
             </a>
@@ -92,10 +92,10 @@ const LandingPage = ({ onStartTrial, onLogin }) => {
 
         {/* Nav Actions */}
         <div className="landing-nav-actions" style={{ display: 'flex', gap: '0.85rem', alignItems: 'center' }}>
-          <button onClick={onLogin} style={{ background: 'transparent', border: 'none', color: '#ffffff', fontSize: '0.85rem', fontWeight: '600', cursor: 'pointer', padding: '0.5rem 0.75rem' }}>
+          <button onClick={onLogin} style={{ background: 'transparent', border: 'none', color: '#fff', fontSize: '0.85rem', fontWeight: '600', cursor: 'pointer', padding: '0.5rem 0.75rem' }}>
             Sign In
           </button>
-          <button onClick={onStartTrial} className="btn-secondary" style={{ padding: '0.6rem 1.4rem', fontSize: '0.85rem', fontWeight: '600' }}>
+          <button onClick={onStartTrial} className="gold-btn" style={{ padding: '0.6rem 1.4rem', fontSize: '0.85rem', fontWeight: '600' }}>
             Start Free Trial
           </button>
         </div>

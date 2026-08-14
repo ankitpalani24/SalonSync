@@ -1050,10 +1050,11 @@ const Dashboard = ({ setActivePage }) => {
           value={`₹${todayRevenue.toLocaleString()}`}
           subtitle="Updated live"
           icon={TrendingUp}
-          iconColor="var(--color-primary)"
+          iconColor="var(--gold-primary)"
+          glowColor="rgba(112,130,56,0.2)"
           trend={12.5}
           trendUp={true}
-          accentBorder="var(--color-primary)"
+          accentBorder="var(--gold-primary)"
           delay={0}
         />
         <KpiCard
@@ -1061,10 +1062,11 @@ const Dashboard = ({ setActivePage }) => {
           value={`₹${todayProfit.toLocaleString()}`}
           subtitle={`Net after ₹${todayExpenses.toLocaleString()} expenses`}
           icon={DollarSign}
-          iconColor="var(--color-accent)"
+          iconColor="#2ecc71"
+          glowColor="rgba(46,204,113,0.15)"
           trend={8.3}
           trendUp={true}
-          accentBorder="var(--color-accent)"
+          accentBorder="#2ecc71"
           delay={50}
         />
         <KpiCard
@@ -1072,10 +1074,10 @@ const Dashboard = ({ setActivePage }) => {
           value={`₹${todayExpenses.toLocaleString()}`}
           subtitle="Salary, Rent & Utilities"
           icon={Receipt}
-          iconColor="var(--color-text-secondary)"
+          iconColor="var(--accent-red)"
           trend={3.2}
           trendUp={false}
-          accentBorder="var(--color-border)"
+          accentBorder="var(--accent-red)"
           delay={100}
         />
         <KpiCard
@@ -1083,10 +1085,11 @@ const Dashboard = ({ setActivePage }) => {
           value={todayAppointmentCount}
           subtitle={`${todayAppointments.filter(a => a.status === 'Completed').length} completed`}
           icon={Calendar}
-          iconColor="var(--color-accent)"
+          iconColor="#3498db"
+          glowColor="rgba(52,152,219,0.15)"
           trend={15.7}
           trendUp={true}
-          accentBorder="var(--color-accent)"
+          accentBorder="#3498db"
           delay={150}
         />
         <KpiCard
@@ -1094,10 +1097,11 @@ const Dashboard = ({ setActivePage }) => {
           value={totalCustomers}
           subtitle={`${activeMemberships.length} active members`}
           icon={Users}
-          iconColor="var(--color-primary)"
+          iconColor="#9b59b6"
+          glowColor="rgba(155,89,182,0.15)"
           trend={5.4}
           trendUp={true}
-          accentBorder="var(--color-primary)"
+          accentBorder="#9b59b6"
           delay={200}
         />
         <KpiCard
@@ -1105,10 +1109,11 @@ const Dashboard = ({ setActivePage }) => {
           value={newCustomersThisMonth || totalCustomers}
           subtitle={`Acquired in ${currentMonthName}`}
           icon={UserPlus}
-          iconColor="var(--color-primary)"
+          iconColor="#2ecc71"
+          glowColor="rgba(46,204,113,0.15)"
           trend={22.1}
           trendUp={true}
-          accentBorder="var(--color-primary)"
+          accentBorder="#2ecc71"
           delay={250}
         />
         <KpiCard
@@ -1116,10 +1121,11 @@ const Dashboard = ({ setActivePage }) => {
           value={activeStaffCount}
           subtitle="Currently on roster"
           icon={UserCheck}
-          iconColor="var(--color-primary)"
+          iconColor="var(--gold-primary)"
+          glowColor="rgba(112,130,56,0.15)"
           trend={4.2}
           trendUp={true}
-          accentBorder="var(--color-primary)"
+          accentBorder="var(--gold-primary)"
           delay={300}
         />
         <KpiCard
@@ -1127,10 +1133,11 @@ const Dashboard = ({ setActivePage }) => {
           value={lowStockAlerts.length}
           subtitle={lowStockAlerts.length > 0 ? 'Items need restocking' : 'All items fully stocked'}
           icon={Package}
-          iconColor={lowStockAlerts.length > 0 ? 'var(--color-accent)' : 'var(--color-primary)'}
+          iconColor={lowStockAlerts.length > 0 ? 'var(--accent-red)' : 'var(--accent-green)'}
+          glowColor={lowStockAlerts.length > 0 ? 'rgba(231,76,60,0.15)' : 'rgba(46,204,113,0.15)'}
           trend={lowStockAlerts.length > 0 ? 12.0 : 0.0}
           trendUp={lowStockAlerts.length === 0}
-          accentBorder={lowStockAlerts.length > 0 ? 'var(--color-accent)' : 'var(--color-primary)'}
+          accentBorder={lowStockAlerts.length > 0 ? 'var(--accent-red)' : 'var(--accent-green)'}
           delay={350}
         />
       </div>

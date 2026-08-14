@@ -52,25 +52,25 @@ export const RevenueExpenseChart = ({ revenueData = [], expenseData = [] }) => {
     <div style={{ position: 'relative', width: '100%' }}>
       {/* Legend */}
       <div style={{ display: 'flex', gap: '1.25rem', marginBottom: '0.75rem', justifyContent: 'flex-end' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.75rem', fontWeight: '600', color: 'var(--color-primary-dark)' }}>
-          <span style={{ width: 10, height: 10, borderRadius: 2, background: 'var(--color-primary)', display: 'inline-block' }} />
-          Revenue (Olive)
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
+          <span style={{ width: 10, height: 10, borderRadius: 2, background: 'var(--gold-primary)', display: 'inline-block' }} />
+          Revenue
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.75rem', fontWeight: '600', color: 'var(--color-accent-dark)' }}>
-          <span style={{ width: 10, height: 10, borderRadius: 2, background: 'var(--color-accent)', display: 'inline-block' }} />
-          Expenses (Purple)
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
+          <span style={{ width: 10, height: 10, borderRadius: 2, background: 'var(--accent-red)', display: 'inline-block' }} />
+          Expenses
         </div>
       </div>
 
       <svg viewBox={`0 0 ${width} ${height}`} width="100%" height="260" style={{ background: 'transparent' }}>
         <defs>
           <linearGradient id="revAreaGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--color-primary)" stopOpacity="0.22" />
-            <stop offset="100%" stopColor="var(--color-primary)" stopOpacity="0.01" />
+            <stop offset="0%" stopColor="var(--gold-primary)" stopOpacity="0.25" />
+            <stop offset="100%" stopColor="var(--gold-primary)" stopOpacity="0" />
           </linearGradient>
           <linearGradient id="expAreaGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--color-accent)" stopOpacity="0.18" />
-            <stop offset="100%" stopColor="var(--color-accent)" stopOpacity="0.01" />
+            <stop offset="0%" stopColor="var(--accent-red)" stopOpacity="0.12" />
+            <stop offset="100%" stopColor="var(--accent-red)" stopOpacity="0" />
           </linearGradient>
         </defs>
 
@@ -80,8 +80,8 @@ export const RevenueExpenseChart = ({ revenueData = [], expenseData = [] }) => {
           const val = Math.round(maxVal - ratio * maxVal);
           return (
             <g key={i}>
-              <line x1={padding} y1={y} x2={width - padding} y2={y} stroke="var(--color-border)" strokeDasharray="3,3" />
-              <text x={padding - 8} y={y + 4} fill="var(--color-text-muted)" fontSize="9" textAnchor="end" fontFamily="var(--font-sans)">
+              <line x1={padding} y1={y} x2={width - padding} y2={y} stroke="rgba(255,255,255,0.04)" strokeDasharray="4,4" />
+              <text x={padding - 8} y={y + 4} fill="var(--text-muted)" fontSize="9" textAnchor="end" fontFamily="var(--font-sans)">
                 ₹{(val / 1000).toFixed(0)}k
               </text>
             </g>
@@ -92,7 +92,7 @@ export const RevenueExpenseChart = ({ revenueData = [], expenseData = [] }) => {
         {months.map((m, idx) => {
           const x = padding + (idx * (width - padding * 2)) / (months.length - 1);
           return (
-            <text key={m} x={x} y={height - padding + 22} fill="var(--color-text-secondary)" fontSize="10" fontWeight="500" textAnchor="middle" fontFamily="var(--font-sans)">
+            <text key={m} x={x} y={height - padding + 22} fill="var(--text-secondary)" fontSize="10" textAnchor="middle" fontFamily="var(--font-sans)">
               {m}
             </text>
           );
@@ -103,8 +103,8 @@ export const RevenueExpenseChart = ({ revenueData = [], expenseData = [] }) => {
         <path d={makeArea(expPoints, expLine)} fill="url(#expAreaGrad)" />
 
         {/* Lines */}
-        <path d={revLine} fill="none" stroke="var(--color-primary)" strokeWidth="2.5" strokeLinecap="round" />
-        <path d={expLine} fill="none" stroke="var(--color-accent)" strokeWidth="2" strokeLinecap="round" strokeDasharray="5,3" />
+        <path d={revLine} fill="none" stroke="var(--gold-primary)" strokeWidth="2.5" strokeLinecap="round" />
+        <path d={expLine} fill="none" stroke="var(--accent-red)" strokeWidth="2" strokeLinecap="round" strokeDasharray="6,3" />
 
         {/* Revenue points */}
         {revPoints.map((p, idx) => (
@@ -112,8 +112,8 @@ export const RevenueExpenseChart = ({ revenueData = [], expenseData = [] }) => {
             key={`r${idx}`}
             cx={p.x} cy={p.y}
             r={hoveredIdx === idx && hoveredType === 'rev' ? 6 : 3.5}
-            fill={hoveredIdx === idx && hoveredType === 'rev' ? 'var(--color-primary)' : '#FFFFFF'}
-            stroke="var(--color-primary)" strokeWidth="2"
+            fill={hoveredIdx === idx && hoveredType === 'rev' ? 'var(--gold-primary)' : 'var(--bg-secondary)'}
+            stroke="var(--gold-primary)" strokeWidth="2"
             onMouseEnter={() => { setHoveredIdx(idx); setHoveredType('rev'); }}
             onMouseLeave={() => { setHoveredIdx(null); setHoveredType(null); }}
             style={{ cursor: 'pointer', transition: 'all 0.15s ease' }}
@@ -126,8 +126,8 @@ export const RevenueExpenseChart = ({ revenueData = [], expenseData = [] }) => {
             key={`e${idx}`}
             cx={p.x} cy={p.y}
             r={hoveredIdx === idx && hoveredType === 'exp' ? 6 : 3.5}
-            fill={hoveredIdx === idx && hoveredType === 'exp' ? 'var(--color-accent)' : '#FFFFFF'}
-            stroke="var(--color-accent)" strokeWidth="2"
+            fill={hoveredIdx === idx && hoveredType === 'exp' ? 'var(--accent-red)' : 'var(--bg-secondary)'}
+            stroke="var(--accent-red)" strokeWidth="2"
             onMouseEnter={() => { setHoveredIdx(idx); setHoveredType('exp'); }}
             onMouseLeave={() => { setHoveredIdx(null); setHoveredType(null); }}
             style={{ cursor: 'pointer', transition: 'all 0.15s ease' }}
@@ -141,18 +141,18 @@ export const RevenueExpenseChart = ({ revenueData = [], expenseData = [] }) => {
           position: 'absolute',
           top: (hoveredType === 'rev' ? revPoints : expPoints)[hoveredIdx].y - 48,
           left: (hoveredType === 'rev' ? revPoints : expPoints)[hoveredIdx].x - 55,
-          background: 'var(--color-surface)',
-          border: `1px solid ${hoveredType === 'rev' ? 'var(--color-primary)' : 'var(--color-accent)'}`,
-          borderRadius: '8px',
-          padding: '0.35rem 0.65rem',
-          fontSize: '0.75rem',
-          color: 'var(--color-text)',
-          boxShadow: 'var(--shadow-md)',
+          background: 'rgba(15,15,15,0.95)',
+          border: `1px solid ${hoveredType === 'rev' ? 'var(--gold-border)' : 'rgba(231,76,60,0.4)'}`,
+          borderRadius: '6px',
+          padding: '0.3rem 0.6rem',
+          fontSize: '0.72rem',
+          color: '#fff',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
           pointerEvents: 'none',
           whiteSpace: 'nowrap',
           zIndex: 10
         }}>
-          <strong>{months[hoveredIdx]}</strong> {hoveredType === 'rev' ? 'Revenue' : 'Expense'}: ₹{(hoveredType === 'rev' ? revPoints : expPoints)[hoveredIdx].val.toLocaleString()}
+          <strong>{months[hoveredIdx]}</strong> {hoveredType === 'rev' ? 'Rev' : 'Exp'}: ₹{(hoveredType === 'rev' ? revPoints : expPoints)[hoveredIdx].val.toLocaleString()}
         </div>
       )}
     </div>
@@ -181,8 +181,8 @@ export const MonthlyProfitChart = ({ data = [] }) => {
       <svg viewBox={`0 0 ${width} ${height}`} width="100%" height="250">
         <defs>
           <linearGradient id="profitBarGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--color-primary)" stopOpacity="1" />
-            <stop offset="100%" stopColor="var(--color-primary-dark)" stopOpacity="0.75" />
+            <stop offset="0%" stopColor="var(--gold-primary)" stopOpacity="1" />
+            <stop offset="100%" stopColor="var(--gold-primary)" stopOpacity="0.4" />
           </linearGradient>
         </defs>
 
@@ -192,8 +192,8 @@ export const MonthlyProfitChart = ({ data = [] }) => {
           const val = Math.round(maxVal - ratio * maxVal);
           return (
             <g key={i}>
-              <line x1={padding} y1={y} x2={width - padding} y2={y} stroke="var(--color-border)" strokeDasharray="3,3" />
-              <text x={padding - 8} y={y + 4} fill="var(--color-text-muted)" fontSize="9" textAnchor="end" fontFamily="var(--font-sans)">
+              <line x1={padding} y1={y} x2={width - padding} y2={y} stroke="rgba(255,255,255,0.04)" strokeDasharray="4,4" />
+              <text x={padding - 8} y={y + 4} fill="var(--text-muted)" fontSize="9" textAnchor="end" fontFamily="var(--font-sans)">
                 ₹{(val / 1000).toFixed(0)}k
               </text>
             </g>
@@ -204,7 +204,7 @@ export const MonthlyProfitChart = ({ data = [] }) => {
         {months.map((m, idx) => {
           const x = padding + (idx * step) + (step / 2);
           return (
-            <text key={m} x={x} y={height - padding + 20} fill="var(--color-text-secondary)" fontSize="10" fontWeight="500" textAnchor="middle" fontFamily="var(--font-sans)">
+            <text key={m} x={x} y={height - padding + 20} fill="var(--text-secondary)" fontSize="10" textAnchor="middle" fontFamily="var(--font-sans)">
               {m}
             </text>
           );
@@ -222,16 +222,16 @@ export const MonthlyProfitChart = ({ data = [] }) => {
               <rect
                 x={x} y={y}
                 width={barWidth} height={barHeight}
-                rx="6"
-                fill={isHovered ? 'var(--color-accent)' : 'url(#profitBarGrad)'}
-                opacity={isHovered ? 1 : 0.9}
+                rx="4"
+                fill={isHovered ? 'var(--gold-primary)' : 'url(#profitBarGrad)'}
+                opacity={isHovered ? 1 : 0.8}
                 onMouseEnter={() => setHoveredBar(idx)}
                 onMouseLeave={() => setHoveredBar(null)}
                 style={{ cursor: 'pointer', transition: 'all 0.2s ease' }}
               />
               {/* Value on top */}
               {isHovered && (
-                <text x={x + barWidth / 2} y={y - 8} fill="var(--color-accent-dark)" fontSize="10" textAnchor="middle" fontWeight="700" fontFamily="var(--font-sans)">
+                <text x={x + barWidth / 2} y={y - 8} fill="var(--gold-primary)" fontSize="10" textAnchor="middle" fontWeight="600" fontFamily="var(--font-sans)">
                   ₹{(val / 1000).toFixed(0)}k
                 </text>
               )}
@@ -271,8 +271,8 @@ export const AppointmentTrendChart = ({ data = [] }) => {
       <svg viewBox={`0 0 ${width} ${height}`} width="100%" height="220" style={{ background: 'transparent' }}>
         <defs>
           <linearGradient id="apptAreaGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--color-accent)" stopOpacity="0.2" />
-            <stop offset="100%" stopColor="var(--color-accent)" stopOpacity="0.01" />
+            <stop offset="0%" stopColor="#3498db" stopOpacity="0.2" />
+            <stop offset="100%" stopColor="#3498db" stopOpacity="0" />
           </linearGradient>
         </defs>
 
@@ -282,8 +282,8 @@ export const AppointmentTrendChart = ({ data = [] }) => {
           const val = Math.round(maxVal - ratio * maxVal);
           return (
             <g key={i}>
-              <line x1={padding} y1={y} x2={width - padding} y2={y} stroke="var(--color-border)" strokeDasharray="3,3" />
-              <text x={padding - 8} y={y + 4} fill="var(--color-text-muted)" fontSize="9" textAnchor="end" fontFamily="var(--font-sans)">
+              <line x1={padding} y1={y} x2={width - padding} y2={y} stroke="rgba(255,255,255,0.04)" strokeDasharray="3,3" />
+              <text x={padding - 8} y={y + 4} fill="var(--text-muted)" fontSize="9" textAnchor="end" fontFamily="var(--font-sans)">
                 {val}
               </text>
             </g>
@@ -294,22 +294,22 @@ export const AppointmentTrendChart = ({ data = [] }) => {
         {days.map((d, idx) => {
           const x = padding + (idx * (width - padding * 2)) / (days.length - 1);
           return (
-            <text key={d} x={x} y={height - padding + 20} fill="var(--color-text-secondary)" fontSize="10" fontWeight="500" textAnchor="middle" fontFamily="var(--font-sans)">
+            <text key={d} x={x} y={height - padding + 20} fill="var(--text-secondary)" fontSize="10" textAnchor="middle" fontFamily="var(--font-sans)">
               {d}
             </text>
           );
         })}
 
         <path d={area} fill="url(#apptAreaGrad)" />
-        <path d={line} fill="none" stroke="var(--color-accent)" strokeWidth="2.5" strokeLinecap="round" />
+        <path d={line} fill="none" stroke="#3498db" strokeWidth="2.5" strokeLinecap="round" />
 
         {points.map((p, idx) => (
           <circle
             key={idx}
             cx={p.x} cy={p.y}
             r={hoveredIdx === idx ? 6 : 3.5}
-            fill={hoveredIdx === idx ? 'var(--color-accent)' : '#FFFFFF'}
-            stroke="var(--color-accent)" strokeWidth="2"
+            fill={hoveredIdx === idx ? '#3498db' : 'var(--bg-secondary)'}
+            stroke="#3498db" strokeWidth="2"
             onMouseEnter={() => setHoveredIdx(idx)}
             onMouseLeave={() => setHoveredIdx(null)}
             style={{ cursor: 'pointer', transition: 'all 0.15s ease' }}
@@ -322,18 +322,18 @@ export const AppointmentTrendChart = ({ data = [] }) => {
           position: 'absolute',
           top: points[hoveredIdx].y - 42,
           left: points[hoveredIdx].x - 40,
-          background: 'var(--color-surface)',
-          border: '1px solid var(--color-accent)',
-          borderRadius: '8px',
-          padding: '0.35rem 0.65rem',
-          fontSize: '0.75rem',
-          color: 'var(--color-text)',
-          boxShadow: 'var(--shadow-md)',
+          background: 'rgba(15,15,15,0.95)',
+          border: '1px solid rgba(52,152,219,0.4)',
+          borderRadius: '6px',
+          padding: '0.3rem 0.6rem',
+          fontSize: '0.72rem',
+          color: '#fff',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
           pointerEvents: 'none',
           whiteSpace: 'nowrap',
           zIndex: 10
         }}>
-          <strong>{days[hoveredIdx]}:</strong> {points[hoveredIdx].val} appointments
+          <strong>{days[hoveredIdx]}:</strong> {points[hoveredIdx].val} appts
         </div>
       )}
     </div>
@@ -368,8 +368,8 @@ export const CustomerGrowthChart = ({ data = [] }) => {
       <svg viewBox={`0 0 ${width} ${height}`} width="100%" height="220" style={{ background: 'transparent' }}>
         <defs>
           <linearGradient id="custAreaGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--color-primary)" stopOpacity="0.22" />
-            <stop offset="100%" stopColor="var(--color-primary)" stopOpacity="0.01" />
+            <stop offset="0%" stopColor="#2ecc71" stopOpacity="0.2" />
+            <stop offset="100%" stopColor="#2ecc71" stopOpacity="0" />
           </linearGradient>
         </defs>
 
@@ -378,8 +378,8 @@ export const CustomerGrowthChart = ({ data = [] }) => {
           const val = Math.round(maxVal - ratio * maxVal);
           return (
             <g key={i}>
-              <line x1={padding} y1={y} x2={width - padding} y2={y} stroke="var(--color-border)" strokeDasharray="3,3" />
-              <text x={padding - 8} y={y + 4} fill="var(--color-text-muted)" fontSize="9" textAnchor="end" fontFamily="var(--font-sans)">
+              <line x1={padding} y1={y} x2={width - padding} y2={y} stroke="rgba(255,255,255,0.04)" strokeDasharray="3,3" />
+              <text x={padding - 8} y={y + 4} fill="var(--text-muted)" fontSize="9" textAnchor="end" fontFamily="var(--font-sans)">
                 {val}
               </text>
             </g>
@@ -389,22 +389,22 @@ export const CustomerGrowthChart = ({ data = [] }) => {
         {months.map((m, idx) => {
           const x = padding + (idx * (width - padding * 2)) / (months.length - 1);
           return (
-            <text key={m} x={x} y={height - padding + 20} fill="var(--color-text-secondary)" fontSize="10" fontWeight="500" textAnchor="middle" fontFamily="var(--font-sans)">
+            <text key={m} x={x} y={height - padding + 20} fill="var(--text-secondary)" fontSize="10" textAnchor="middle" fontFamily="var(--font-sans)">
               {m}
             </text>
           );
         })}
 
         <path d={area} fill="url(#custAreaGrad)" />
-        <path d={line} fill="none" stroke="var(--color-primary)" strokeWidth="2.5" strokeLinecap="round" />
+        <path d={line} fill="none" stroke="#2ecc71" strokeWidth="2.5" strokeLinecap="round" />
 
         {points.map((p, idx) => (
           <circle
             key={idx}
             cx={p.x} cy={p.y}
             r={hoveredIdx === idx ? 6 : 3.5}
-            fill={hoveredIdx === idx ? 'var(--color-primary)' : '#FFFFFF'}
-            stroke="var(--color-primary)" strokeWidth="2"
+            fill={hoveredIdx === idx ? '#2ecc71' : 'var(--bg-secondary)'}
+            stroke="#2ecc71" strokeWidth="2"
             onMouseEnter={() => setHoveredIdx(idx)}
             onMouseLeave={() => setHoveredIdx(null)}
             style={{ cursor: 'pointer', transition: 'all 0.15s ease' }}
@@ -417,13 +417,13 @@ export const CustomerGrowthChart = ({ data = [] }) => {
           position: 'absolute',
           top: points[hoveredIdx].y - 42,
           left: points[hoveredIdx].x - 50,
-          background: 'var(--color-surface)',
-          border: '1px solid var(--color-primary)',
-          borderRadius: '8px',
-          padding: '0.35rem 0.65rem',
-          fontSize: '0.75rem',
-          color: 'var(--color-text)',
-          boxShadow: 'var(--shadow-md)',
+          background: 'rgba(15,15,15,0.95)',
+          border: '1px solid rgba(46,204,113,0.4)',
+          borderRadius: '6px',
+          padding: '0.3rem 0.6rem',
+          fontSize: '0.72rem',
+          color: '#fff',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
           pointerEvents: 'none',
           whiteSpace: 'nowrap',
           zIndex: 10
@@ -442,7 +442,7 @@ export const PopularServicesDonut = ({ data = [] }) => {
 
   const categories = ['Haircut', 'Hair Color', 'Facial', 'Spa & Massage', 'Bridal'];
   const values = data.length > 0 ? data : [32, 24, 18, 15, 11];
-  const colors = ['#667A3E', '#7C4D9E', '#8FA65A', '#A875C2', '#3F4D27'];
+  const colors = ['#708238', '#8b9b6a', '#3498db', '#2ecc71', '#9b59b6'];
 
   const cx = 100;
   const cy = 100;
@@ -455,7 +455,7 @@ export const PopularServicesDonut = ({ data = [] }) => {
   return (
     <div className="donut-chart-wrapper">
       <svg width="200" height="200" viewBox="0 0 200 200">
-        <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--color-border)" strokeWidth={strokeWidth} />
+        <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(255,255,255,0.03)" strokeWidth={strokeWidth} />
         {values.map((pct, idx) => {
           const strokeDashoffset = circumference - (pct / 100) * circumference;
           const rotation = (accumulatedPercent / 100) * 360;
@@ -468,22 +468,22 @@ export const PopularServicesDonut = ({ data = [] }) => {
               cx={cx} cy={cy} r={r}
               fill="none"
               stroke={colors[idx]}
-              strokeWidth={isHovered ? strokeWidth + 4 : strokeWidth}
+              strokeWidth={isHovered ? strokeWidth + 5 : strokeWidth}
               strokeDasharray={circumference}
               strokeDashoffset={strokeDashoffset}
               transform={`rotate(${rotation - 90} ${cx} ${cy})`}
               onMouseEnter={() => setHoveredSeg(idx)}
               onMouseLeave={() => setHoveredSeg(null)}
-              style={{ cursor: 'pointer', transition: 'all 0.2s ease', filter: isHovered ? 'brightness(1.15)' : 'none' }}
+              style={{ cursor: 'pointer', transition: 'all 0.2s ease', filter: isHovered ? 'brightness(1.2)' : 'none' }}
             />
           );
         })}
 
         {/* Center */}
-        <text x={cx} y={cy - 4} textAnchor="middle" fill="var(--color-text)" fontSize="13" fontWeight="bold" fontFamily="var(--font-sans)">
+        <text x={cx} y={cy - 4} textAnchor="middle" fill="var(--text-primary)" fontSize="12" fontWeight="bold" fontFamily="var(--font-sans)">
           {hoveredSeg !== null ? `${values[hoveredSeg]}%` : 'Services'}
         </text>
-        <text x={cx} y={cy + 12} textAnchor="middle" fill="var(--color-text-muted)" fontSize="9" fontFamily="var(--font-sans)">
+        <text x={cx} y={cy + 12} textAnchor="middle" fill="var(--text-muted)" fontSize="8.5" fontFamily="var(--font-sans)">
           {hoveredSeg !== null ? categories[hoveredSeg] : 'Share Ratio'}
         </text>
       </svg>
@@ -495,10 +495,10 @@ export const PopularServicesDonut = ({ data = [] }) => {
             key={c}
             style={{
               display: 'flex', alignItems: 'center', gap: '0.5rem',
-              fontSize: '0.78rem',
+              fontSize: '0.75rem',
               padding: '0.3rem 0.5rem',
-              borderRadius: '6px',
-              background: hoveredSeg === i ? 'var(--color-surface-hover)' : 'transparent',
+              borderRadius: '4px',
+              background: hoveredSeg === i ? 'rgba(255,255,255,0.04)' : 'transparent',
               transition: 'background 0.2s ease',
               cursor: 'pointer'
             }}
@@ -508,11 +508,13 @@ export const PopularServicesDonut = ({ data = [] }) => {
             <span style={{
               width: 10, height: 10,
               background: colors[i],
-              borderRadius: '3px',
-              display: 'inline-block'
+              borderRadius: '2px',
+              display: 'inline-block',
+              boxShadow: hoveredSeg === i ? `0 0 6px ${colors[i]}` : 'none',
+              transition: 'box-shadow 0.2s ease'
             }} />
-            <span style={{ color: 'var(--color-text)', fontFamily: 'var(--font-sans)', fontWeight: '500' }}>{c}</span>
-            <span style={{ color: 'var(--color-text-muted)', fontFamily: 'var(--font-sans)', marginLeft: 'auto', fontWeight: 600 }}>{values[i]}%</span>
+            <span style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-sans)' }}>{c}</span>
+            <span style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-sans)', marginLeft: 'auto', fontWeight: 600 }}>{values[i]}%</span>
           </div>
         ))}
       </div>

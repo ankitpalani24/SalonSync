@@ -49,34 +49,33 @@ export const EmptyState = ({
     justifyContent: 'center',
     padding: '3.5rem 2rem',
     textAlign: 'center',
-    background: 'var(--color-surface)',
-    border: '1px solid var(--color-border)',
-    borderRadius: 'var(--radius-lg)',
-    margin: '1rem 0',
-    boxShadow: 'var(--shadow-sm)'
+    background: 'rgba(255,255,255,0.01)',
+    border: '1px stroke rgba(255,255,255,0.05)',
+    borderRadius: '12px',
+    margin: '1rem 0'
   }}>
     <div style={{
       width: '56px',
       height: '56px',
       borderRadius: '50%',
-      background: 'var(--color-primary-very-soft)',
-      color: 'var(--color-primary)',
+      background: 'var(--gold-bg)',
+      color: 'var(--gold-primary)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
       marginBottom: '1rem',
-      boxShadow: '0 2px 8px rgba(102, 122, 62, 0.15)'
+      boxShadow: '0 0 16px var(--gold-glow)'
     }}>
       <Icon size={26} />
     </div>
-    <h4 style={{ fontSize: '1.1rem', color: 'var(--color-text)', fontWeight: '600', marginBottom: '0.35rem' }}>
+    <h4 style={{ fontSize: '1.1rem', color: 'var(--text-primary)', fontWeight: '600', marginBottom: '0.35rem' }}>
       {title}
     </h4>
-    <p style={{ fontSize: '0.82rem', color: 'var(--color-text-secondary)', maxWidth: '420px', lineHeight: 1.5, marginBottom: actionLabel ? '1.25rem' : '0' }}>
+    <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', maxWidth: '420px', lineHeight: 1.5, marginBottom: actionLabel ? '1.25rem' : '0' }}>
       {description}
     </p>
     {actionLabel && onAction && (
-      <button onClick={onAction} className="btn-primary" style={{ padding: '0.5rem 1.25rem', fontSize: '0.8rem' }}>
+      <button onClick={onAction} className="gold-btn" style={{ padding: '0.5rem 1.25rem', fontSize: '0.8rem' }}>
         <Plus size={15} /> {actionLabel}
       </button>
     )}
