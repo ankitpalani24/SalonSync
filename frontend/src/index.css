@@ -1,53 +1,54 @@
-@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Montserrat:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,400&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
 :root {
-  /* Colors */
-  --bg-primary: #0a0a0a;
-  --bg-secondary: #141414;
-  --bg-header: rgba(20, 20, 20, 0.75);
-  --bg-sidebar: var(--bg-secondary);
-  --bg-card: linear-gradient(135deg, rgba(30, 30, 30, 0.75) 0%, rgba(18, 18, 18, 0.85) 100%);
-  --bg-card-hover: linear-gradient(135deg, rgba(112, 130, 56, 0.25) 0%, rgba(91, 109, 43, 0.05) 100%);
-  
-  /* Premium Olive Green Variables */
-  --olive-primary: #708238;
-  --olive-hover: #5b6d2b;
-  --olive-glow: rgba(112, 130, 56, 0.35);
-  --olive-bg: rgba(112, 130, 56, 0.08);
-  --olive-border: rgba(112, 130, 56, 0.25);
+  /* Master Luxury SaaS Colors */
+  --bg-primary: #08080a;
+  --bg-secondary: #111115;
+  --bg-header: rgba(14, 14, 18, 0.85);
+  --bg-sidebar: #0d0d11;
+  --bg-card: linear-gradient(135deg, rgba(22, 22, 28, 0.82) 0%, rgba(12, 12, 16, 0.92) 100%);
+  --bg-card-hover: linear-gradient(135deg, rgba(212, 175, 55, 0.14) 0%, rgba(20, 20, 26, 0.95) 100%);
 
-  --gold-primary: var(--olive-primary);
-  --gold-hover: var(--olive-hover);
-  --gold-glow: var(--olive-glow);
-  --gold-bg: var(--olive-bg);
-  --gold-border: var(--olive-border);
+  /* Radiant Champagne Gold System */
+  --gold-primary: #d4af37;
+  --gold-hover: #e5c158;
+  --gold-glow: rgba(212, 175, 55, 0.35);
+  --gold-bg: rgba(212, 175, 55, 0.08);
+  --gold-border: rgba(212, 175, 55, 0.22);
   
-  --text-primary: #ffffff;
-  --text-secondary: #aaaaaa;
-  --text-muted: #666666;
+  --olive-primary: var(--gold-primary);
+  --olive-hover: var(--gold-hover);
+  --olive-glow: var(--gold-glow);
+  --olive-bg: var(--gold-bg);
+  --olive-border: var(--gold-border);
+  
+  --text-primary: #f8f9fa;
+  --text-secondary: #a0a5b5;
+  --text-muted: #6b7280;
   
   --sidebar-text-inactive: var(--text-secondary);
-  --sidebar-active-bg: var(--gold-bg);
+  --sidebar-active-bg: rgba(212, 175, 55, 0.12);
   
   --border-light: rgba(255, 255, 255, 0.08);
-  --border-gold: var(--olive-border);
+  --border-gold: var(--gold-border);
   
-  --accent-red: #e74c3c;
-  --accent-red-bg: rgba(231, 76, 60, 0.1);
-  --accent-green: #2ecc71;
-  --accent-green-bg: rgba(46, 204, 113, 0.1);
-  --accent-blue: #3498db;
-  --accent-orange: #e67e22;
+  --accent-red: #ef4444;
+  --accent-red-bg: rgba(239, 68, 68, 0.12);
+  --accent-green: #10b981;
+  --accent-green-bg: rgba(16, 185, 129, 0.12);
+  --accent-blue: #3b82f6;
+  --accent-orange: #f59e0b;
 
   /* Font Families */
   --font-serif: 'Playfair Display', Georgia, serif;
-  --font-sans: 'Montserrat', 'Inter', sans-serif;
+  --font-sans: 'Plus Jakarta Sans', 'Inter', 'Montserrat', sans-serif;
   
-  /* Utilities */
-  --shadow-premium: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
-  --glass-blur: blur(12px);
-  --transition-smooth: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-  --border-radius: 8px;
+  /* Utilities & Glassmorphism */
+  --shadow-premium: 0 12px 40px rgba(0, 0, 0, 0.65);
+  --shadow-glow: 0 0 24px rgba(212, 175, 55, 0.18);
+  --glass-blur: blur(16px) saturate(180%);
+  --transition-smooth: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  --border-radius: 12px;
 }
 
 /* Skeleton Shimmer Keyframes */
@@ -129,28 +130,28 @@ button {
 
 /* Glassmorphic Card Style */
 .glass-card {
-  background: linear-gradient(135deg, rgba(22, 22, 22, 0.78) 0%, rgba(12, 12, 12, 0.88) 100%);
+  background: linear-gradient(135deg, rgba(22, 22, 28, 0.82) 0%, rgba(12, 12, 16, 0.92) 100%);
   backdrop-filter: blur(16px) saturate(180%);
   -webkit-backdrop-filter: blur(16px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(212, 175, 55, 0.15);
   border-radius: var(--border-radius);
   padding: 1.5rem;
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.45);
+  box-shadow: 0 10px 32px 0 rgba(0, 0, 0, 0.55);
   transition: var(--transition-smooth);
-  box-sizing: border-border;
+  box-sizing: border-box;
   overflow: hidden;
 }
 
 .glass-card:hover {
-  transform: translateY(-2px);
-  border-color: rgba(112, 130, 56, 0.4);
-  background: linear-gradient(135deg, rgba(32, 36, 22, 0.85) 0%, rgba(18, 18, 18, 0.92) 100%);
-  box-shadow: 0 12px 35px rgba(112, 130, 56, 0.18);
+  transform: translateY(-3px);
+  border-color: rgba(212, 175, 55, 0.35);
+  background: linear-gradient(135deg, rgba(28, 28, 36, 0.9) 0%, rgba(14, 14, 18, 0.95) 100%);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.65), 0 0 24px rgba(212, 175, 55, 0.15);
 }
 
 .sidebar-link:hover {
-  background: linear-gradient(135deg, rgba(112, 130, 56, 0.15) 0%, rgba(112, 130, 56, 0.05) 100%) !important;
-  color: var(--olive-primary) !important;
+  background: linear-gradient(135deg, rgba(212, 175, 55, 0.15) 0%, rgba(212, 175, 55, 0.04) 100%) !important;
+  color: var(--gold-primary) !important;
 }
 
 .glass-card.gold-border {
@@ -159,46 +160,55 @@ button {
 
 /* Gold Gradient Button */
 .gold-btn {
-  background: linear-gradient(135deg, var(--gold-primary) 0%, #b38f20 100%);
-  color: #000000;
-  font-weight: 600;
+  background: linear-gradient(135deg, #d4af37 0%, #b89628 100%);
+  color: #08080a;
+  font-weight: 700;
   border: none;
-  padding: 0.75rem 1.5rem;
+  padding: 0.7rem 1.4rem;
   border-radius: var(--border-radius);
   transition: var(--transition-smooth);
-  box-shadow: 0 4px 15px rgba(212, 175, 55, 0.2);
+  box-shadow: 0 4px 18px rgba(212, 175, 55, 0.3);
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: 0.9rem;
+  font-size: 0.88rem;
+  letter-spacing: 0.3px;
+  position: relative;
+  overflow: hidden;
 }
 
 .gold-btn:hover {
-  transform: scale(1.02);
-  box-shadow: 0 6px 20px rgba(212, 175, 55, 0.4);
-  background: linear-gradient(135deg, var(--gold-hover) 0%, var(--gold-primary) 100%);
+  transform: translateY(-2px) scale(1.01);
+  box-shadow: 0 8px 25px rgba(212, 175, 55, 0.45);
+  background: linear-gradient(135deg, #e5c158 0%, #d4af37 100%);
+}
+
+.gold-btn:active {
+  transform: translateY(0) scale(0.99);
 }
 
 /* Outline Button */
 .outline-btn {
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(255, 255, 255, 0.03);
   color: var(--text-primary);
-  border: 1px solid var(--gold-primary);
-  padding: 0.75rem 1.5rem;
+  border: 1px solid rgba(212, 175, 55, 0.4);
+  padding: 0.7rem 1.4rem;
   border-radius: var(--border-radius);
   transition: var(--transition-smooth);
-  font-weight: 500;
+  font-weight: 600;
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: 0.9rem;
+  font-size: 0.88rem;
   backdrop-filter: blur(8px);
 }
 
 .outline-btn:hover {
-  background: var(--gold-bg);
-  border-color: var(--gold-hover);
+  background: rgba(212, 175, 55, 0.12);
+  border-color: var(--gold-primary);
   color: var(--gold-primary);
+  box-shadow: 0 4px 15px rgba(212, 175, 55, 0.2);
+  transform: translateY(-1px);
 }
 
 /* Layout Classes & Grid Responsiveness */
