@@ -7,22 +7,28 @@
   --bg-header: rgba(14, 16, 12, 0.85);
   --bg-sidebar: #0d0e0b;
   --bg-card: linear-gradient(135deg, rgba(22, 25, 20, 0.85) 0%, rgba(12, 14, 10, 0.92) 100%);
-  --bg-card-hover: linear-gradient(135deg, rgba(112, 130, 56, 0.18) 0%, rgba(16, 20, 14, 0.95) 100%);
+  --bg-card-hover: linear-gradient(135deg, rgba(112, 130, 56, 0.22) 0%, rgba(212, 175, 55, 0.12) 50%, rgba(16, 20, 14, 0.95) 100%);
 
-  /* Signature Premium Olive Green System */
+  /* Signature Olive Green & Gold Gradient System */
   --olive-primary: #708238;
   --olive-hover: #5b6d2b;
   --olive-light: #849945;
+  --gold-accent: #d4af37;
+  --gold-hover: #e5c158;
+
+  --gradient-olive-gold: linear-gradient(135deg, #708238 0%, #d4af37 100%);
+  --gradient-olive-gold-hover: linear-gradient(135deg, #849945 0%, #e5c158 100%);
+  --gradient-olive-gold-subtle: linear-gradient(135deg, rgba(112, 130, 56, 0.25) 0%, rgba(212, 175, 55, 0.15) 100%);
+
   --olive-glow: rgba(112, 130, 56, 0.40);
+  --gold-glow: rgba(212, 175, 55, 0.35);
   --olive-bg: rgba(112, 130, 56, 0.10);
+  --gold-bg: rgba(212, 175, 55, 0.10);
   --olive-border: rgba(112, 130, 56, 0.28);
+  --gold-border: rgba(212, 175, 55, 0.28);
 
   /* Primary Accent Aliases */
   --gold-primary: var(--olive-primary);
-  --gold-hover: var(--olive-light);
-  --gold-glow: var(--olive-glow);
-  --gold-bg: var(--olive-bg);
-  --gold-border: var(--olive-border);
   
   --text-primary: #f8f9fa;
   --text-secondary: #a0a5b5;
@@ -32,7 +38,6 @@
   --sidebar-active-bg: rgba(112, 130, 56, 0.14);
   
   --border-light: rgba(255, 255, 255, 0.08);
-  --border-gold: var(--olive-border);
   
   --accent-red: #ef4444;
   --accent-red-bg: rgba(239, 68, 68, 0.12);
@@ -160,16 +165,16 @@ button {
   border: 1px solid var(--border-gold);
 }
 
-/* Olive Green Primary Button */
+/* Olive Green & Gold Gradient Primary Button */
 .gold-btn {
-  background: linear-gradient(135deg, #708238 0%, #5b6d2b 100%);
+  background: linear-gradient(135deg, #708238 0%, #c5a028 55%, #5b6d2b 100%);
   color: #ffffff;
   font-weight: 700;
   border: none;
   padding: 0.7rem 1.4rem;
   border-radius: var(--border-radius);
   transition: var(--transition-smooth);
-  box-shadow: 0 4px 18px rgba(112, 130, 56, 0.35);
+  box-shadow: 0 4px 18px rgba(112, 130, 56, 0.35), 0 2px 10px rgba(212, 175, 55, 0.2);
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
@@ -181,15 +186,15 @@ button {
 
 .gold-btn:hover {
   transform: translateY(-2px) scale(1.01);
-  box-shadow: 0 8px 25px rgba(112, 130, 56, 0.5);
-  background: linear-gradient(135deg, #849945 0%, #708238 100%);
+  box-shadow: 0 8px 25px rgba(112, 130, 56, 0.5), 0 0 18px rgba(212, 175, 55, 0.35);
+  background: linear-gradient(135deg, #849945 0%, #d4af37 60%, #708238 100%);
 }
 
 .gold-btn:active {
   transform: translateY(0) scale(0.99);
 }
 
-/* Outline Button */
+/* Outline Button with Olive & Gold Border Accent */
 .outline-btn {
   background: rgba(255, 255, 255, 0.03);
   color: var(--text-primary);
@@ -206,11 +211,19 @@ button {
 }
 
 .outline-btn:hover {
-  background: rgba(112, 130, 56, 0.15);
-  border-color: var(--olive-primary);
-  color: var(--olive-primary);
+  background: linear-gradient(135deg, rgba(112, 130, 56, 0.18) 0%, rgba(212, 175, 55, 0.1) 100%);
+  border-color: var(--gold-accent);
+  color: var(--gold-hover);
   box-shadow: 0 4px 15px rgba(112, 130, 56, 0.25);
   transform: translateY(-1px);
+}
+
+/* Olive-Gold Gradient Typography */
+.luxury-gradient-text {
+  background: linear-gradient(135deg, #849945 0%, #d4af37 60%, #5b6d2b 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  display: inline-block;
 }
 
 /* Layout Classes & Grid Responsiveness */

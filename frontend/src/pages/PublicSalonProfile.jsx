@@ -2,12 +2,13 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Star, MapPin, Clock, Phone, Mail, Calendar, Scissors, Award, 
   CheckCircle2, Sparkles, Heart, Share2, ArrowRight, ShieldCheck, 
-  ChevronRight, MessageSquare, Plus, X, Globe, User, Gift, Image as ImageIcon
+  ChevronRight, MessageSquare, Plus, X, Globe, User, Gift, Image as ImageIcon,
+  Camera, Upload, Edit3
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
 const PublicSalonProfile = ({ setActivePage }) => {
-  const { getPublicSalonProfile, addAppointment, addReview, addToast } = useApp();
+  const { getPublicSalonProfile, addAppointment, addReview, addToast, updateSalonDetails, currentUser } = useApp();
 
   // Load public profile payload
   const publicData = useMemo(() => {
@@ -34,6 +35,75 @@ const PublicSalonProfile = ({ setActivePage }) => {
   const [revRating, setRevRating] = useState(5);
   const [revComment, setRevComment] = useState('');
   const [revClientName, setRevClientName] = useState('');
+
+  // Edit Salon Details & Photos Modal
+  const [showEditSalonModal, setShowEditSalonModal] = useState(false);
+  const [editSalonName, setEditSalonName] = useState(salon?.name || '');
+  const [editSalonTagline, setEditSalonTagline] = useState(salon?.tagline || '');
+  const [editSalonLogo, setEditSalonLogo] = useState(salon?.logoUrl || '');
+  const [editSalonCover, setEditSalonCover] = useState(salon?.coverImageUrl || '');
+  const [editSalonPhone, setEditSalonPhone] = useState(salon?.phone || '');
+  const [editSalonAddress, setEditSalonAddress] = useState(salon?.address || '');
+  const [editSalonHours, setEditSalonHours] = useState(salon?.openingHours || '');
+  const [editSalonDescription, setEditSalonDescription] = useState(salon?.description || '');
+
+  // Preset Cover Photos & Logos
+  const PRESET_COVERS = [
+    'https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=1600&q=80',
+    'https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f?auto=format&fit=crop&w=1600&q=80',
+    'https://images.unsplash.com/photo-1582095133179-bfd08e2fc6b3?auto=format&fit=crop&w=1600&q=80',
+    'https://images.unsplash.com/photo-1633681926022-84c23e8cb2d6?auto=format&fit=crop&w=1600&q=80'
+  ];
+
+  const PRESET_LOGOS = [
+    'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?auto=format&fit=crop&w=300&q=80',
+    'https://images.unsplash.com/photo-1562322140-8baeececf3df?auto=format&fit=crop&w=300&q=80',
+    'https://images.unsplash.com/photo-1527799820374-dcf8d9d4a388?auto=format&fit=crop&w=300&q=80',
+    'https://images.unsplash.com/photo-1580618672591-eb180b1a973f?auto=format&fit=crop&w=300&q=80'
+  ];
+
+  const handleFileUpload = (e, callback) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 3 * 1024 * 1024) {
+      addToast('Image size should be under 3MB', 'warning');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      callback(reader.result);
+      addToast('Photo loaded successfully!', 'success');
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSaveSalonDetails = async (e) => {
+    e.preventDefault();
+    await updateSalonDetails({
+      name: editSalonName,
+      tagline: editSalonTagline,
+      logoUrl: editSalonLogo,
+      coverImageUrl: editSalonCover,
+      phone: editSalonPhone,
+      address: editSalonAddress,
+      openingHours: editSalonHours,
+      description: editSalonDescription
+    });
+    setShowEditSalonModal(false);
+    addToast('✨ Salon details & profile photos updated successfully!', 'success');
+  };
+
+  const openEditModal = () => {
+    setEditSalonName(salon?.name || '');
+    setEditSalonTagline(salon?.tagline || '');
+    setEditSalonLogo(salon?.logoUrl || '');
+    setEditSalonCover(salon?.coverImageUrl || '');
+    setEditSalonPhone(salon?.phone || '');
+    setEditSalonAddress(salon?.address || '');
+    setEditSalonHours(salon?.openingHours || '');
+    setEditSalonDescription(salon?.description || '');
+    setShowEditSalonModal(true);
+  };
 
   // Simulate SEO Document Title Update
   useEffect(() => {
@@ -161,23 +231,46 @@ const PublicSalonProfile = ({ setActivePage }) => {
             </div>
           </div>
 
-          {/* PRIMARY CTA BUTTON */}
-          <button 
-            onClick={() => openBookingForService(null)} 
-            className="gold-btn" 
-            style={{ 
-              padding: '0.85rem 1.8rem', 
-              fontSize: '1rem', 
-              fontWeight: '700', 
-              borderRadius: '30px', 
-              boxShadow: '0 8px 25px rgba(212, 175, 55, 0.4)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.6rem'
-            }}
-          >
-            <Calendar size={20} /> Book Appointment
-          </button>
+          {/* ACTIONS */}
+          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+            <button 
+              onClick={openEditModal}
+              className="outline-btn"
+              style={{
+                padding: '0.85rem 1.4rem',
+                fontSize: '0.9rem',
+                fontWeight: '600',
+                borderRadius: '30px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                background: 'rgba(0,0,0,0.6)',
+                backdropFilter: 'blur(12px)',
+                borderColor: 'var(--gold-primary)',
+                color: 'var(--gold-primary)'
+              }}
+            >
+              <Camera size={18} /> Edit Salon Photos & Info
+            </button>
+
+            {/* PRIMARY CTA BUTTON */}
+            <button 
+              onClick={() => openBookingForService(null)} 
+              className="gold-btn" 
+              style={{ 
+                padding: '0.85rem 1.8rem', 
+                fontSize: '1rem', 
+                fontWeight: '700', 
+                borderRadius: '30px', 
+                boxShadow: '0 8px 25px rgba(112, 130, 56, 0.4)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.6rem'
+              }}
+            >
+              <Calendar size={20} /> Book Appointment
+            </button>
+          </div>
         </div>
       </div>
 
@@ -604,6 +697,162 @@ const PublicSalonProfile = ({ setActivePage }) => {
 
               <button type="submit" className="gold-btn" style={{ width: '100%', justifyContent: 'center' }}>
                 Submit Verified Review
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ───────────────────────────────────────────────────────────── */}
+      {/* EDIT SALON DETAILS & PHOTO UPLOAD MODAL */}
+      {/* ───────────────────────────────────────────────────────────── */}
+      {showEditSalonModal && (
+        <div onClick={(e) => { if (e.target === e.currentTarget) setShowEditSalonModal(false); }} className="modal-backdrop-overlay">
+          <div className="modal-scrollable-content" style={{ maxWidth: '640px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', borderBottom: '1px solid var(--border-light)', paddingBottom: '0.75rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Camera size={20} style={{ color: 'var(--gold-primary)' }} />
+                <h3 style={{ color: 'var(--text-primary)', fontSize: '1.2rem', fontWeight: '700' }}>Edit Salon Profile & Photos</h3>
+              </div>
+              <button onClick={() => setShowEditSalonModal(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)' }}><X size={18} /></button>
+            </div>
+
+            <form onSubmit={handleSaveSalonDetails}>
+              {/* Salon Logo Section */}
+              <div style={{ marginBottom: '1.25rem', background: 'rgba(0,0,0,0.2)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border-light)' }}>
+                <label style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--gold-primary)', display: 'block', marginBottom: '0.5rem' }}>
+                  Salon Profile Picture / Logo
+                </label>
+                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <img 
+                    src={editSalonLogo || "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=200"} 
+                    alt="Logo Preview" 
+                    style={{ width: '70px', height: '70px', borderRadius: '12px', objectFit: 'cover', border: '2px solid var(--gold-primary)' }}
+                  />
+                  <div style={{ flex: 1, minWidth: '220px' }}>
+                    <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                      <label className="outline-btn" style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+                        <Upload size={14} /> Upload Logo File
+                        <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, setEditSalonLogo)} style={{ display: 'none' }} />
+                      </label>
+                    </div>
+                    <input 
+                      type="url" 
+                      placeholder="Or paste Logo Image URL..." 
+                      className="form-control" 
+                      style={{ fontSize: '0.78rem' }}
+                      value={editSalonLogo} 
+                      onChange={(e) => setEditSalonLogo(e.target.value)} 
+                    />
+                  </div>
+                </div>
+
+                {/* Preset Logos */}
+                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.6rem', alignItems: 'center' }}>
+                  <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Presets:</span>
+                  {PRESET_LOGOS.map((pUrl, idx) => (
+                    <img 
+                      key={idx} 
+                      src={pUrl} 
+                      alt={`Preset ${idx + 1}`}
+                      onClick={() => setEditSalonLogo(pUrl)}
+                      style={{
+                        width: '28px',
+                        height: '28px',
+                        borderRadius: '6px',
+                        objectFit: 'cover',
+                        cursor: 'pointer',
+                        border: editSalonLogo === pUrl ? '2px solid var(--gold-primary)' : '1px solid var(--border-light)'
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Salon Cover Photo Section */}
+              <div style={{ marginBottom: '1.25rem', background: 'rgba(0,0,0,0.2)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border-light)' }}>
+                <label style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--gold-primary)', display: 'block', marginBottom: '0.5rem' }}>
+                  Salon Hero Cover Image
+                </label>
+                <div style={{ marginBottom: '0.75rem' }}>
+                  <img 
+                    src={editSalonCover || "https://images.unsplash.com/photo-1560066984-138dadb4c035?w=600"} 
+                    alt="Cover Preview" 
+                    style={{ width: '100%', height: '110px', borderRadius: '8px', objectFit: 'cover', border: '1px solid var(--border-light)' }}
+                  />
+                </div>
+                <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                  <label className="outline-btn" style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <Upload size={14} /> Upload Cover File
+                    <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, setEditSalonCover)} style={{ display: 'none' }} />
+                  </label>
+                </div>
+                <input 
+                  type="url" 
+                  placeholder="Or paste Cover Image URL..." 
+                  className="form-control" 
+                  style={{ fontSize: '0.78rem' }}
+                  value={editSalonCover} 
+                  onChange={(e) => setEditSalonCover(e.target.value)} 
+                />
+
+                {/* Preset Covers */}
+                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.6rem', alignItems: 'center' }}>
+                  <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Presets:</span>
+                  {PRESET_COVERS.map((cUrl, idx) => (
+                    <img 
+                      key={idx} 
+                      src={cUrl} 
+                      alt={`Cover ${idx + 1}`}
+                      onClick={() => setEditSalonCover(cUrl)}
+                      style={{
+                        width: '45px',
+                        height: '28px',
+                        borderRadius: '4px',
+                        objectFit: 'cover',
+                        cursor: 'pointer',
+                        border: editSalonCover === cUrl ? '2px solid var(--gold-primary)' : '1px solid var(--border-light)'
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Text Fields */}
+              <div className="grid-2-cols">
+                <div className="form-group">
+                  <label>Salon Brand Name *</label>
+                  <input type="text" required className="form-control" value={editSalonName} onChange={(e) => setEditSalonName(e.target.value)} />
+                </div>
+                <div className="form-group">
+                  <label>Phone Number *</label>
+                  <input type="text" required className="form-control" value={editSalonPhone} onChange={(e) => setEditSalonPhone(e.target.value)} />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>Tagline / Headline</label>
+                <input type="text" className="form-control" value={editSalonTagline} onChange={(e) => setEditSalonTagline(e.target.value)} />
+              </div>
+
+              <div className="grid-2-cols">
+                <div className="form-group">
+                  <label>Physical Address</label>
+                  <input type="text" className="form-control" value={editSalonAddress} onChange={(e) => setEditSalonAddress(e.target.value)} />
+                </div>
+                <div className="form-group">
+                  <label>Opening Hours</label>
+                  <input type="text" className="form-control" value={editSalonHours} onChange={(e) => setEditSalonHours(e.target.value)} />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>Salon Bio & Description</label>
+                <textarea rows="2" className="form-control" value={editSalonDescription} onChange={(e) => setEditSalonDescription(e.target.value)} />
+              </div>
+
+              <button type="submit" className="gold-btn" style={{ width: '100%', justifyContent: 'center', marginTop: '0.5rem' }}>
+                Save Salon Details & Photos
               </button>
             </form>
           </div>

@@ -3,16 +3,27 @@ import {
   Plus, User, Clock, Award, Shield, UserCheck, Calculator, X, 
   Star, TrendingUp, Calendar, Scissors, Repeat, DollarSign, 
   BarChart2, CheckCircle2, ChevronRight, Filter, Download, 
-  MessageSquare, Briefcase, Eye, EyeOff, Sparkles
+  MessageSquare, Briefcase, Eye, EyeOff, Sparkles, Camera, Upload, Image as ImageIcon
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+
+const PRESET_STAFF_AVATARS = [
+  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=300&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=300&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=300&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=300&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=300&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?w=300&auto=format&fit=crop&q=80'
+];
 
 const Staff = () => {
   const { 
     currentUser, currentBranch, tenantFilter, db, 
     addStaff, updateStaff, deleteStaff, clockInStaff, clockOutStaff, 
     addReview, canViewStaffSalary, getStaffPerformanceMetrics,
-    hasPermission, PERMISSIONS 
+    hasPermission, PERMISSIONS, addToast 
   } = useApp();
 
   // Active Pane Tab: 'roster', 'performance', 'reports', 'attendance', 'commissions'
@@ -51,7 +62,35 @@ const Staff = () => {
   const [staffSpecializations, setStaffSpecializations] = useState('');
   const [staffBio, setStaffBio] = useState('');
   const [staffStatus, setStaffStatus] = useState('Active');
+  const [staffAvatar, setStaffAvatar] = useState(PRESET_STAFF_AVATARS[0]);
   const [selectedServices, setSelectedServices] = useState([]);
+
+  // Quick Photo Change State
+  const [quickPhotoStaff, setQuickPhotoStaff] = useState(null);
+  const [quickPhotoUrl, setQuickPhotoUrl] = useState('');
+
+  const handlePhotoUpload = (e, callback) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      addToast('Profile picture should be under 2MB', 'warning');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      callback(reader.result);
+      addToast('Profile photo loaded!', 'success');
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleQuickPhotoSave = async () => {
+    if (!quickPhotoStaff) return;
+    await updateStaff(quickPhotoStaff._id, { avatar: quickPhotoUrl || PRESET_STAFF_AVATARS[0] });
+    setQuickPhotoStaff(null);
+    setQuickPhotoUrl('');
+    addToast('Staff profile photo updated successfully!', 'success');
+  };
 
   // Role Checks
   const isStaffRole = currentUser?.role === 'STAFF';
@@ -140,6 +179,7 @@ const Staff = () => {
       setStaffSpecializations((staffMember.specialization || []).join(', '));
       setStaffBio(staffMember.bio || '');
       setStaffStatus(staffMember.status || 'Active');
+      setStaffAvatar(staffMember.avatar || PRESET_STAFF_AVATARS[0]);
       setSelectedServices(staffMember.services || []);
     } else {
       setEditingStaff(null);
@@ -155,6 +195,7 @@ const Staff = () => {
       setStaffSpecializations('Signature Haircut, Balayage, Facials');
       setStaffBio('');
       setStaffStatus('Active');
+      setStaffAvatar(PRESET_STAFF_AVATARS[Math.floor(Math.random() * PRESET_STAFF_AVATARS.length)]);
       setSelectedServices([]);
     }
     setShowStaffModal(true);
@@ -179,6 +220,7 @@ const Staff = () => {
       specialization: specsArray,
       bio: staffBio,
       status: staffStatus,
+      avatar: staffAvatar || PRESET_STAFF_AVATARS[0],
       services: selectedServices
     };
 
@@ -376,18 +418,46 @@ const Staff = () => {
                   </span>
 
                   <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start', marginBottom: '1rem' }}>
-                    <img 
-                      src={member.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200"} 
-                      alt={member.name}
-                      style={{
-                        width: '54px',
-                        height: '54px',
-                        borderRadius: '50%',
-                        objectFit: 'cover',
-                        border: '2px solid var(--gold-primary)',
-                        flexShrink: 0
-                      }}
-                    />
+                    <div style={{ position: 'relative', flexShrink: 0 }}>
+                      <img 
+                        src={member.avatar || PRESET_STAFF_AVATARS[0]} 
+                        alt={member.name}
+                        style={{
+                          width: '56px',
+                          height: '56px',
+                          borderRadius: '50%',
+                          objectFit: 'cover',
+                          border: '2px solid var(--gold-primary)'
+                        }}
+                      />
+                      {hasPermission(PERMISSIONS.STAFF_MANAGE) && (
+                        <button
+                          onClick={() => {
+                            setQuickPhotoStaff(member);
+                            setQuickPhotoUrl(member.avatar || PRESET_STAFF_AVATARS[0]);
+                          }}
+                          title="Change Profile Picture"
+                          style={{
+                            position: 'absolute',
+                            bottom: '-2px',
+                            right: '-2px',
+                            background: 'var(--gold-primary)',
+                            color: '#000',
+                            border: '1.5px solid #000',
+                            borderRadius: '50%',
+                            width: '22px',
+                            height: '22px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                            padding: 0
+                          }}
+                        >
+                          <Camera size={11} />
+                        </button>
+                      )}
+                    </div>
                     <div>
                       <h4 style={{ fontSize: '1.05rem', color: 'var(--text-primary)', fontWeight: '600' }}>{member.name}</h4>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '0.15rem' }}>
@@ -971,11 +1041,40 @@ const Staff = () => {
             {/* Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid var(--border-light)', paddingBottom: '1.25rem', marginBottom: '1.25rem' }}>
               <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                <img 
-                  src={selectedStaffMember.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200"} 
-                  alt={selectedStaffMember.name}
-                  style={{ width: '64px', height: '64px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--gold-primary)' }}
-                />
+                <div style={{ position: 'relative' }}>
+                  <img 
+                    src={selectedStaffMember.avatar || PRESET_STAFF_AVATARS[0]} 
+                    alt={selectedStaffMember.name}
+                    style={{ width: '68px', height: '68px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--gold-primary)' }}
+                  />
+                  {hasPermission(PERMISSIONS.STAFF_MANAGE) && (
+                    <button
+                      onClick={() => {
+                        setQuickPhotoStaff(selectedStaffMember);
+                        setQuickPhotoUrl(selectedStaffMember.avatar || PRESET_STAFF_AVATARS[0]);
+                      }}
+                      title="Update Profile Photo"
+                      style={{
+                        position: 'absolute',
+                        bottom: '0px',
+                        right: '0px',
+                        background: 'var(--gold-primary)',
+                        color: '#000',
+                        border: '2px solid var(--bg-secondary)',
+                        borderRadius: '50%',
+                        width: '24px',
+                        height: '24px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: 'pointer',
+                        padding: 0
+                      }}
+                    >
+                      <Camera size={12} />
+                    </button>
+                  )}
+                </div>
                 <div>
                   <h3 style={{ fontSize: '1.25rem', color: 'var(--text-primary)', fontWeight: '700' }}>{selectedStaffMember.name}</h3>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.2rem' }}>
@@ -1199,6 +1298,57 @@ const Staff = () => {
             </div>
 
             <form onSubmit={handleStaffSubmit}>
+              {/* Profile Photo Uploader */}
+              <div style={{ marginBottom: '1.25rem', background: 'rgba(0,0,0,0.2)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border-light)' }}>
+                <label style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--gold-primary)', display: 'block', marginBottom: '0.5rem' }}>
+                  Staff Profile Picture
+                </label>
+                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <img 
+                    src={staffAvatar || PRESET_STAFF_AVATARS[0]} 
+                    alt="Staff Avatar Preview" 
+                    style={{ width: '64px', height: '64px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--gold-primary)' }}
+                  />
+                  <div style={{ flex: 1, minWidth: '200px' }}>
+                    <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.4rem' }}>
+                      <label className="outline-btn" style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+                        <Upload size={13} /> Upload Photo File
+                        <input type="file" accept="image/*" onChange={(e) => handlePhotoUpload(e, setStaffAvatar)} style={{ display: 'none' }} />
+                      </label>
+                    </div>
+                    <input 
+                      type="url" 
+                      placeholder="Or enter Image URL..." 
+                      className="form-control" 
+                      style={{ fontSize: '0.75rem' }}
+                      value={staffAvatar} 
+                      onChange={(e) => setStaffAvatar(e.target.value)} 
+                    />
+                  </div>
+                </div>
+
+                {/* Preset Avatars */}
+                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.6rem', alignItems: 'center' }}>
+                  <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Presets:</span>
+                  {PRESET_STAFF_AVATARS.map((pUrl, idx) => (
+                    <img 
+                      key={idx} 
+                      src={pUrl} 
+                      alt={`Preset ${idx + 1}`}
+                      onClick={() => setStaffAvatar(pUrl)}
+                      style={{
+                        width: '28px',
+                        height: '28px',
+                        borderRadius: '50%',
+                        objectFit: 'cover',
+                        cursor: 'pointer',
+                        border: staffAvatar === pUrl ? '2px solid var(--gold-primary)' : '1px solid var(--border-light)'
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+
               <div className="form-group">
                 <label>Stylist Name *</label>
                 <input type="text" required placeholder="Emma Watson" className="form-control" value={staffName} onChange={(e) => setStaffName(e.target.value)} />
@@ -1396,6 +1546,76 @@ const Staff = () => {
 
             <button onClick={() => setCreatedCredentials(null)} className="gold-btn" style={{ width: '100%', justifyContent: 'center' }}>
               Got It
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ───────────────────────────────────────────────────────────── */}
+      {/* QUICK STAFF PROFILE PHOTO CHANGE MODAL */}
+      {/* ───────────────────────────────────────────────────────────── */}
+      {quickPhotoStaff && (
+        <div className="modal-backdrop-overlay" onClick={(e) => { if (e.target === e.currentTarget) setQuickPhotoStaff(null); }}>
+          <div className="modal-scrollable-content" style={{ maxWidth: '480px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', borderBottom: '1px solid var(--border-light)', paddingBottom: '0.75rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Camera size={18} style={{ color: 'var(--gold-primary)' }} />
+                <h3 style={{ color: 'var(--text-primary)', fontSize: '1.1rem', fontWeight: '700' }}>Update Photo for {quickPhotoStaff.name}</h3>
+              </div>
+              <button onClick={() => setQuickPhotoStaff(null)} style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)' }}><X size={18} /></button>
+            </div>
+
+            <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+              <img 
+                src={quickPhotoUrl || PRESET_STAFF_AVATARS[0]} 
+                alt={quickPhotoStaff.name} 
+                style={{ width: '96px', height: '96px', borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--gold-primary)', margin: '0 auto', boxShadow: '0 8px 24px rgba(0,0,0,0.6)' }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', justifyContent: 'center' }}>
+              <label className="gold-btn" style={{ padding: '0.5rem 1.2rem', fontSize: '0.82rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+                <Upload size={14} /> Upload From Device
+                <input type="file" accept="image/*" onChange={(e) => handlePhotoUpload(e, setQuickPhotoUrl)} style={{ display: 'none' }} />
+              </label>
+            </div>
+
+            <div className="form-group" style={{ marginBottom: '1rem' }}>
+              <label style={{ fontSize: '0.78rem' }}>Or Paste Image URL</label>
+              <input 
+                type="url" 
+                placeholder="https://..." 
+                className="form-control" 
+                value={quickPhotoUrl} 
+                onChange={(e) => setQuickPhotoUrl(e.target.value)} 
+              />
+            </div>
+
+            <div style={{ marginBottom: '1.5rem' }}>
+              <label style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'block', marginBottom: '0.4rem' }}>Select From Luxury Presets:</label>
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+                {PRESET_STAFF_AVATARS.map((pUrl, idx) => (
+                  <img 
+                    key={idx} 
+                    src={pUrl} 
+                    alt={`Preset ${idx + 1}`}
+                    onClick={() => setQuickPhotoUrl(pUrl)}
+                    style={{
+                      width: '38px',
+                      height: '38px',
+                      borderRadius: '50%',
+                      objectFit: 'cover',
+                      cursor: 'pointer',
+                      border: quickPhotoUrl === pUrl ? '2px solid var(--gold-primary)' : '1px solid var(--border-light)',
+                      transition: 'transform 0.15s ease'
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <button onClick={handleQuickPhotoSave} className="gold-btn" style={{ width: '100%', justifyContent: 'center' }}>
+              Save Profile Picture
             </button>
           </div>
         </div>
