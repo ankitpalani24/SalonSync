@@ -296,7 +296,7 @@ const InvoiceSchema = new mongoose.Schema({
     enum: ['Cash', 'UPI', 'Card', 'Bank Transfer'], 
     default: 'Cash' 
   },
-  paymentStatus: { type: String, enum: ['Paid', 'Pending'], default: 'Paid' },
+  paymentStatus: { type: String, enum: ['Paid', 'Pending', 'Refunded'], default: 'Paid' },
   staffId: { type: mongoose.Schema.Types.ObjectId, ref: 'Staff' }
 }, { timestamps: true });
 

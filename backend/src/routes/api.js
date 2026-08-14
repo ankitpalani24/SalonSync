@@ -122,6 +122,8 @@ router.get('/public/salons/:identifier', safeHandler(async (req, res) => {
       packages
     }
   });
+}, 'Failed to fetch salon profile'));
+
 // @route   GET /api/public/salons/discover (Search, filter, & sort registered salons)
 router.get('/public/salons/discover', safeHandler(async (req, res) => {
   const { search, city, service, minRating, maxPrice, openOnly, sortBy } = req.query;
@@ -502,11 +504,14 @@ router.post('/appointments', requirePermission('appointments.create'), sanitizeB
     customerId: finalCustomerId
   });
 
-  // Simulate sending WhatsApp confirmation trigger
+  // Trigger appointment confirmation notification
   await models.Notification.create({
     salonId: targetSalonId,
-    customerId: finalCustomerId,
-    type: 'WhatsApp',
+    targetRole: 'Customer',
+    recipientId: finalCustomerId ? String(finalCustomerId) : null,
+    category: 'Appointment',
+    type: 'InApp',
+    title: 'Appointment Confirmed',
     message: `Hello! Your appointment at SalonSync is scheduled for ${appointment.date} at ${appointment.time}. See you soon!`,
     status: 'Sent'
   });
@@ -555,8 +560,10 @@ router.put('/appointments/:id', requirePermission('appointments.edit'), validate
               if (product.quantity <= (product.reorderLevel || product.lowStockThreshold || 5)) {
                 await models.Notification.create({
                   salonId: existingAppt.salonId,
-                  customerId: null,
-                  type: 'Low Stock Alert',
+                  targetRole: 'Owner',
+                  category: 'Inventory',
+                  type: 'InApp',
+                  title: 'Low Stock Alert',
                   message: `Low Stock Alert: ${product.name} is down to ${product.quantity} ${product.unit || 'units'} (Reorder Level: ${product.reorderLevel || 10}).`,
                   status: 'Sent'
                 });
@@ -924,34 +931,6 @@ router.get('/analytics/salon-health', requirePermission('reports.view'), safeHan
         inventoryHealth: inventoryScore,
         appointmentUtilization: utilizationScore
       },
-  res.json({
-    success: true,
-    data: {
-      overallHealthScore,
-      ratingGrade: overallHealthScore >= 80 ? 'Excellent' : overallHealthScore >= 60 ? 'Good' : 'Needs Attention',
-      metrics: {
-        totalRevenue,
-        netProfit,
-        profitMarginPercent,
-        totalCustomers,
-        repeatCustomersCount,
-        retentionPercent,
-        avgRating,
-        totalReviews,
-        lowStockCount: lowStockProducts.length,
-        inventoryHealthPercent,
-        utilizationPercent
-      },
-      categoryScores: {
-        revenueGrowth: revGrowthScore,
-        profitMargin: profitScore,
-        customerRetention: retentionScore,
-        repeatCustomers: repeatScore,
-        staffPerformance: staffScore,
-        customerRatings: ratingScore,
-        inventoryHealth: inventoryScore,
-        appointmentUtilization: utilizationScore
-      },
       insights
     }
   });
@@ -1107,7 +1086,7 @@ router.put('/notifications/preferences', sanitizeBody(['customerChannels', 'staf
 // IMMUTABLE AUDIT LOGGING SYSTEM
 // ----------------------------------------------------
 
-router.get('/audit-logs', requireRole('SALON_OWNER', 'FRANCHISE_OWNER', 'SUPER_ADMIN'), safeHandler(async (req, res) => {
+router.get('/audit-logs', authorize('SALON_OWNER', 'FRANCHISE_OWNER', 'SUPER_ADMIN'), safeHandler(async (req, res) => {
   const { entity, action, search } = req.query;
   const filter = { salonId: req.user.salonId };
 
@@ -1453,14 +1432,18 @@ router.post('/invoices', requirePermission('billing.create'), safeHandler(async 
     }
   }
 
-  // 3. Trigger WhatsApp notification mock
+  // 3. Trigger payment confirmation notification
   if (finalCustomerId) {
     const customer = await models.Customer.findById(finalCustomerId);
     if (customer) {
       await models.Notification.create({
         salonId: req.user.salonId,
-        customerId: finalCustomerId,
-        type: 'WhatsApp',
+        targetRole: 'Customer',
+        recipientId: String(finalCustomerId),
+        recipientName: customer.name,
+        category: 'Payment',
+        type: 'InApp',
+        title: 'Payment Confirmed',
         message: `Dear ${customer.name}, thank you for visiting us. Your bill of ₹${finalAmount} has been paid. Invoice: ${invoiceNumber}.`,
         status: 'Sent'
       });
