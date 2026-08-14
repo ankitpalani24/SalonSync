@@ -15,11 +15,9 @@ export const AppProvider = ({ children }) => {
     }
   };
 
-  // Theme state
-  const [darkMode, setDarkMode] = useState(() => {
-    const local = localStorage.getItem('theme');
-    return local ? local === 'dark' : true;
-  });
+  // Theme state (Locked to Dark Mode)
+  const darkMode = true;
+  const setDarkMode = () => {};
 
   // Demo Mode state
   const demoMode = false;
@@ -87,16 +85,11 @@ export const AppProvider = ({ children }) => {
     info: (msg, duration) => addToast(msg, 'info', duration)
   };
 
-  // Apply dark mode CSS classes
+  // Always enforce dark mode theme
   useEffect(() => {
-    if (darkMode) {
-      document.documentElement.classList.remove('light-mode');
-      localStorage.setItem('theme', 'dark');
-    } else {
-      document.documentElement.classList.add('light-mode');
-      localStorage.setItem('theme', 'light');
-    }
-  }, [darkMode]);
+    document.documentElement.classList.remove('light-mode');
+    localStorage.setItem('theme', 'dark');
+  }, []);
 
   // Fetch public data for unauthenticated guests
   const syncPublicData = async () => {

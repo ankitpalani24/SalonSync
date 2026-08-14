@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Users, Calendar, Scissors, CreditCard, 
   Package, UserCheck, BarChart3, MessageSquare, Bot, 
   Settings, LogOut, ChevronLeft, ChevronRight, Crown,
-  Sun, Moon, DollarSign
+  DollarSign
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
@@ -12,7 +12,6 @@ const Sidebar = ({ activePage, setActivePage, collapsed, setCollapsed, user, log
     currentBranch, switchBranch,
     demoMode, setDemoMode,
     db,
-    darkMode, setDarkMode,
     hasPermission, PERMISSIONS
   } = useApp();
 
@@ -234,44 +233,6 @@ const Sidebar = ({ activePage, setActivePage, collapsed, setCollapsed, user, log
               </select>
             </div>
           )}
-
-          {/* App Theme Selector */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-            <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>App Theme:</span>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.2rem 0' }}>
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-primary)' }}>{darkMode ? 'Dark Mode' : 'Light Mode'}</span>
-              <div 
-                onClick={() => setDarkMode(!darkMode)}
-                style={{
-                  width: '42px',
-                  height: '22px',
-                  borderRadius: '11px',
-                  background: darkMode ? 'var(--gold-primary)' : 'rgba(128, 128, 128, 0.35)',
-                  position: 'relative',
-                  cursor: 'pointer',
-                  transition: 'background-color 0.3s',
-                  border: '1px solid var(--border-light)'
-                }}
-              >
-                <div style={{
-                  width: '16px',
-                  height: '16px',
-                  borderRadius: '50%',
-                  background: '#ffffff',
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
-                  position: 'absolute',
-                  top: '2px',
-                  left: darkMode ? '22px' : '2px',
-                  transition: 'left 0.2s ease-in-out',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}>
-                  {darkMode ? <Moon size={9} style={{ color: '#3498db' }} /> : <Sun size={9} style={{ color: '#e67e22' }} />}
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
 
 

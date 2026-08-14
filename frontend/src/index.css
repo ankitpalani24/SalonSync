@@ -71,50 +71,7 @@
   background-size: 400px 100% !important;
 }
 
-/* Light Mode Variables Override */
-.light-mode {
-  --bg-primary: #f2f1e6; /* Premium rich warm off-white background */
-  --bg-secondary: #ffffff;
-  --bg-header: #ffffff;
-  --bg-sidebar: #5c6e2f; /* Solid opaque olive green sidebar */
-  --bg-card: linear-gradient(135deg, rgba(255, 255, 255, 1) 0%, rgba(246, 245, 240, 0.95) 100%);
-  --bg-card-hover: linear-gradient(135deg, rgba(108, 128, 51, 0.22) 0%, rgba(85, 102, 39, 0.04) 100%);
-  --text-primary: #1b2014; /* Muted warm charcoal text */
-  --text-secondary: #58614c; /* Olive-tinted gray */
-  --text-muted: #858e78;
-  --sidebar-text-inactive: #1b2014; /* High contrast dark charcoal text for sidebar */
-  --sidebar-active-bg: rgba(255, 255, 255, 0.6); /* Translucent white indicator */
-  --border-light: rgba(112, 130, 56, 0.35); /* Visible borders in light mode */
-  --shadow-premium: 0 10px 30px rgba(112, 130, 56, 0.05); /* Soft olive-tinted shadow */
-  --olive-primary: #6c8033; /* Rich luxury olive green */
-  --olive-hover: #556627;
-  --olive-glow: rgba(108, 128, 51, 0.18);
-  --olive-bg: rgba(108, 128, 51, 0.06);
-  --olive-border: rgba(108, 128, 51, 0.4); /* Visible olive border */
-  --gold-primary: var(--olive-primary);
-  --gold-hover: var(--olive-hover);
-  --gold-glow: var(--olive-glow);
-  --gold-bg: var(--olive-bg);
-  --gold-border: var(--olive-border);
-}
 
-.light-mode .form-control {
-  background: #ffffff !important;
-  border: 1px solid var(--border-light) !important;
-  color: var(--text-primary) !important;
-}
-
-.light-mode .form-control:focus {
-  border-color: var(--gold-primary) !important;
-  box-shadow: 0 0 0 3px var(--gold-glow) !important;
-  background: #ffffff !important;
-}
-
-.light-mode select,
-.light-mode select option {
-  background-color: #ffffff !important;
-  color: var(--text-primary) !important;
-}
 
 /* Base resets */
 * {
@@ -664,13 +621,7 @@ button {
   background: rgba(255, 255, 255, 0.06);
 }
 
-.light-mode .form-control {
-  background: rgba(0, 0, 0, 0.02);
-}
 
-.light-mode .form-control:focus {
-  background: rgba(0, 0, 0, 0.04);
-}
 
 /* Select Dropdowns and Option list styles */
 select {
@@ -727,9 +678,7 @@ select option:active {
   background: rgba(255, 255, 255, 0.02);
 }
 
-.light-mode .premium-table tr:hover {
-  background: rgba(0, 0, 0, 0.01);
-}
+
 
 /* Status Badges */
 .badge {
@@ -1434,11 +1383,7 @@ body:has(.sidebar-container.open) .main-content {
   transition: all 0.3s ease;
 }
 
-.light-mode .toast-item {
-  background: rgba(255, 255, 255, 0.95);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
-  border: 1px solid var(--border-light);
-}
+
 
 .toast-content {
   flex: 1;

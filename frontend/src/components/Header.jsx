@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
-import { Sun, Moon, MapPin, ShieldAlert, Award, Menu, LogOut, Search, Command } from 'lucide-react';
+import { MapPin, ShieldAlert, Award, Menu, LogOut, Search, Command } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
 const Header = ({ toggleMobileSidebar, onOpenProfile, onOpenCommandPalette }) => {
   const {
-    darkMode, setDarkMode,
     demoMode, setDemoMode,
     currentUser, setCurrentUser,
     currentSalon,
@@ -94,23 +93,6 @@ const Header = ({ toggleMobileSidebar, onOpenProfile, onOpenCommandPalette }) =>
 
       {/* Control Actions */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
-        
-        {/* Theme Switcher */}
-        <button
-          onClick={() => setDarkMode(!darkMode)}
-          className="hide-mobile"
-          style={{
-            background: 'transparent',
-            border: 'none',
-            color: 'var(--text-secondary)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer'
-          }}
-        >
-          {darkMode ? <Sun size={20} /> : <Moon size={20} />}
-        </button>
 
 
 
