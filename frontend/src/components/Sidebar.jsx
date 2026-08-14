@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Users, Calendar, Scissors, CreditCard, 
   Package, UserCheck, BarChart3, MessageSquare, Bot, 
   Settings, LogOut, ChevronLeft, ChevronRight, Crown,
-  DollarSign, Gift, Globe, Search, Activity, Bell, ShieldCheck, Key
+  DollarSign, Gift, Globe, Search, Activity, Bell, ShieldCheck, Key, Building2
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
@@ -52,6 +52,7 @@ const Sidebar = ({ activePage, setActivePage, collapsed, setCollapsed, user, log
     {
       title: 'ENTERPRISE',
       items: [
+        { id: 'franchise', label: 'Franchise Hub', icon: Building2, roles: ['SALON_OWNER', 'FRANCHISE_OWNER', 'SUPER_ADMIN'] },
         { id: 'permissions', label: 'Permission Matrix', icon: Key, roles: ['SALON_OWNER', 'FRANCHISE_OWNER', 'SUPER_ADMIN'] },
         { id: 'audit-logs', label: 'Audit Logs', icon: ShieldCheck, roles: ['SALON_OWNER', 'FRANCHISE_OWNER', 'SUPER_ADMIN'] },
         { id: 'super-admin', label: 'Super Admin', icon: Crown, roles: ['SUPER_ADMIN'] }
