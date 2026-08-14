@@ -37,7 +37,7 @@ const Header = ({ toggleMobileSidebar, onOpenProfile, onOpenCommandPalette, setA
           style={{
             background: 'transparent',
             border: 'none',
-            color: 'var(--text-primary)',
+            color: '#FFFFFF',
             cursor: 'pointer',
             marginRight: '0.5rem',
             display: 'none',
@@ -49,7 +49,7 @@ const Header = ({ toggleMobileSidebar, onOpenProfile, onOpenCommandPalette, setA
           <Menu size={22} />
         </button>
         <div>
-          <h2 style={{ fontSize: '1.2rem', color: 'var(--text-primary)' }} className="header-brand-title">
+          <h2 style={{ fontSize: '1.15rem', color: '#FFFFFF', fontWeight: '700', letterSpacing: '0.3px' }} className="header-brand-title">
             {(() => {
               if (currentUser?.role === 'SUPER_ADMIN') return 'SalonSync SuperAdmin';
               if (currentUser?.role === 'CLIENT') return currentUser?.name || 'Client Workspace';
@@ -57,8 +57,8 @@ const Header = ({ toggleMobileSidebar, onOpenProfile, onOpenCommandPalette, setA
             })()}
           </h2>
           {currentUser?.role !== 'SUPER_ADMIN' && currentUser?.role !== 'CLIENT' && currentBranch && (
-            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.25rem' }} className="header-brand-location">
-              <MapPin size={12} style={{ color: 'var(--gold-primary)' }} />
+            <p style={{ fontSize: '0.75rem', color: 'var(--color-primary-soft)', display: 'flex', alignItems: 'center', gap: '0.25rem', marginTop: '0.1rem' }} className="header-brand-location">
+              <MapPin size={12} style={{ color: 'var(--color-primary-light)' }} />
               {`${currentBranch.name} (${currentBranch.city})`}
             </p>
           )}
@@ -72,20 +72,20 @@ const Header = ({ toggleMobileSidebar, onOpenProfile, onOpenCommandPalette, setA
             display: 'flex',
             alignItems: 'center',
             gap: '0.6rem',
-            background: 'rgba(255,255,255,0.03)',
-            border: '1px solid var(--border-light)',
+            background: 'rgba(255,255,255,0.1)',
+            border: '1px solid rgba(220, 228, 200, 0.2)',
             borderRadius: '20px',
             padding: '0.35rem 0.85rem',
-            color: 'var(--text-muted)',
+            color: 'var(--color-primary-soft)',
             fontSize: '0.78rem',
             cursor: 'pointer',
             marginLeft: '1rem',
             transition: 'var(--transition-smooth)'
           }}
         >
-          <Search size={14} style={{ color: 'var(--gold-primary)' }} />
+          <Search size={14} style={{ color: 'var(--color-primary-light)' }} />
           <span>Global Search...</span>
-          <span style={{ fontSize: '0.65rem', background: 'rgba(255,255,255,0.06)', padding: '0.1rem 0.4rem', borderRadius: '4px', border: '1px solid var(--border-light)' }}>
+          <span style={{ fontSize: '0.65rem', background: 'rgba(255,255,255,0.12)', padding: '0.1rem 0.4rem', borderRadius: '4px', border: '1px solid rgba(220, 228, 200, 0.2)', color: '#FFFFFF' }}>
             Ctrl + K
           </span>
         </div>
@@ -99,17 +99,18 @@ const Header = ({ toggleMobileSidebar, onOpenProfile, onOpenCommandPalette, setA
           <button
             onClick={() => setActivePage ? setActivePage('notifications') : null}
             style={{
-              background: 'rgba(255,255,255,0.04)',
-              border: '1px solid var(--border-light)',
+              background: 'rgba(255,255,255,0.1)',
+              border: '1px solid rgba(220, 228, 200, 0.2)',
               borderRadius: '50%',
               width: '38px',
               height: '38px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: 'var(--text-primary)',
+              color: '#FFFFFF',
               cursor: 'pointer',
-              position: 'relative'
+              position: 'relative',
+              transition: 'var(--transition-smooth)'
             }}
             title="Notification Center"
           >
@@ -122,14 +123,14 @@ const Header = ({ toggleMobileSidebar, onOpenProfile, onOpenCommandPalette, setA
                   position: 'absolute',
                   top: '-3px',
                   right: '-3px',
-                  background: 'var(--accent-red)',
-                  color: '#fff',
+                  background: 'var(--color-accent)',
+                  color: '#FFFFFF',
                   fontSize: '0.62rem',
                   fontWeight: '800',
                   borderRadius: '10px',
                   padding: '0.1rem 0.4rem',
                   lineHeight: 1,
-                  boxShadow: '0 0 8px rgba(231,76,60,0.6)'
+                  boxShadow: '0 0 8px rgba(124,77,158,0.6)'
                 }}>
                   {unreadCount}
                 </span>
@@ -139,27 +140,26 @@ const Header = ({ toggleMobileSidebar, onOpenProfile, onOpenCommandPalette, setA
         </div>
 
         {/* User Card */}
-        <div onClick={onOpenProfile} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', borderLeft: '1px solid var(--border-light)', paddingLeft: '1.25rem', cursor: 'pointer' }}>
+        <div onClick={onOpenProfile} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', borderLeft: '1px solid rgba(220, 228, 200, 0.2)', paddingLeft: '1.25rem', cursor: 'pointer' }}>
           <div style={{
-            width: '40px',
-            height: '40px',
+            width: '38px',
+            height: '38px',
             borderRadius: '50%',
-            background: 'var(--gold-bg)',
-            border: '1px solid var(--gold-border)',
+            background: 'var(--color-primary)',
+            border: '2px solid var(--color-primary-light)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            color: 'var(--gold-primary)',
-            fontSize: '1rem',
-            fontWeight: '600',
-            padding: '2px',
-            marginRight: '0.25rem'
+            color: '#FFFFFF',
+            fontSize: '0.95rem',
+            fontWeight: '700',
+            flexShrink: 0
           }}>
-            {currentUser?.name[0]}
+            {currentUser?.name?.[0] || 'U'}
           </div>
           <div className="header-user-details">
-            <p style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-primary)' }}>{currentUser?.name}</p>
-            <p style={{ fontSize: '0.7rem', color: 'var(--gold-primary)', fontWeight: '500' }}>
+            <p style={{ fontSize: '0.85rem', fontWeight: '600', color: '#FFFFFF' }}>{currentUser?.name}</p>
+            <p style={{ fontSize: '0.7rem', color: 'var(--color-primary-soft)', fontWeight: '500' }}>
               {(() => {
                 const rolesMap = {
                   SUPER_ADMIN: 'Super Admin',

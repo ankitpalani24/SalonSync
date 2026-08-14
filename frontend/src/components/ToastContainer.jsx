@@ -10,24 +10,24 @@ const ToastContainer = () => {
   const getIcon = (type) => {
     switch (type) {
       case 'success':
-        return <CheckCircle size={18} style={{ color: 'var(--accent-green)', flexShrink: 0 }} />;
+        return <CheckCircle size={18} style={{ color: 'var(--color-primary)', flexShrink: 0 }} />;
       case 'error':
-        return <AlertCircle size={18} style={{ color: 'var(--accent-red)', flexShrink: 0 }} />;
+        return <AlertCircle size={18} style={{ color: 'var(--color-error)', flexShrink: 0 }} />;
       case 'warning':
-        return <AlertTriangle size={18} style={{ color: 'var(--accent-orange, #f39c12)', flexShrink: 0 }} />;
+        return <AlertTriangle size={18} style={{ color: 'var(--color-warning)', flexShrink: 0 }} />;
       case 'info':
       default:
-        return <Info size={18} style={{ color: 'var(--gold-primary)', flexShrink: 0 }} />;
+        return <Info size={18} style={{ color: 'var(--color-accent)', flexShrink: 0 }} />;
     }
   };
 
   const getBorderColor = (type) => {
     switch (type) {
-      case 'success': return 'var(--accent-green)';
-      case 'error': return 'var(--accent-red)';
-      case 'warning': return 'var(--accent-orange, #f39c12)';
+      case 'success': return 'var(--color-primary)';
+      case 'error': return 'var(--color-error)';
+      case 'warning': return 'var(--color-warning)';
       case 'info':
-      default: return 'var(--gold-primary)';
+      default: return 'var(--color-accent)';
     }
   };
 
