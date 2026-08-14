@@ -277,7 +277,7 @@ export const AppProvider = ({ children }) => {
     }
 
     // Fallback authentication against mockUsers / db.staff for offline or un-synced staff accounts
-    const allUsers = [...(db.users || []), ...mockUsers];
+    const allUsers = [...(db.users || []), ...(mockData.mockUsers || [])];
     const foundUser = allUsers.find(u =>
       (u.email && u.email.toLowerCase() === cleanInput) ||
       (u.phone && u.phone.replace(/[\s+-]/g, '') === cleanPhone) ||

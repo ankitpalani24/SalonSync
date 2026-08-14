@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Users, Calendar, Scissors, CreditCard, 
   Package, UserCheck, BarChart3, MessageSquare, Bot, 
   Settings, LogOut, ChevronLeft, ChevronRight, Crown,
-  Sun, Moon
+  Sun, Moon, DollarSign
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
