@@ -267,7 +267,10 @@ InvoiceTemplate.displayName = 'InvoiceTemplate';
 // MAIN BILLING COMPONENT
 // ═══════════════════════════════════════════════════════════════════════════════
 const Billing = ({ apptForCheckout, clearApptCheckout }) => {
-  const { tenantFilter, db, createInvoice, addNotification, addToast, currentSalon, currentBranch, hasPermission, PERMISSIONS } = useApp();
+  const {
+    tenantFilter, db, createInvoice, updateAppointmentStatus,
+    addNotification, addToast, currentSalon, currentBranch, hasPermission, PERMISSIONS
+  } = useApp();
 
   const invoices = tenantFilter(db.invoices);
   const customers = tenantFilter(db.customers);
@@ -314,13 +317,28 @@ const Billing = ({ apptForCheckout, clearApptCheckout }) => {
         ? apptForCheckout.customerId._id : apptForCheckout.customerId;
       const stfId = typeof apptForCheckout.staffId === 'object' && apptForCheckout.staffId !== null
         ? apptForCheckout.staffId._id : apptForCheckout.staffId;
+      
       setSelectedCustId(custId || '');
       setSelectedStaffId(stfId || '');
-      const apptServices = apptForCheckout.services.map(s => ({ serviceId: s.serviceId, quantity: 1 }));
-      setCheckoutServices(apptServices);
-      clearApptCheckout();
+
+      const apptServices = (apptForCheckout.services || []).map((s, idx) => {
+        const sId = typeof s.serviceId === 'object' ? s.serviceId?._id : s.serviceId;
+        const matched = services.find(srv => (sId && String(srv._id) === String(sId)) || srv.name === s.name);
+        return {
+          serviceId: matched ? matched._id : (sId || `appt_srv_${idx}_${Date.now()}`),
+          name: s.name || matched?.name || 'Salon Treatment',
+          price: Number(s.price !== undefined && s.price !== null ? s.price : matched?.price) || 0,
+          category: matched?.category || s.category || 'Service',
+          quantity: Number(s.quantity) || 1
+        };
+      });
+
+      if (apptServices.length > 0) {
+        setCheckoutServices(apptServices);
+      }
+      setActivePane('pos');
     }
-  }, [apptForCheckout]);
+  }, [apptForCheckout, services]);
 
   // ── HELPERS ──
   const getCustomerForInvoice = (inv) => {
@@ -340,12 +358,12 @@ const Billing = ({ apptForCheckout, clearApptCheckout }) => {
     let sum = 0;
     checkoutServices.forEach(item => {
       const s = services.find(srv => String(srv._id) === String(item.serviceId));
-      const rate = Number(item.price) || (s ? Number(s.price) : 0) || 0;
+      const rate = Number(item.price !== undefined && item.price !== null ? item.price : s?.price) || 0;
       sum += rate * (Number(item.quantity) || 1);
     });
     checkoutProducts.forEach(item => {
       const p = products.find(prod => String(prod._id) === String(item.productId));
-      const rate = Number(item.price) || (p ? Number(p.sellingPrice) : 0) || 0;
+      const rate = Number(item.price !== undefined && item.price !== null ? item.price : p?.sellingPrice) || 0;
       sum += rate * (Number(item.quantity) || 1);
     });
     return sum;
@@ -416,18 +434,47 @@ const Billing = ({ apptForCheckout, clearApptCheckout }) => {
     try {
       const safeCustId = typeof selectedCustId === 'object' ? selectedCustId?._id : selectedCustId;
       const safeStaffId = typeof selectedStaffId === 'object' ? selectedStaffId?._id : selectedStaffId;
+      const targetBranchId = currentBranch ? currentBranch._id : (apptForCheckout?.branchId || null);
+
       const newInvoice = await createInvoice({
         customerId: safeCustId || null,
-        services: checkoutServices,
-        products: checkoutProducts,
+        branchId: targetBranchId,
+        services: checkoutServices.map(s => {
+          const matched = services.find(srv => String(srv._id) === String(s.serviceId));
+          return {
+            serviceId: matched ? matched._id : s.serviceId,
+            name: s.name || matched?.name || 'Salon Treatment',
+            price: Number(s.price !== undefined && s.price !== null ? s.price : matched?.price) || 0,
+            quantity: Number(s.quantity) || 1
+          };
+        }),
+        products: checkoutProducts.map(p => {
+          const matched = products.find(prod => String(prod._id) === String(p.productId));
+          return {
+            productId: matched ? matched._id : p.productId,
+            name: p.name || matched?.name || 'Retail Product',
+            price: Number(p.price !== undefined && p.price !== null ? p.price : matched?.sellingPrice) || 0,
+            quantity: Number(p.quantity) || 1
+          };
+        }),
         tax: Number(taxPercent),
         discount: Number(discountAmt),
         redeemPoints: actualPointsRedeemed,
         paymentMethod: payMethod,
         staffId: safeStaffId || null
       });
+
       if (newInvoice) {
         addToast(`Invoice ${newInvoice.invoiceNumber || 'INV'} generated!`, 'success');
+
+        // Mark checked-out appointment as Completed
+        if (apptForCheckout?._id && updateAppointmentStatus) {
+          await updateAppointmentStatus(apptForCheckout._id, 'Completed');
+        }
+        if (clearApptCheckout) {
+          clearApptCheckout();
+        }
+
         if (safeCustId) {
           const client = customers.find(c => String(c._id) === String(safeCustId));
           if (client) addNotification({ customerId: safeCustId, type: 'Billing', message: `Receipt ${newInvoice.invoiceNumber} generated. Total: ₹${finalAmount}.`, status: 'Sent' });
@@ -592,41 +639,67 @@ const Billing = ({ apptForCheckout, clearApptCheckout }) => {
                     </td></tr>
                   ) : (
                     <>
-                      {checkoutServices.map(item => {
+                      {checkoutServices.map((item, idx) => {
                         const s = services.find(srv => String(srv._id) === String(item.serviceId));
-                        if (!s) return null;
+                        const itemName = item.name || s?.name || 'Salon Treatment';
+                        const itemCategory = item.category || s?.category || 'Service';
+                        const itemRate = Number(item.price !== undefined && item.price !== null ? item.price : s?.price) || 0;
+                        const itemQty = Number(item.quantity) || 1;
+                        const keyId = item.serviceId || `srv_${idx}`;
+
                         return (
-                          <tr key={item.serviceId}>
-                            <td><span style={{ fontWeight: '600', color: 'var(--text-primary)' }}>✂️ {s.name}</span><br /><span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{s.category || 'Service'}</span></td>
-                            <td>₹{s.price}</td>
+                          <tr key={keyId}>
+                            <td>
+                              <span style={{ fontWeight: '600', color: 'var(--text-primary)' }}>✂️ {itemName}</span>
+                              <br />
+                              <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{itemCategory}</span>
+                            </td>
+                            <td>{formatCurrency(itemRate)}</td>
                             <td style={{ textAlign: 'center' }}>
                               <div style={{ display: 'inline-flex', gap: '0.4rem', alignItems: 'center' }}>
                                 <button type="button" onClick={() => handleQuantityChange('service', item.serviceId, -1)} className="billing-qty-btn">−</button>
-                                <span style={{ minWidth: '20px', textAlign: 'center' }}>{item.quantity}</span>
+                                <span style={{ minWidth: '20px', textAlign: 'center' }}>{itemQty}</span>
                                 <button type="button" onClick={() => handleQuantityChange('service', item.serviceId, 1)} className="billing-qty-btn">+</button>
                               </div>
                             </td>
-                            <td style={{ fontWeight: '600', color: 'var(--gold-primary)' }}>₹{(s.price * item.quantity).toLocaleString()}</td>
-                            <td><button type="button" onClick={() => handleRemoveService(item.serviceId)} style={{ background: 'transparent', border: 'none', color: 'var(--accent-red)', cursor: 'pointer' }}><Trash2 size={15} /></button></td>
+                            <td style={{ fontWeight: '600', color: 'var(--gold-primary)' }}>{formatCurrency(itemRate * itemQty)}</td>
+                            <td>
+                              <button type="button" onClick={() => handleRemoveService(item.serviceId)} style={{ background: 'transparent', border: 'none', color: 'var(--accent-red)', cursor: 'pointer' }}>
+                                <Trash2 size={15} />
+                              </button>
+                            </td>
                           </tr>
                         );
                       })}
-                      {checkoutProducts.map(item => {
+                      {checkoutProducts.map((item, idx) => {
                         const p = products.find(prod => String(prod._id) === String(item.productId));
-                        if (!p) return null;
+                        const prodName = item.name || p?.name || 'Retail Product';
+                        const prodSku = item.sku || p?.sku || 'N/A';
+                        const prodRate = Number(item.price !== undefined && item.price !== null ? item.price : p?.sellingPrice) || 0;
+                        const prodQty = Number(item.quantity) || 1;
+                        const keyId = item.productId || `prod_${idx}`;
+
                         return (
-                          <tr key={item.productId}>
-                            <td><span style={{ fontWeight: '600', color: 'var(--text-primary)' }}>🧴 {p.name}</span><br /><span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>SKU: {p.sku || 'N/A'}</span></td>
-                            <td>₹{p.sellingPrice}</td>
+                          <tr key={keyId}>
+                            <td>
+                              <span style={{ fontWeight: '600', color: 'var(--text-primary)' }}>🧴 {prodName}</span>
+                              <br />
+                              <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>SKU: {prodSku}</span>
+                            </td>
+                            <td>{formatCurrency(prodRate)}</td>
                             <td style={{ textAlign: 'center' }}>
                               <div style={{ display: 'inline-flex', gap: '0.4rem', alignItems: 'center' }}>
                                 <button type="button" onClick={() => handleQuantityChange('product', item.productId, -1)} className="billing-qty-btn">−</button>
-                                <span style={{ minWidth: '20px', textAlign: 'center' }}>{item.quantity}</span>
+                                <span style={{ minWidth: '20px', textAlign: 'center' }}>{prodQty}</span>
                                 <button type="button" onClick={() => handleQuantityChange('product', item.productId, 1)} className="billing-qty-btn">+</button>
                               </div>
                             </td>
-                            <td style={{ fontWeight: '600', color: 'var(--gold-primary)' }}>₹{(p.sellingPrice * item.quantity).toLocaleString()}</td>
-                            <td><button type="button" onClick={() => handleRemoveProduct(item.productId)} style={{ background: 'transparent', border: 'none', color: 'var(--accent-red)', cursor: 'pointer' }}><Trash2 size={15} /></button></td>
+                            <td style={{ fontWeight: '600', color: 'var(--gold-primary)' }}>{formatCurrency(prodRate * prodQty)}</td>
+                            <td>
+                              <button type="button" onClick={() => handleRemoveProduct(item.productId)} style={{ background: 'transparent', border: 'none', color: 'var(--accent-red)', cursor: 'pointer' }}>
+                                <Trash2 size={15} />
+                              </button>
+                            </td>
                           </tr>
                         );
                       })}

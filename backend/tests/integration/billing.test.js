@@ -101,4 +101,28 @@ describe('POS Billing, Inventory Deduction, Loyalty & Commission Integration Tes
     expect(updatedCustomer.loyaltyPoints).toBe(29);
   });
 
+  test('creates invoice with correct non-zero amount when billing directly from appointment', async () => {
+    const res = await request(app)
+      .post('/api/invoices')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        customerId: customer._id,
+        staffId: staff._id,
+        services: [
+          { name: 'Bridal HD Airbrush Makeup', price: 25000, quantity: 1 }
+        ],
+        products: [],
+        tax: 18,
+        discount: 1000,
+        paymentMethod: 'UPI'
+      });
+
+    expect(res.status).toBe(201);
+    expect(res.body.success).toBe(true);
+    // SubTotal: 25000, Tax (18%): 4500, Discount: 1000 -> Final: 28500
+    expect(res.body.data.finalAmount).toBe(28500);
+    expect(res.body.data.services[0].name).toBe('Bridal HD Airbrush Makeup');
+    expect(res.body.data.services[0].price).toBe(25000);
+  });
+
 });
