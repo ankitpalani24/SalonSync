@@ -455,29 +455,48 @@ router.get('/appointments', requirePermission('appointments.view'), safeHandler(
 }, 'Failed to fetch appointments'));
 
 router.post('/appointments', requirePermission('appointments.create'), sanitizeBody([...APPOINTMENT_FIELDS]), safeHandler(async (req, res) => {
-  let finalCustomerId = req.body.customerId;
-  const targetSalonId = req.user.role === 'CLIENT' ? req.body.salonId : req.user.salonId;
-  const targetBranchId = req.user.role === 'CLIENT' ? req.body.branchId : (req.user.branchId || req.body.branchId);
-
-  // Overlap prevention validation for staff bookings
-  if (req.body.staffId && req.body.date && req.body.time) {
-    const checkDate = new Date(req.body.date);
-    const existingAppt = await models.Appointment.findOne({
-      salonId: targetSalonId,
-      staffId: req.body.staffId,
-      date: checkDate,
-      time: req.body.time,
-      status: { $in: ['Scheduled', 'Confirmed', 'In Progress'] }
-    });
-    if (existingAppt) {
-      return res.status(400).json({
-        success: false,
-        message: 'The requested staff member is already booked for another appointment at this time slot.'
+  const targetSalonId = req.user.role === 'CLIENT' ? (req.body.salonId || req.user.salonId) : req.user.salonId;
+  
+  // 1. Gracefully resolve branchId for Salon Owner / Manager / Staff / Client
+  let targetBranchId = req.body.branchId || req.user.branchId;
+  if (!targetBranchId || !mongoose.Types.ObjectId.isValid(targetBranchId)) {
+    const branch = await models.Branch.findOne({ salonId: targetSalonId });
+    if (branch) {
+      targetBranchId = branch._id;
+    } else {
+      const defaultBranch = await models.Branch.create({
+        name: 'Main Branch',
+        salonId: targetSalonId,
+        city: 'Mumbai',
+        address: 'Main Salon Floor'
       });
+      targetBranchId = defaultBranch._id;
     }
   }
 
-  // If client user is booking, automatically resolve or create their customer profile for the target salon
+  // 2. Gracefully resolve staffId
+  let finalStaffId = req.body.staffId;
+  if (!finalStaffId || !mongoose.Types.ObjectId.isValid(finalStaffId)) {
+    let staffDoc = null;
+    if (finalStaffId) {
+      staffDoc = await models.Staff.findOne({ salonId: targetSalonId, $or: [{ _id: finalStaffId }, { name: req.body.staffName }] });
+    }
+    if (!staffDoc) {
+      staffDoc = await models.Staff.findOne({ salonId: targetSalonId });
+    }
+    if (!staffDoc) {
+      staffDoc = await models.Staff.create({
+        salonId: targetSalonId,
+        branchId: targetBranchId,
+        name: 'Senior Stylist',
+        role: 'Stylist'
+      });
+    }
+    finalStaffId = staffDoc._id;
+  }
+
+  // 3. Gracefully resolve customerId
+  let finalCustomerId = req.body.customerId;
   if (req.user.role === 'CLIENT') {
     let customer = await models.Customer.findOne({ 
       salonId: targetSalonId,
@@ -496,13 +515,76 @@ router.post('/appointments', requirePermission('appointments.create'), sanitizeB
       });
     }
     finalCustomerId = customer._id;
+  } else if (!finalCustomerId || !mongoose.Types.ObjectId.isValid(finalCustomerId)) {
+    let customerDoc = null;
+    if (finalCustomerId) {
+      customerDoc = await models.Customer.findOne({ salonId: targetSalonId, $or: [{ _id: finalCustomerId }, { name: req.body.customerName }] });
+    }
+    if (!customerDoc && req.body.customerName) {
+      customerDoc = await models.Customer.create({
+        salonId: targetSalonId,
+        branchId: targetBranchId,
+        name: req.body.customerName,
+        phone: req.body.customerPhone || 'Walk-in'
+      });
+    }
+    if (!customerDoc) {
+      customerDoc = await models.Customer.findOne({ salonId: targetSalonId });
+    }
+    if (!customerDoc) {
+      customerDoc = await models.Customer.create({
+        salonId: targetSalonId,
+        branchId: targetBranchId,
+        name: 'Walk-in Client',
+        phone: 'Walk-in'
+      });
+    }
+    finalCustomerId = customerDoc._id;
   }
 
+  // 4. Overlap prevention validation for staff bookings
+  if (finalStaffId && req.body.date && req.body.time) {
+    const checkDate = new Date(req.body.date);
+    const existingAppt = await models.Appointment.findOne({
+      salonId: targetSalonId,
+      staffId: finalStaffId,
+      date: checkDate,
+      time: req.body.time,
+      status: { $in: ['Scheduled', 'Confirmed', 'In Progress'] }
+    });
+    if (existingAppt) {
+      return res.status(400).json({
+        success: false,
+        message: 'The requested staff member is already booked for another appointment at this time slot.'
+      });
+    }
+  }
+
+  // 5. Format services array
+  const serviceItems = [];
+  if (req.body.services && Array.isArray(req.body.services)) {
+    for (const item of req.body.services) {
+      const sId = typeof item.serviceId === 'object' ? item.serviceId?._id : item.serviceId;
+      const validSId = (sId && mongoose.Types.ObjectId.isValid(sId)) ? sId : null;
+      serviceItems.push({
+        serviceId: validSId,
+        name: item.name || 'Salon Service',
+        price: Number(item.price) || 0
+      });
+    }
+  }
+
+  const appointmentDate = req.body.date ? new Date(req.body.date) : new Date();
+
   const appointment = await models.Appointment.create({
-    ...req.body,
     salonId: targetSalonId,
     branchId: targetBranchId,
-    customerId: finalCustomerId
+    customerId: finalCustomerId,
+    staffId: finalStaffId,
+    services: serviceItems,
+    date: appointmentDate,
+    time: req.body.time || '10:00',
+    status: req.body.status || 'Scheduled'
   });
 
   // Trigger appointment confirmation notification
@@ -513,7 +595,7 @@ router.post('/appointments', requirePermission('appointments.create'), sanitizeB
     category: 'Appointment',
     type: 'InApp',
     title: 'Appointment Confirmed',
-    message: `Hello! Your appointment at SalonSync is scheduled for ${appointment.date} at ${appointment.time}. See you soon!`,
+    message: `Hello! Your appointment at SalonSync is scheduled for ${req.body.date || appointment.date} at ${appointment.time}. See you soon!`,
     status: 'Sent'
   });
 

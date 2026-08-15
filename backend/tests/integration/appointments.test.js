@@ -98,4 +98,34 @@ describe('Appointment Booking & Double-Booking Prevention Integration Tests', ()
     expect(check).toBeNull();
   });
 
+  test('allows SALON_OWNER without branchId to book an appointment with auto-resolution', async () => {
+    // Owner with no branchId
+    const ownerWithoutBranch = await models.User.create({
+      name: 'Owner No Branch',
+      email: 'owner_nobranch@test.com',
+      phone: '1234567890',
+      password: 'hash',
+      role: 'SALON_OWNER',
+      salonId: salon._id
+    });
+    const ownerToken = jwt.sign({ id: ownerWithoutBranch._id }, process.env.JWT_SECRET);
+
+    const res = await request(app)
+      .post('/api/appointments')
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({
+        customerName: 'New Walk-in Client',
+        customerPhone: '9876543210',
+        staffId: staff._id,
+        date: new Date('2026-09-02T00:00:00.000Z'),
+        time: '11:00',
+        services: [{ name: 'Signature Haircut', price: 1500 }]
+      });
+
+    expect(res.status).toBe(201);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.customerId).toBeDefined();
+    expect(res.body.data.branchId).toBeDefined();
+  });
+
 });

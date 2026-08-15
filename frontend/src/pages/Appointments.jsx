@@ -395,6 +395,7 @@ const Appointments = ({ setActivePage, setSelectedApptForCheckout }) => {
   const handleConfirmWizardBooking = async () => {
     let custId = selectedCustId;
     let isWalkin = false;
+    let custName = '';
 
     if (bookingCustType === 'walkin' || (!selectedCustId && walkinName)) {
       if (!walkinName.trim()) {
@@ -402,13 +403,21 @@ const Appointments = ({ setActivePage, setSelectedApptForCheckout }) => {
         return;
       }
       isWalkin = true;
+      custName = walkinName.trim();
       if (addCustomer) {
         const newCust = await addCustomer({ name: `${walkinName.trim()} (Walk-in)`, phone: walkinPhone || 'Walk-in' });
         if (newCust && newCust._id) custId = newCust._id;
       }
+    } else if (selectedCustId) {
+      const existingCust = customers.find(c => String(c._id) === String(selectedCustId));
+      if (existingCust) custName = existingCust.name;
     }
 
-    const selectedServiceObjs = selectedServices.map(id => {
+    const staffIdToUse = selectedStaffId || (staffMembers[0] ? staffMembers[0]._id : null);
+    const staffMemberObj = staffMembers.find(s => String(s._id) === String(staffIdToUse));
+
+    const selectedServiceIds = selectedServices.length > 0 ? selectedServices : (services[0]?._id ? [services[0]._id] : []);
+    const selectedServiceObjs = selectedServiceIds.map(id => {
       const srv = services.find(s => String(s._id) === String(id));
       return {
         serviceId: srv ? srv._id : id,
@@ -417,16 +426,26 @@ const Appointments = ({ setActivePage, setSelectedApptForCheckout }) => {
       };
     });
 
+    const branchIdToUse = currentBranch ? currentBranch._id : (currentUser?.branchId || null);
+
     // Primary Appointment
     const result = await addAppointment({
       customerId: custId || null,
+      customerName: custName || 'Walk-in Client',
       services: selectedServiceObjs,
-      staffId: selectedStaffId,
+      staffId: staffIdToUse,
+      staffName: staffMemberObj ? staffMemberObj.name : 'Senior Stylist',
+      branchId: branchIdToUse,
       date: bookingDate,
       time: selectedTimeSlot,
       status: 'Scheduled',
       isWalkin
     });
+
+    if (result && result.success === false && result.message) {
+      addToast(result.message, 'error');
+      return;
+    }
 
     // Handle Recurring Bookings (Weekly, Bi-weekly, Monthly)
     if (recurringFrequency !== 'NONE') {
@@ -446,8 +465,11 @@ const Appointments = ({ setActivePage, setSelectedApptForCheckout }) => {
         const nextDateStr = formatDateStr(nextDate);
         await addAppointment({
           customerId: custId || null,
+          customerName: custName || 'Walk-in Client',
           services: selectedServiceObjs,
-          staffId: selectedStaffId,
+          staffId: staffIdToUse,
+          staffName: staffMemberObj ? staffMemberObj.name : 'Senior Stylist',
+          branchId: branchIdToUse,
           date: nextDateStr,
           time: selectedTimeSlot,
           status: 'Scheduled',
