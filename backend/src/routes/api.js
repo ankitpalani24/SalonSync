@@ -499,6 +499,27 @@ const isTimeIntervalOverlapping = (startA, durationA, startB, durationB) => {
   return Math.max(startA, startB) < Math.min(endA, endB);
 };
 
+const getSlotSlices = (startMinute, duration) => {
+  const slices = [];
+  const dur = Math.max(15, Number(duration) || 30);
+  for (let m = startMinute; m < startMinute + dur; m += 15) {
+    slices.push(m);
+  }
+  return slices;
+};
+
+const getDateString = (dateInput) => {
+  if (!dateInput) {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  }
+  if (typeof dateInput === 'string' && /^\d{4}-\d{2}-\d{2}/.test(dateInput)) {
+    return dateInput.split('T')[0];
+  }
+  const d = new Date(dateInput);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
 const APPOINTMENT_FIELDS = ['customerId', 'staffId', 'services', 'date', 'time', 'status', 'salonId', 'branchId', 'duration'];
 
 router.get('/appointments', requirePermission('appointments.view'), safeHandler(async (req, res) => {
@@ -646,11 +667,13 @@ router.post('/appointments', requirePermission('appointments.create'), sanitizeB
   const dayEnd = new Date(appointmentDate);
   dayEnd.setHours(23, 59, 59, 999);
 
-  // Critical Section: Acquire Lock for this staff member and date to prevent concurrent double-bookings
-  const lockKey = `${targetSalonId}:${finalStaffId}:${dayStart.toISOString().split('T')[0]}`;
+  const dateStr = getDateString(req.body.date || appointmentDate);
+
+  // Critical Section: Combined In-Memory Lock (for single process) + Distributed MongoDB Unique Index (for multi-instance)
+  const lockKey = `${targetSalonId}:${finalStaffId}:${dateStr}`;
 
   return await appointmentLockManager.acquire(lockKey, async () => {
-    // Overlap prevention validation for staff bookings
+    // 1. In-process overlap validation
     if (finalStaffId && req.body.date && req.body.time) {
       const existingAppts = await models.Appointment.find({
         salonId: targetSalonId,
@@ -674,19 +697,56 @@ router.post('/appointments', requirePermission('appointments.create'), sanitizeB
       }
     }
 
-    const appointment = await models.Appointment.create({
-      salonId: targetSalonId,
-      branchId: targetBranchId,
-      customerId: finalCustomerId,
-      staffId: finalStaffId,
-      services: serviceItems,
-      duration: totalDuration,
-      date: appointmentDate,
-      time: appointmentTime,
-      status: req.body.status || 'Scheduled'
-    });
+    const startMin = parseTimeToMinutes(appointmentTime);
+    const slices = getSlotSlices(startMin, totalDuration);
+    const newApptId = new mongoose.Types.ObjectId();
 
-    // Trigger appointment confirmation notification
+    // 2. Authoritative Database-Level Distributed Reservation (Atomic across ALL backend server processes)
+    const insertedReservations = [];
+    try {
+      for (const slotMin of slices) {
+        const resDoc = await models.SlotReservation.create({
+          salonId: targetSalonId,
+          branchId: targetBranchId,
+          staffId: finalStaffId,
+          dateStr,
+          slotMinute: slotMin,
+          appointmentId: newApptId
+        });
+        insertedReservations.push(resDoc._id);
+      }
+    } catch (slotErr) {
+      // Rollback any partially inserted reservations in this attempt
+      if (insertedReservations.length > 0) {
+        await models.SlotReservation.deleteMany({ _id: { $in: insertedReservations } });
+      }
+      return res.status(400).json({
+        success: false,
+        message: 'The requested staff member is already booked for another appointment at this time slot.'
+      });
+    }
+
+    // 3. Create Appointment Document
+    let appointment;
+    try {
+      appointment = await models.Appointment.create({
+        _id: newApptId,
+        salonId: targetSalonId,
+        branchId: targetBranchId,
+        customerId: finalCustomerId,
+        staffId: finalStaffId,
+        services: serviceItems,
+        duration: totalDuration,
+        date: appointmentDate,
+        time: appointmentTime,
+        status: req.body.status || 'Scheduled'
+      });
+    } catch (createErr) {
+      await models.SlotReservation.deleteMany({ appointmentId: newApptId });
+      throw createErr;
+    }
+
+    // 4. Trigger appointment confirmation notification
     await models.Notification.create({
       salonId: targetSalonId,
       targetRole: 'Customer',
@@ -716,14 +776,18 @@ router.put('/appointments/:id', requirePermission('appointments.edit'), validate
   const dayEnd = new Date(targetDate);
   dayEnd.setHours(23, 59, 59, 999);
 
-  const lockKey = `${existingAppt.salonId}:${targetStaffId}:${dayStart.toISOString().split('T')[0]}`;
+  const dateStr = getDateString(req.body.date || existingAppt.date);
+  const lockKey = `${existingAppt.salonId}:${targetStaffId}:${dateStr}`;
 
   return await appointmentLockManager.acquire(lockKey, async () => {
-    // If rescheduling to an active status, check for collisions with other appointments
     const newStatus = req.body.status || existingAppt.status;
     const isBlockingStatus = ['Scheduled', 'Confirmed', 'In Progress'].includes(newStatus);
 
-    if (isBlockingStatus && (req.body.date || req.body.time || req.body.staffId)) {
+    if (newStatus === 'Cancelled') {
+      // Release slot reservations immediately upon cancellation
+      await models.SlotReservation.deleteMany({ appointmentId: existingAppt._id });
+    } else if (isBlockingStatus && (req.body.date || req.body.time || req.body.staffId || req.body.duration)) {
+      // In-process check against other active appointments
       const activeAppts = await models.Appointment.find({
         _id: { $ne: existingAppt._id }, // Exclude self
         salonId: existingAppt.salonId,
@@ -744,6 +808,52 @@ router.put('/appointments/:id', requirePermission('appointments.edit'), validate
             message: 'The requested staff member is already booked for another appointment at this time slot.'
           });
         }
+      }
+
+      // Authoritative Distributed Slot Reservation Update
+      const newStartMin = parseTimeToMinutes(targetTime);
+      const newSlices = getSlotSlices(newStartMin, targetDuration);
+      const newDateStr = getDateString(req.body.date || targetDate);
+
+      // Temporarily clear old reservations for this appointment
+      await models.SlotReservation.deleteMany({ appointmentId: existingAppt._id });
+
+      const insertedNew = [];
+      try {
+        for (const slotMin of newSlices) {
+          const resDoc = await models.SlotReservation.create({
+            salonId: existingAppt.salonId,
+            branchId: existingAppt.branchId,
+            staffId: targetStaffId,
+            dateStr: newDateStr,
+            slotMinute: slotMin,
+            appointmentId: existingAppt._id
+          });
+          insertedNew.push(resDoc._id);
+        }
+      } catch (reschedErr) {
+        if (insertedNew.length > 0) {
+          await models.SlotReservation.deleteMany({ _id: { $in: insertedNew } });
+        }
+        // Restore old reservations if new slot collision occurs
+        const oldStartMin = parseTimeToMinutes(existingAppt.time);
+        const oldSlices = getSlotSlices(oldStartMin, existingAppt.duration || 30);
+        const oldDateStr = getDateString(existingAppt.date);
+        for (const oldMin of oldSlices) {
+          await models.SlotReservation.create({
+            salonId: existingAppt.salonId,
+            branchId: existingAppt.branchId,
+            staffId: existingAppt.staffId,
+            dateStr: oldDateStr,
+            slotMinute: oldMin,
+            appointmentId: existingAppt._id
+          }).catch(() => {});
+        }
+
+        return res.status(400).json({
+          success: false,
+          message: 'The requested staff member is already booked for another appointment at this time slot.'
+        });
       }
     }
 
@@ -828,7 +938,8 @@ router.put('/appointments/:id', requirePermission('appointments.edit'), validate
 router.delete('/appointments/:id', requirePermission('appointments.cancel'), validateObjectId, safeHandler(async (req, res) => {
   const appointment = await models.Appointment.findOneAndDelete({ _id: req.params.id, ...req.tenantFilter });
   if (!appointment) return res.status(404).json({ success: false, message: 'Appointment not found' });
-  res.json({ success: true, message: 'Appointment removed' });
+  await models.SlotReservation.deleteMany({ appointmentId: appointment._id });
+  res.json({ success: true, message: 'Appointment cancelled' });
 }, 'Failed to cancel appointment'));
 
 // ----------------------------------------------------

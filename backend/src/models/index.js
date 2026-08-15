@@ -122,6 +122,20 @@ AppointmentSchema.index({ salonId: 1, staffId: 1, date: 1, time: 1 });
 AppointmentSchema.index({ salonId: 1, customerId: 1 });
 AppointmentSchema.index({ salonId: 1, date: 1 });
 
+// 5b. Slot Reservation Schema (Authoritative Distributed Multi-Instance Concurrency Protection)
+const SlotReservationSchema = new mongoose.Schema({
+  salonId: { type: mongoose.Schema.Types.ObjectId, ref: 'Salon', required: true },
+  branchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch' },
+  staffId: { type: mongoose.Schema.Types.ObjectId, ref: 'Staff', required: true },
+  dateStr: { type: String, required: true }, // "YYYY-MM-DD"
+  slotMinute: { type: Number, required: true }, // Minutes from midnight (e.g. 600 for 10:00, 615 for 10:15)
+  appointmentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Appointment', required: true }
+}, { timestamps: true });
+
+// Unique compound index guarantees that across ALL backend server instances, no two appointments can claim the same slot slice
+SlotReservationSchema.index({ salonId: 1, staffId: 1, dateStr: 1, slotMinute: 1 }, { unique: true });
+SlotReservationSchema.index({ appointmentId: 1 });
+
 // 6. Service Schema
 const ServiceSchema = new mongoose.Schema({
   salonId: { type: mongoose.Schema.Types.ObjectId, ref: 'Salon', required: true },
@@ -570,5 +584,6 @@ module.exports = {
   NotificationPref: mongoose.model('NotificationPref', NotificationPrefSchema),
   Review: mongoose.model('Review', ReviewSchema),
   InventoryConsumption: mongoose.model('InventoryConsumption', InventoryConsumptionSchema),
-  AuditLog: mongoose.model('AuditLog', AuditLogSchema)
+  AuditLog: mongoose.model('AuditLog', AuditLogSchema),
+  SlotReservation: mongoose.model('SlotReservation', SlotReservationSchema)
 };
