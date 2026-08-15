@@ -403,11 +403,12 @@ const getHistoricalTrends = async ({ salonId, branchId = null }) => {
   const oldestStart = months[0].start;
   const latestEnd = months[months.length - 1].end;
 
-  const [invoices, expenses, appointments, customers] = await Promise.all([
-    models.Invoice.find({ ...baseFilter, createdAt: { $gte: oldestStart, $lte: latestEnd } }),
-    models.Expense.find({ ...baseFilter, date: { $gte: oldestStart, $lte: latestEnd } }),
-    models.Appointment.find({ ...baseFilter, date: { $gte: oldestStart, $lte: latestEnd } }),
-    models.Customer.find(salonId ? { salonId } : {})
+  const [invoices, expenses, appointments, customers, servicesList] = await Promise.all([
+    models.Invoice.find(baseFilter),
+    models.Expense.find(baseFilter),
+    models.Appointment.find(baseFilter),
+    models.Customer.find(salonId ? { salonId } : {}),
+    models.Service.find(salonId ? { salonId } : {})
   ]);
 
   const revenueData = [];
@@ -417,16 +418,24 @@ const getHistoricalTrends = async ({ salonId, branchId = null }) => {
 
   months.forEach(m => {
     const mInvoices = invoices.filter(inv => {
-      const d = new Date(inv.createdAt);
-      return d >= m.start && d <= m.end && inv.paymentStatus !== 'Refunded' && inv.status !== 'Cancelled';
+      const rawDate = inv.createdAt || inv.date;
+      if (!rawDate) return false;
+      const d = new Date(rawDate);
+      return !isNaN(d.getTime()) && d >= m.start && d <= m.end && inv.paymentStatus !== 'Refunded' && inv.status !== 'Cancelled';
     });
+
     const mExpenses = expenses.filter(exp => {
-      const d = new Date(exp.date);
-      return d >= m.start && d <= m.end;
+      const rawDate = exp.date || exp.createdAt;
+      if (!rawDate) return false;
+      const d = new Date(rawDate);
+      return !isNaN(d.getTime()) && d >= m.start && d <= m.end;
     });
+
     const mCustomers = customers.filter(c => {
-      const d = new Date(c.createdAt || 0);
-      return d <= m.end;
+      const rawDate = c.createdAt || c.date;
+      if (!rawDate) return true;
+      const d = new Date(rawDate);
+      return isNaN(d.getTime()) || d <= m.end;
     });
 
     const rev = mInvoices.reduce((sum, i) => sum + (Number(i.finalAmount) || 0), 0);
@@ -445,18 +454,23 @@ const getHistoricalTrends = async ({ salonId, branchId = null }) => {
   const targetDayOrder = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
   appointments.forEach(a => {
-    if (a.date) {
-      const d = new Date(a.date);
-      const dayName = daysOfWeek[d.getDay()];
-      if (dayApptCounts[dayName] !== undefined) {
-        dayApptCounts[dayName] += 1;
+    if (a.status !== 'Cancelled') {
+      const rawDate = a.date || a.createdAt;
+      if (rawDate) {
+        const d = new Date(rawDate);
+        if (!isNaN(d.getTime())) {
+          const dayName = daysOfWeek[d.getDay()];
+          if (dayApptCounts[dayName] !== undefined) {
+            dayApptCounts[dayName] += 1;
+          }
+        }
       }
     }
   });
 
   const appointmentTrendData = targetDayOrder.map(d => dayApptCounts[d]);
 
-  // Service distribution
+  // Service distribution from invoices and appointments
   const serviceCounts = {};
   invoices.forEach(inv => {
     if (inv.paymentStatus !== 'Refunded' && inv.status !== 'Cancelled') {
@@ -466,6 +480,22 @@ const getHistoricalTrends = async ({ salonId, branchId = null }) => {
       });
     }
   });
+
+  appointments.forEach(appt => {
+    if (appt.status !== 'Cancelled') {
+      (appt.services || []).forEach(s => {
+        const name = s.name || 'Service';
+        serviceCounts[name] = (serviceCounts[name] || 0) + 1;
+      });
+    }
+  });
+
+  // Fallback to catalog services if no usage yet
+  if (Object.keys(serviceCounts).length === 0 && servicesList.length > 0) {
+    servicesList.slice(0, 5).forEach(s => {
+      serviceCounts[s.name] = 0;
+    });
+  }
 
   const popularServices = Object.entries(serviceCounts)
     .map(([name, count]) => ({ name, count }))

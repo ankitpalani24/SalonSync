@@ -462,8 +462,11 @@ export const PopularServicesDonut = ({
 }) => {
   const [hoveredSeg, setHoveredSeg] = useState(null);
 
-  const categories = labels && labels.length > 0 ? labels : ['Haircut', 'Hair Color', 'Facial', 'Spa & Massage', 'Bridal'];
-  const activeValues = data && data.length > 0 ? data : values;
+  const rawLabels = labels && labels.length > 0 ? labels : ['Haircut', 'Hair Color', 'Facial', 'Spa & Massage', 'Bridal'];
+  const rawValues = data && data.length > 0 ? data : (values && values.length > 0 ? values : rawLabels.map(() => 0));
+
+  const categories = rawLabels.slice(0, Math.max(rawLabels.length, rawValues.length));
+  const activeValues = categories.map((_, i) => Number(rawValues[i]) || 0);
   const colors = ['#708238', '#8b9b6a', '#3498db', '#2ecc71', '#9b59b6', '#e67e22', '#e74c3c'];
 
   const total = activeValues.reduce((sum, v) => sum + (Number(v) || 0), 0);
@@ -480,7 +483,7 @@ export const PopularServicesDonut = ({
   return (
     <div className="donut-chart-wrapper">
       <svg width="200" height="200" viewBox="0 0 200 200">
-        <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(255,255,255,0.03)" strokeWidth={strokeWidth} />
+        <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={strokeWidth} />
         {percentages.map((pct, idx) => {
           if (pct === 0) return null;
           const strokeDashoffset = circumference - (pct / 100) * circumference;
@@ -541,7 +544,7 @@ export const PopularServicesDonut = ({
             }} />
             <span style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-sans)' }}>{c}</span>
             <span style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-sans)', marginLeft: 'auto', fontWeight: 600 }}>
-              {percentages[i] !== undefined ? `${percentages[i]}%` : `${activeValues[i] || 0}`}
+              {total > 0 && percentages[i] !== undefined ? `${percentages[i]}%` : `${activeValues[i] || 0}`}
             </span>
           </div>
         ))}

@@ -195,8 +195,102 @@ const Dashboard = ({ setActivePage }) => {
   // Active Memberships
   const activeMemberships = salonCustomers.filter(c => c.membershipLevel && c.membershipLevel !== 'None');
 
-  // Chart datasets from backend trends or local aggregates
-  const trends = backendStats?.trends || {};
+  // Chart datasets from backend trends or dynamic local aggregates
+  const trends = useMemo(() => {
+    // If backendStats provided full trends with non-empty months, use it
+    if (backendStats?.trends?.monthLabels && backendStats.trends.monthLabels.length > 0) {
+      return backendStats.trends;
+    }
+
+    // Dynamic calculation from loaded tenant collections
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const currentYear = now.getFullYear();
+    const currentMonthIdx = now.getMonth();
+
+    const mLabels = [];
+    const mRevenues = [];
+    const mExpenses = [];
+    const mProfits = [];
+    const mCustGrowth = [];
+
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(currentYear, currentMonthIdx - i, 1);
+      const mIdx = d.getMonth();
+      const yr = d.getFullYear();
+      const mLabel = monthNames[mIdx];
+      mLabels.push(mLabel);
+
+      const mInvs = branchInvoices.filter(inv => {
+        const idate = new Date(inv.createdAt || inv.date);
+        return !isNaN(idate.getTime()) && idate.getFullYear() === yr && idate.getMonth() === mIdx && inv.paymentStatus !== 'Refunded' && inv.status !== 'Cancelled';
+      });
+      const mExps = branchExpenses.filter(exp => {
+        const edate = new Date(exp.date || exp.createdAt);
+        return !isNaN(edate.getTime()) && edate.getFullYear() === yr && edate.getMonth() === mIdx;
+      });
+
+      const rev = mInvs.reduce((sum, inv) => sum + (Number(inv.finalAmount) || 0), 0);
+      const exp = mExps.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+      const prof = rev - exp;
+
+      mRevenues.push(rev);
+      mExpenses.push(exp);
+      mProfits.push(prof);
+
+      const custsUpToMonth = salonCustomers.filter(c => {
+        const cdate = new Date(c.createdAt || c.date || 0);
+        return isNaN(cdate.getTime()) || cdate <= new Date(yr, mIdx + 1, 0, 23, 59, 59);
+      }).length;
+      mCustGrowth.push(custsUpToMonth || salonCustomers.length);
+    }
+
+    // Weekly day-of-week appointment distribution
+    const targetDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const dayNameMap = { 0: 'Sun', 1: 'Mon', 2: 'Tue', 3: 'Wed', 4: 'Thu', 5: 'Fri', 6: 'Sat' };
+    const dayCounts = { Mon: 0, Tue: 0, Wed: 0, Thu: 0, Fri: 0, Sat: 0, Sun: 0 };
+
+    branchAppointments.forEach(appt => {
+      if (appt.status !== 'Cancelled') {
+        const adate = new Date(appt.date || appt.createdAt);
+        if (!isNaN(adate.getTime())) {
+          const day = dayNameMap[adate.getDay()];
+          if (dayCounts[day] !== undefined) dayCounts[day] += 1;
+        }
+      }
+    });
+    const apptTrend = targetDays.map(d => dayCounts[d]);
+
+    // Popular services
+    const sMap = {};
+    branchInvoices.forEach(inv => {
+      if (inv.paymentStatus !== 'Refunded' && inv.status !== 'Cancelled') {
+        (inv.services || []).forEach(s => {
+          const name = s.name || 'Service';
+          sMap[name] = (sMap[name] || 0) + (Number(s.quantity) || 1);
+        });
+      }
+    });
+    branchAppointments.forEach(appt => {
+      if (appt.status !== 'Cancelled') {
+        (appt.services || []).forEach(s => {
+          const name = s.name || 'Service';
+          sMap[name] = (sMap[name] || 0) + 1;
+        });
+      }
+    });
+    const topServices = Object.entries(sMap).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    const pLabels = topServices.length > 0 ? topServices.map(s => s[0]) : (db.services || []).slice(0, 5).map(s => s.name);
+    const pValues = topServices.length > 0 ? topServices.map(s => s[1]) : (db.services || []).slice(0, 5).map(() => 0);
+
+    return {
+      monthLabels: mLabels,
+      revenueExpenseChartData: { months: mLabels, revenues: mRevenues, expenses: mExpenses },
+      monthlyProfitChartData: { months: mLabels, profits: mProfits },
+      appointmentTrendChartData: { days: targetDays, appointments: apptTrend },
+      customerGrowthChartData: { months: mLabels, customers: mCustGrowth },
+      popularServicesData: { labels: pLabels, values: pValues }
+    };
+  }, [backendStats, branchInvoices, branchExpenses, branchAppointments, salonCustomers, db.services]);
 
   // Widget Lists
   const upcomingAppointments = branchAppointments
