@@ -620,50 +620,67 @@ router.put('/appointments/:id', requirePermission('appointments.edit'), validate
   const existingAppt = await models.Appointment.findOne({ _id: req.params.id, ...req.tenantFilter });
   if (!existingAppt) return res.status(404).json({ success: false, message: 'Appointment not found' });
 
-  // Automated inventory deduction upon appointment completion
+  // Automated atomic inventory deduction upon appointment completion
   if (req.body.status === 'Completed' && !existingAppt.inventoryDeducted) {
-    const customer = await models.Customer.findById(existingAppt.customerId);
-    const staffMember = await models.Staff.findById(existingAppt.staffId);
-    
-    const serviceIds = (existingAppt.services || []).map(s => s.serviceId).filter(Boolean);
-    const populatedServices = await models.Service.find({ _id: { $in: serviceIds } });
+    // Atomically claim the inventory deduction flag to prevent race conditions
+    const claimedAppt = await models.Appointment.findOneAndUpdate(
+      {
+        _id: req.params.id,
+        ...req.tenantFilter,
+        inventoryDeducted: { $ne: true }
+      },
+      {
+        $set: { inventoryDeducted: true }
+      },
+      { new: true }
+    );
 
-    for (const srv of populatedServices) {
-      if (srv.requiredProducts && srv.requiredProducts.length > 0) {
-        for (const reqProd of srv.requiredProducts) {
-          if (reqProd.productId && reqProd.quantity > 0) {
-            const product = await models.Product.findById(reqProd.productId);
-            if (product) {
-              product.quantity = Math.max(0, product.quantity - reqProd.quantity);
-              await product.save();
+    if (claimedAppt) {
+      const customer = await models.Customer.findById(claimedAppt.customerId);
+      const staffMember = await models.Staff.findById(claimedAppt.staffId);
+      
+      const serviceIds = (claimedAppt.services || []).map(s => s.serviceId).filter(Boolean);
+      const populatedServices = await models.Service.find({ _id: { $in: serviceIds } });
 
-              await models.InventoryConsumption.create({
-                salonId: existingAppt.salonId,
-                branchId: existingAppt.branchId,
-                productId: product._id,
-                productName: product.name,
-                quantityConsumed: reqProd.quantity,
-                unit: reqProd.unit || 'units',
-                serviceId: srv._id,
-                serviceName: srv.name,
-                customerId: existingAppt.customerId,
-                customerName: customer ? customer.name : 'Client',
-                staffId: existingAppt.staffId,
-                staffName: staffMember ? staffMember.name : 'Staff',
-                appointmentId: existingAppt._id,
-                date: new Date()
-              });
+      for (const srv of populatedServices) {
+        if (srv.requiredProducts && srv.requiredProducts.length > 0) {
+          for (const reqProd of srv.requiredProducts) {
+            if (reqProd.productId && reqProd.quantity > 0) {
+              const product = await models.Product.findOneAndUpdate(
+                { _id: reqProd.productId, salonId: claimedAppt.salonId },
+                { $inc: { quantity: -reqProd.quantity } },
+                { new: true }
+              );
 
-              if (product.quantity <= (product.reorderLevel || product.lowStockThreshold || 5)) {
-                await models.Notification.create({
-                  salonId: existingAppt.salonId,
-                  targetRole: 'Owner',
-                  category: 'Inventory',
-                  type: 'InApp',
-                  title: 'Low Stock Alert',
-                  message: `Low Stock Alert: ${product.name} is down to ${product.quantity} ${product.unit || 'units'} (Reorder Level: ${product.reorderLevel || 10}).`,
-                  status: 'Sent'
+              if (product) {
+                await models.InventoryConsumption.create({
+                  salonId: claimedAppt.salonId,
+                  branchId: claimedAppt.branchId,
+                  productId: product._id,
+                  productName: product.name,
+                  quantityConsumed: reqProd.quantity,
+                  unit: reqProd.unit || 'units',
+                  serviceId: srv._id,
+                  serviceName: srv.name,
+                  customerId: claimedAppt.customerId,
+                  customerName: customer ? customer.name : 'Client',
+                  staffId: claimedAppt.staffId,
+                  staffName: staffMember ? staffMember.name : 'Staff',
+                  appointmentId: claimedAppt._id,
+                  date: new Date()
                 });
+
+                if (product.quantity <= (product.reorderLevel || product.lowStockThreshold || 5)) {
+                  await models.Notification.create({
+                    salonId: claimedAppt.salonId,
+                    targetRole: 'Owner',
+                    category: 'Inventory',
+                    type: 'InApp',
+                    title: 'Low Stock Alert',
+                    message: `Low Stock Alert: ${product.name} is down to ${product.quantity} ${product.unit || 'units'} (Reorder Level: ${product.reorderLevel || 10}).`,
+                    status: 'Sent'
+                  });
+                }
               }
             }
           }
@@ -1453,32 +1470,6 @@ router.post('/invoices', requirePermission('billing.create'), safeHandler(async 
   const finalCustomerId = (customerId && mongoose.Types.ObjectId.isValid(customerId)) ? customerId : null;
   const finalStaffId = (staffId && mongoose.Types.ObjectId.isValid(staffId)) ? staffId : null;
 
-  // 1. Validate product inventory stock availability BEFORE deducting
-  if (products && Array.isArray(products)) {
-    for (const item of products) {
-      const pId = typeof item.productId === 'object' ? item.productId?._id : item.productId;
-      let p = null;
-      if (pId && mongoose.Types.ObjectId.isValid(pId)) {
-        p = await models.Product.findById(pId);
-      }
-      if (!p && (pId || item.name)) {
-        p = await models.Product.findOne({
-          salonId: req.user.salonId,
-          $or: [{ _id: pId }, { name: item.name }]
-        });
-      }
-      if (p) {
-        const reqQty = Math.max(1, Number(item.quantity) || 1);
-        if (p.quantity < reqQty) {
-          return res.status(400).json({
-            success: false,
-            message: `Insufficient inventory for "${p.name}". Requested: ${reqQty}, Available in stock: ${p.quantity}`
-          });
-        }
-      }
-    }
-  }
-
   let subTotal = 0;
   
   // Validate & add Services
@@ -1511,38 +1502,98 @@ router.post('/invoices', requirePermission('billing.create'), safeHandler(async 
     }
   }
 
-  // Validate & deduct Products stock
+  // Atomically Validate & Deduct Products Stock using MongoDB $inc
   const productItems = [];
+  const decrementedProducts = []; // For rollback if multi-product checkout encounters insufficient stock
+
   if (products && Array.isArray(products)) {
     for (const item of products) {
       const pId = typeof item.productId === 'object' ? item.productId?._id : item.productId;
-      let p = null;
+      let targetProduct = null;
+
       if (pId && mongoose.Types.ObjectId.isValid(pId)) {
-        p = await models.Product.findById(pId);
+        targetProduct = await models.Product.findOne({
+          _id: pId,
+          salonId: req.user.salonId
+        });
       }
-      if (!p && (pId || item.name)) {
-        p = await models.Product.findOne({
+      if (!targetProduct && (pId || item.name)) {
+        targetProduct = await models.Product.findOne({
           salonId: req.user.salonId,
           $or: [{ _id: pId }, { name: item.name }]
         });
       }
 
       const qty = Math.max(1, Number(item.quantity) || 1);
-      const price = Number(item.price) || (p ? Number(p.sellingPrice) : 0) || 0;
-      const name = item.name || (p ? p.name : 'Retail Product');
+      const price = Number(item.price) || (targetProduct ? Number(targetProduct.sellingPrice) : 0) || 0;
+      const name = item.name || (targetProduct ? targetProduct.name : 'Retail Product');
 
-      productItems.push({
-        productId: p ? p._id : (mongoose.Types.ObjectId.isValid(pId) ? pId : null),
-        name,
-        price,
-        quantity: qty
-      });
-      subTotal += price * qty;
+      if (targetProduct) {
+        // Atomic decrement with condition: quantity >= qty
+        const updatedProduct = await models.Product.findOneAndUpdate(
+          {
+            _id: targetProduct._id,
+            salonId: req.user.salonId,
+            quantity: { $gte: qty }
+          },
+          {
+            $inc: { quantity: -qty }
+          },
+          {
+            new: true
+          }
+        );
 
-      if (p) {
-        p.quantity = Math.max(0, p.quantity - qty);
-        await p.save();
+        if (!updatedProduct) {
+          // Rollback any products already decremented in this specific invoice request
+          for (const rolled of decrementedProducts) {
+            await models.Product.updateOne(
+              { _id: rolled.productId, salonId: req.user.salonId },
+              { $inc: { quantity: rolled.quantity } }
+            );
+          }
+
+          return res.status(400).json({
+            success: false,
+            message: `Insufficient inventory for ${targetProduct.name}. Requested: ${qty}`
+          });
+        }
+
+        decrementedProducts.push({
+          productId: targetProduct._id,
+          quantity: qty
+        });
+
+        // Trigger low-stock notification if threshold breached
+        if (updatedProduct.quantity <= (updatedProduct.reorderLevel || updatedProduct.lowStockThreshold || 5)) {
+          await models.Notification.create({
+            salonId: req.user.salonId,
+            targetRole: 'Owner',
+            category: 'Inventory',
+            type: 'InApp',
+            title: 'Low Stock Alert',
+            message: `Low Stock Alert: ${updatedProduct.name} is down to ${updatedProduct.quantity} (Threshold: ${updatedProduct.lowStockThreshold || 5}).`,
+            status: 'Sent'
+          });
+        }
+
+        productItems.push({
+          productId: targetProduct._id,
+          name: targetProduct.name,
+          price,
+          quantity: qty
+        });
+      } else {
+        // Custom retail line item not backed by an inventory product document
+        productItems.push({
+          productId: (pId && mongoose.Types.ObjectId.isValid(pId)) ? pId : null,
+          name,
+          price,
+          quantity: qty
+        });
       }
+
+      subTotal += price * qty;
     }
   }
 
