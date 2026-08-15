@@ -103,7 +103,9 @@ const AppointmentSchema = new mongoose.Schema({
     serviceId: { type: mongoose.Schema.Types.ObjectId, ref: 'Service' },
     name: String,
     price: Number,
+    duration: { type: Number, default: 30 }
   }],
+  duration: { type: Number, default: 30 }, // total duration in minutes
   staffId: { type: mongoose.Schema.Types.ObjectId, ref: 'Staff', required: true },
   date: { type: Date, required: true },
   time: { type: String, required: true }, // "HH:MM" format

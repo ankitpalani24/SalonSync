@@ -451,7 +451,55 @@ router.delete('/customers/:id', requirePermission('customers.delete'), validateO
 // ----------------------------------------------------
 // APPOINTMENT MANAGEMENT
 // ----------------------------------------------------
-const APPOINTMENT_FIELDS = ['customerId', 'staffId', 'services', 'date', 'time', 'status', 'salonId', 'branchId'];
+class AppointmentLockManager {
+  constructor() {
+    this.locks = new Map();
+  }
+
+  async acquire(key, fn) {
+    while (this.locks.has(key)) {
+      await this.locks.get(key);
+    }
+
+    let release;
+    const lockPromise = new Promise((resolve) => {
+      release = resolve;
+    });
+    this.locks.set(key, lockPromise);
+
+    try {
+      return await fn();
+    } finally {
+      this.locks.delete(key);
+      release();
+    }
+  }
+}
+
+const appointmentLockManager = new AppointmentLockManager();
+
+const parseTimeToMinutes = (timeStr) => {
+  if (!timeStr) return 600; // default 10:00 (600 mins)
+  const clean = String(timeStr).trim();
+  const match = clean.match(/^(\d{1,2}):(\d{2})(?:\s*(AM|PM))?$/i);
+  if (!match) return 600;
+  let hours = parseInt(match[1], 10);
+  const minutes = parseInt(match[2], 10);
+  const period = match[3] ? match[3].toUpperCase() : null;
+  if (period === 'PM' && hours < 12) hours += 12;
+  if (period === 'AM' && hours === 12) hours = 0;
+  return hours * 60 + minutes;
+};
+
+const isTimeIntervalOverlapping = (startA, durationA, startB, durationB) => {
+  const durA = Math.max(1, Number(durationA) || 30);
+  const durB = Math.max(1, Number(durationB) || 30);
+  const endA = startA + durA;
+  const endB = startB + durB;
+  return Math.max(startA, startB) < Math.min(endA, endB);
+};
+
+const APPOINTMENT_FIELDS = ['customerId', 'staffId', 'services', 'date', 'time', 'status', 'salonId', 'branchId', 'duration'];
 
 router.get('/appointments', requirePermission('appointments.view'), safeHandler(async (req, res) => {
   let filter = { ...req.tenantFilter };
@@ -507,6 +555,15 @@ router.post('/appointments', requirePermission('appointments.create'), sanitizeB
       });
     }
     finalStaffId = staffDoc._id;
+  } else {
+    // Multi-tenant check: Verify staff belongs to target salon
+    const staffDoc = await models.Staff.findOne({ _id: finalStaffId, salonId: targetSalonId });
+    if (!staffDoc) {
+      return res.status(400).json({
+        success: false,
+        message: 'Staff member not found or does not belong to this salon'
+      });
+    }
   }
 
   // 3. Gracefully resolve customerId
@@ -556,146 +613,216 @@ router.post('/appointments', requirePermission('appointments.create'), sanitizeB
     finalCustomerId = customerDoc._id;
   }
 
-  // 4. Overlap prevention validation for staff bookings
-  if (finalStaffId && req.body.date && req.body.time) {
-    const checkDate = new Date(req.body.date);
-    const existingAppt = await models.Appointment.findOne({
-      salonId: targetSalonId,
-      staffId: finalStaffId,
-      date: checkDate,
-      time: req.body.time,
-      status: { $in: ['Scheduled', 'Confirmed', 'In Progress'] }
-    });
-    if (existingAppt) {
-      return res.status(400).json({
-        success: false,
-        message: 'The requested staff member is already booked for another appointment at this time slot.'
-      });
-    }
-  }
-
-  // 5. Format services array
+  // 4. Format services array & calculate total duration
   const serviceItems = [];
+  let totalDuration = 0;
   if (req.body.services && Array.isArray(req.body.services)) {
     for (const item of req.body.services) {
       const sId = typeof item.serviceId === 'object' ? item.serviceId?._id : item.serviceId;
-      const validSId = (sId && mongoose.Types.ObjectId.isValid(sId)) ? sId : null;
+      let sDoc = null;
+      if (sId && mongoose.Types.ObjectId.isValid(sId)) {
+        sDoc = await models.Service.findById(sId);
+      }
+      const sDuration = Number(item.duration) || (sDoc ? Number(sDoc.duration) : 30) || 30;
+      totalDuration += sDuration;
+
       serviceItems.push({
-        serviceId: validSId,
-        name: item.name || 'Salon Service',
-        price: Number(item.price) || 0
+        serviceId: sDoc ? sDoc._id : (mongoose.Types.ObjectId.isValid(sId) ? sId : null),
+        name: item.name || (sDoc ? sDoc.name : 'Salon Service'),
+        price: Number(item.price) || (sDoc ? Number(sDoc.price) : 0) || 0,
+        duration: sDuration
       });
     }
   }
+  if (totalDuration === 0) {
+    totalDuration = Number(req.body.duration) || 30;
+  }
 
   const appointmentDate = req.body.date ? new Date(req.body.date) : new Date();
+  const appointmentTime = req.body.time || '10:00';
 
-  const appointment = await models.Appointment.create({
-    salonId: targetSalonId,
-    branchId: targetBranchId,
-    customerId: finalCustomerId,
-    staffId: finalStaffId,
-    services: serviceItems,
-    date: appointmentDate,
-    time: req.body.time || '10:00',
-    status: req.body.status || 'Scheduled'
+  const dayStart = new Date(appointmentDate);
+  dayStart.setHours(0, 0, 0, 0);
+  const dayEnd = new Date(appointmentDate);
+  dayEnd.setHours(23, 59, 59, 999);
+
+  // Critical Section: Acquire Lock for this staff member and date to prevent concurrent double-bookings
+  const lockKey = `${targetSalonId}:${finalStaffId}:${dayStart.toISOString().split('T')[0]}`;
+
+  return await appointmentLockManager.acquire(lockKey, async () => {
+    // Overlap prevention validation for staff bookings
+    if (finalStaffId && req.body.date && req.body.time) {
+      const existingAppts = await models.Appointment.find({
+        salonId: targetSalonId,
+        staffId: finalStaffId,
+        date: { $gte: dayStart, $lte: dayEnd },
+        status: { $in: ['Scheduled', 'Confirmed', 'In Progress'] }
+      });
+
+      const requestedStart = parseTimeToMinutes(appointmentTime);
+
+      for (const appt of existingAppts) {
+        const apptStart = parseTimeToMinutes(appt.time);
+        const apptDuration = appt.duration || (appt.services || []).reduce((sum, s) => sum + (s.duration || 30), 0) || 30;
+
+        if (isTimeIntervalOverlapping(requestedStart, totalDuration, apptStart, apptDuration)) {
+          return res.status(400).json({
+            success: false,
+            message: 'The requested staff member is already booked for another appointment at this time slot.'
+          });
+        }
+      }
+    }
+
+    const appointment = await models.Appointment.create({
+      salonId: targetSalonId,
+      branchId: targetBranchId,
+      customerId: finalCustomerId,
+      staffId: finalStaffId,
+      services: serviceItems,
+      duration: totalDuration,
+      date: appointmentDate,
+      time: appointmentTime,
+      status: req.body.status || 'Scheduled'
+    });
+
+    // Trigger appointment confirmation notification
+    await models.Notification.create({
+      salonId: targetSalonId,
+      targetRole: 'Customer',
+      recipientId: finalCustomerId ? String(finalCustomerId) : null,
+      category: 'Appointment',
+      type: 'InApp',
+      title: 'Appointment Confirmed',
+      message: `Hello! Your appointment at SalonSync is scheduled for ${req.body.date || appointment.date} at ${appointment.time}. See you soon!`,
+      status: 'Sent'
+    });
+
+    return res.status(201).json({ success: true, data: appointment });
   });
-
-  // Trigger appointment confirmation notification
-  await models.Notification.create({
-    salonId: targetSalonId,
-    targetRole: 'Customer',
-    recipientId: finalCustomerId ? String(finalCustomerId) : null,
-    category: 'Appointment',
-    type: 'InApp',
-    title: 'Appointment Confirmed',
-    message: `Hello! Your appointment at SalonSync is scheduled for ${req.body.date || appointment.date} at ${appointment.time}. See you soon!`,
-    status: 'Sent'
-  });
-
-  res.status(201).json({ success: true, data: appointment });
 }, 'Failed to create appointment'));
 
-router.put('/appointments/:id', requirePermission('appointments.edit'), validateObjectId, sanitizeBody(['staffId', 'services', 'date', 'time', 'status']), safeHandler(async (req, res) => {
+router.put('/appointments/:id', requirePermission('appointments.edit'), validateObjectId, sanitizeBody([...APPOINTMENT_FIELDS]), safeHandler(async (req, res) => {
   const existingAppt = await models.Appointment.findOne({ _id: req.params.id, ...req.tenantFilter });
   if (!existingAppt) return res.status(404).json({ success: false, message: 'Appointment not found' });
 
-  // Automated atomic inventory deduction upon appointment completion
-  if (req.body.status === 'Completed' && !existingAppt.inventoryDeducted) {
-    // Atomically claim the inventory deduction flag to prevent race conditions
-    const claimedAppt = await models.Appointment.findOneAndUpdate(
-      {
-        _id: req.params.id,
-        ...req.tenantFilter,
-        inventoryDeducted: { $ne: true }
-      },
-      {
-        $set: { inventoryDeducted: true }
-      },
-      { new: true }
-    );
+  const targetStaffId = req.body.staffId || existingAppt.staffId;
+  const targetDate = req.body.date ? new Date(req.body.date) : existingAppt.date;
+  const targetTime = req.body.time || existingAppt.time;
+  const targetDuration = Number(req.body.duration) || existingAppt.duration || 30;
 
-    if (claimedAppt) {
-      const customer = await models.Customer.findById(claimedAppt.customerId);
-      const staffMember = await models.Staff.findById(claimedAppt.staffId);
-      
-      const serviceIds = (claimedAppt.services || []).map(s => s.serviceId).filter(Boolean);
-      const populatedServices = await models.Service.find({ _id: { $in: serviceIds } });
+  const dayStart = new Date(targetDate);
+  dayStart.setHours(0, 0, 0, 0);
+  const dayEnd = new Date(targetDate);
+  dayEnd.setHours(23, 59, 59, 999);
 
-      for (const srv of populatedServices) {
-        if (srv.requiredProducts && srv.requiredProducts.length > 0) {
-          for (const reqProd of srv.requiredProducts) {
-            if (reqProd.productId && reqProd.quantity > 0) {
-              const product = await models.Product.findOneAndUpdate(
-                { _id: reqProd.productId, salonId: claimedAppt.salonId },
-                { $inc: { quantity: -reqProd.quantity } },
-                { new: true }
-              );
+  const lockKey = `${existingAppt.salonId}:${targetStaffId}:${dayStart.toISOString().split('T')[0]}`;
 
-              if (product) {
-                await models.InventoryConsumption.create({
-                  salonId: claimedAppt.salonId,
-                  branchId: claimedAppt.branchId,
-                  productId: product._id,
-                  productName: product.name,
-                  quantityConsumed: reqProd.quantity,
-                  unit: reqProd.unit || 'units',
-                  serviceId: srv._id,
-                  serviceName: srv.name,
-                  customerId: claimedAppt.customerId,
-                  customerName: customer ? customer.name : 'Client',
-                  staffId: claimedAppt.staffId,
-                  staffName: staffMember ? staffMember.name : 'Staff',
-                  appointmentId: claimedAppt._id,
-                  date: new Date()
-                });
+  return await appointmentLockManager.acquire(lockKey, async () => {
+    // If rescheduling to an active status, check for collisions with other appointments
+    const newStatus = req.body.status || existingAppt.status;
+    const isBlockingStatus = ['Scheduled', 'Confirmed', 'In Progress'].includes(newStatus);
 
-                if (product.quantity <= (product.reorderLevel || product.lowStockThreshold || 5)) {
-                  await models.Notification.create({
+    if (isBlockingStatus && (req.body.date || req.body.time || req.body.staffId)) {
+      const activeAppts = await models.Appointment.find({
+        _id: { $ne: existingAppt._id }, // Exclude self
+        salonId: existingAppt.salonId,
+        staffId: targetStaffId,
+        date: { $gte: dayStart, $lte: dayEnd },
+        status: { $in: ['Scheduled', 'Confirmed', 'In Progress'] }
+      });
+
+      const requestedStart = parseTimeToMinutes(targetTime);
+
+      for (const appt of activeAppts) {
+        const apptStart = parseTimeToMinutes(appt.time);
+        const apptDuration = appt.duration || (appt.services || []).reduce((sum, s) => sum + (s.duration || 30), 0) || 30;
+
+        if (isTimeIntervalOverlapping(requestedStart, targetDuration, apptStart, apptDuration)) {
+          return res.status(400).json({
+            success: false,
+            message: 'The requested staff member is already booked for another appointment at this time slot.'
+          });
+        }
+      }
+    }
+
+    // Automated atomic inventory deduction upon appointment completion
+    if (req.body.status === 'Completed' && !existingAppt.inventoryDeducted) {
+      const claimedAppt = await models.Appointment.findOneAndUpdate(
+        {
+          _id: req.params.id,
+          ...req.tenantFilter,
+          inventoryDeducted: { $ne: true }
+        },
+        {
+          $set: { inventoryDeducted: true }
+        },
+        { new: true }
+      );
+
+      if (claimedAppt) {
+        const customer = await models.Customer.findById(claimedAppt.customerId);
+        const staffMember = await models.Staff.findById(claimedAppt.staffId);
+        
+        const serviceIds = (claimedAppt.services || []).map(s => s.serviceId).filter(Boolean);
+        const populatedServices = await models.Service.find({ _id: { $in: serviceIds } });
+
+        for (const srv of populatedServices) {
+          if (srv.requiredProducts && srv.requiredProducts.length > 0) {
+            for (const reqProd of srv.requiredProducts) {
+              if (reqProd.productId && reqProd.quantity > 0) {
+                const product = await models.Product.findOneAndUpdate(
+                  { _id: reqProd.productId, salonId: claimedAppt.salonId },
+                  { $inc: { quantity: -reqProd.quantity } },
+                  { new: true }
+                );
+
+                if (product) {
+                  await models.InventoryConsumption.create({
                     salonId: claimedAppt.salonId,
-                    targetRole: 'Owner',
-                    category: 'Inventory',
-                    type: 'InApp',
-                    title: 'Low Stock Alert',
-                    message: `Low Stock Alert: ${product.name} is down to ${product.quantity} ${product.unit || 'units'} (Reorder Level: ${product.reorderLevel || 10}).`,
-                    status: 'Sent'
+                    branchId: claimedAppt.branchId,
+                    productId: product._id,
+                    productName: product.name,
+                    quantityConsumed: reqProd.quantity,
+                    unit: reqProd.unit || 'units',
+                    serviceId: srv._id,
+                    serviceName: srv.name,
+                    customerId: claimedAppt.customerId,
+                    customerName: customer ? customer.name : 'Client',
+                    staffId: claimedAppt.staffId,
+                    staffName: staffMember ? staffMember.name : 'Staff',
+                    appointmentId: claimedAppt._id,
+                    date: new Date()
                   });
+
+                  if (product.quantity <= (product.reorderLevel || product.lowStockThreshold || 5)) {
+                    await models.Notification.create({
+                      salonId: claimedAppt.salonId,
+                      targetRole: 'Owner',
+                      category: 'Inventory',
+                      type: 'InApp',
+                      title: 'Low Stock Alert',
+                      message: `Low Stock Alert: ${product.name} is down to ${product.quantity} ${product.unit || 'units'} (Reorder Level: ${product.reorderLevel || 10}).`,
+                      status: 'Sent'
+                    });
+                  }
                 }
               }
             }
           }
         }
       }
+      req.body.inventoryDeducted = true;
     }
-    req.body.inventoryDeducted = true;
-  }
 
-  const appointment = await models.Appointment.findOneAndUpdate(
-    { _id: req.params.id, ...req.tenantFilter },
-    req.body,
-    { new: true, runValidators: true }
-  );
-  res.json({ success: true, data: appointment });
+    const appointment = await models.Appointment.findOneAndUpdate(
+      { _id: req.params.id, ...req.tenantFilter },
+      req.body,
+      { new: true, runValidators: true }
+    );
+    return res.json({ success: true, data: appointment });
+  });
 }, 'Failed to update appointment'));
 
 router.delete('/appointments/:id', requirePermission('appointments.cancel'), validateObjectId, safeHandler(async (req, res) => {
