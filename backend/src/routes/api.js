@@ -67,7 +67,7 @@ router.get('/public/services', safeHandler(async (req, res) => {
 }, 'Failed to fetch services'));
 
 // @route   GET /api/public/salons/:identifier (by slug or id)
-router.get('/public/salons/:identifier', safeHandler(async (req, res) => {
+const getPublicSalonHandler = safeHandler(async (req, res) => {
   const { identifier } = req.params;
   let salon;
 
@@ -97,6 +97,9 @@ router.get('/public/salons/:identifier', safeHandler(async (req, res) => {
   // Fetch active promotional packages
   const packages = await models.Package.find({ salonId: salon._id, active: true }).select('name price originalPrice description durationDays includedServices _id');
 
+  // Fetch active branches
+  const branches = await models.Branch.find({ salonId: salon._id, status: 'Active' }).select('name address city phone _id');
+
   res.json({
     success: true,
     data: {
@@ -117,13 +120,17 @@ router.get('/public/salons/:identifier', safeHandler(async (req, res) => {
         totalReviews: salon.totalReviews || 128,
         galleryImages: salon.galleryImages || []
       },
+      branches,
       services,
       staff,
       reviews,
       packages
     }
   });
-}, 'Failed to fetch salon profile'));
+}, 'Failed to fetch salon profile');
+
+router.get('/public/salons/:identifier', getPublicSalonHandler);
+router.get('/salons/public/:identifier', getPublicSalonHandler);
 
 // @route   GET /api/public/salons/discover (Search, filter, & sort registered salons)
 router.get('/public/salons/discover', safeHandler(async (req, res) => {
@@ -169,7 +176,6 @@ router.get('/public/salons/discover', safeHandler(async (req, res) => {
 const signupValidation = [
   body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
   body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters'),
-  body('ownerName').trim().notEmpty().withMessage('Name is required'),
   body('phone').trim().notEmpty().withMessage('Phone is required')
 ];
 
@@ -178,15 +184,19 @@ const loginValidation = [
   body('password').notEmpty().withMessage('Password is required')
 ];
 
-// @route   POST /api/auth/signup
-router.post('/auth/signup', authLimiter, signupValidation, safeHandler(async (req, res) => {
+// @route   POST /api/auth/signup & /api/auth/register
+const signupHandler = safeHandler(async (req, res) => {
   // Check validation results
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     return res.status(400).json({ success: false, message: errors.array().map(e => e.msg).join('. ') });
   }
 
-  const { ownerName, email, phone, password, role, salonName, salonAddress, city, state, gstNumber, businessType } = req.body;
+  const { email, phone, password, role, salonName, salonAddress, address, city, state, gstNumber, businessType } = req.body;
+  const ownerName = req.body.ownerName || req.body.name;
+  if (!ownerName) {
+    return res.status(400).json({ success: false, message: 'Name is required' });
+  }
 
   const userExists = await models.User.findOne({ email: email.toLowerCase() });
   if (userExists) {
@@ -233,15 +243,15 @@ router.post('/auth/signup', authLimiter, signupValidation, safeHandler(async (re
 
   // Create Salon
   const salon = await models.Salon.create({
-    name: salonName,
+    name: salonName || `${ownerName}'s Salon`,
     ownerName,
     email: email.toLowerCase(),
     phone,
-    address: salonAddress,
-    city,
-    state,
+    address: salonAddress || address || 'Main Salon Floor',
+    city: city || 'Mumbai',
+    state: state || 'Maharashtra',
     gstNumber,
-    businessType,
+    businessType: businessType || 'Salon & Spa',
     subscriptionPlan: 'Starter Salon',
     subscriptionStatus: 'Trial'
   });
@@ -250,9 +260,9 @@ router.post('/auth/signup', authLimiter, signupValidation, safeHandler(async (re
   const branch = await models.Branch.create({
     salonId: salon._id,
     name: 'Main Branch',
-    address: salonAddress,
-    city,
-    state,
+    address: salonAddress || address || 'Main Salon Floor',
+    city: city || 'Mumbai',
+    state: state || 'Maharashtra',
     phone,
     status: 'Active'
   });
@@ -309,7 +319,10 @@ router.post('/auth/signup', authLimiter, signupValidation, safeHandler(async (re
       branchId: user.branchId
     }
   });
-}, 'Registration failed'));
+}, 'Registration failed');
+
+router.post('/auth/signup', authLimiter, signupValidation, signupHandler);
+router.post('/auth/register', authLimiter, signupValidation, signupHandler);
 
 // @route   POST /api/auth/login
 router.post('/auth/login', authLimiter, loginValidation, safeHandler(async (req, res) => {
@@ -376,7 +389,8 @@ router.use(restrictToTenant);
 // ----------------------------------------------------
 // CUSTOMER CRM
 // ----------------------------------------------------
-const CUSTOMER_FIELDS = ['name', 'phone', 'email', 'gender', 'birthday', 'address', 'notes', 'photo', 'membershipLevel', 'branchId'];
+const CUSTOMER_CREATE_FIELDS = ['name', 'phone', 'email', 'gender', 'birthday', 'address', 'notes', 'photo', 'membershipLevel', 'branchId'];
+const CUSTOMER_EDIT_FIELDS = ['name', 'phone', 'email', 'gender', 'birthday', 'address', 'notes', 'photo', 'membershipLevel', 'loyaltyPoints', 'branchId'];
 
 router.get('/customers', requirePermission('customers.view'), safeHandler(async (req, res) => {
   let filter = { ...req.tenantFilter };
@@ -387,7 +401,7 @@ router.get('/customers', requirePermission('customers.view'), safeHandler(async 
   res.json({ success: true, count: customers.length, data: customers });
 }, 'Failed to fetch customers'));
 
-router.post('/customers', requirePermission('customers.create'), sanitizeBody([...CUSTOMER_FIELDS]), safeHandler(async (req, res) => {
+router.post('/customers', requirePermission('customers.create'), sanitizeBody([...CUSTOMER_CREATE_FIELDS]), safeHandler(async (req, res) => {
   const newCustomer = await models.Customer.create({
     ...req.body,
     salonId: req.user.salonId
@@ -418,7 +432,7 @@ router.post('/customers', requirePermission('customers.create'), sanitizeBody([.
   res.status(201).json({ success: true, data: newCustomer, clientAccountCreated });
 }, 'Failed to create customer'));
 
-router.put('/customers/:id', requirePermission('customers.edit'), validateObjectId, sanitizeBody([...CUSTOMER_FIELDS]), safeHandler(async (req, res) => {
+router.put('/customers/:id', requirePermission('customers.edit'), validateObjectId, sanitizeBody([...CUSTOMER_EDIT_FIELDS]), safeHandler(async (req, res) => {
   const customer = await models.Customer.findOneAndUpdate(
     { _id: req.params.id, ...req.tenantFilter },
     req.body,
@@ -779,12 +793,13 @@ router.get('/customer-memberships', safeHandler(async (req, res) => {
   res.json({ success: true, data: subscriptions });
 }, 'Failed to fetch customer memberships'));
 
-router.post('/customer-memberships', safeHandler(async (req, res) => {
-  const { customerId, membershipPlanId, startDate } = req.body;
+const subscribeMembershipHandler = safeHandler(async (req, res) => {
+  const customerId = req.body.customerId;
+  const membershipPlanId = req.body.membershipPlanId || req.body.membershipId;
   const plan = await models.Membership.findById(membershipPlanId);
   if (!plan) return res.status(404).json({ success: false, message: 'Membership plan not found' });
 
-  const start = startDate ? new Date(startDate) : new Date();
+  const start = req.body.startDate ? new Date(req.body.startDate) : new Date();
   const expiry = new Date(start);
   expiry.setMonth(expiry.getMonth() + (plan.validityMonths || 12));
 
@@ -797,9 +812,10 @@ router.post('/customer-memberships', safeHandler(async (req, res) => {
 
   const subscription = await models.CustomerMembership.create({
     salonId: req.user.salonId,
+    branchId: req.user.branchId,
     customerId,
     membershipPlanId: plan._id,
-    tier: plan.name || plan.tier,
+    tier: plan.tier || plan.name,
     startDate: start,
     expiryDate: expiry,
     status: 'Active',
@@ -815,11 +831,14 @@ router.post('/customer-memberships', safeHandler(async (req, res) => {
 
   // Update Customer membershipLevel
   await models.Customer.findByIdAndUpdate(customerId, {
-    membershipLevel: plan.name
+    membershipLevel: plan.tier || plan.name
   });
 
   res.status(201).json({ success: true, data: subscription });
-}, 'Failed to subscribe customer membership'));
+}, 'Failed to subscribe customer membership');
+
+router.post('/customer-memberships', subscribeMembershipHandler);
+router.post('/memberships/subscribe', subscribeMembershipHandler);
 
 router.post('/customer-memberships/:id/redeem-benefit', validateObjectId, safeHandler(async (req, res) => {
   const { serviceId } = req.body;
@@ -1822,6 +1841,38 @@ router.delete('/staff/:id', requirePermission('staff.manage'), validateObjectId,
 }, 'Failed to delete staff'));
 
 // ----------------------------------------------------
+// ATTENDANCE MANAGEMENT
+// ----------------------------------------------------
+const ATTENDANCE_FIELDS = ['staffId', 'branchId', 'date', 'checkIn', 'checkOut', 'workingHours', 'overtime', 'status', 'notes'];
+
+router.get('/attendance', requirePermission('staff.view'), safeHandler(async (req, res) => {
+  const { date, staffId, branchId } = req.query;
+  const filter = { ...req.tenantFilter };
+  if (date) filter.date = date;
+  if (staffId && mongoose.Types.ObjectId.isValid(staffId)) filter.staffId = staffId;
+  if (branchId && mongoose.Types.ObjectId.isValid(branchId)) filter.branchId = branchId;
+
+  const attendance = await models.Attendance.find(filter).populate('staffId').sort({ date: -1 });
+  res.json({ success: true, count: attendance.length, data: attendance });
+}, 'Failed to fetch attendance logs'));
+
+router.post('/attendance', requirePermission('staff.manage'), sanitizeBody([...ATTENDANCE_FIELDS]), safeHandler(async (req, res) => {
+  let targetBranchId = req.body.branchId || req.user.branchId;
+  if (!targetBranchId || !mongoose.Types.ObjectId.isValid(targetBranchId)) {
+    const branch = await models.Branch.findOne({ salonId: req.user.salonId });
+    if (branch) targetBranchId = branch._id;
+  }
+
+  const attendance = await models.Attendance.create({
+    ...req.body,
+    salonId: req.user.salonId,
+    branchId: targetBranchId,
+    date: req.body.date || new Date().toISOString().split('T')[0]
+  });
+  res.status(201).json({ success: true, data: attendance });
+}, 'Failed to create attendance log'));
+
+// ----------------------------------------------------
 // REVIEWS & FEEDBACK
 // ----------------------------------------------------
 router.get('/reviews', safeHandler(async (req, res) => {
@@ -2095,6 +2146,20 @@ router.put('/superadmin/salons/:id/subscription', authorize('SUPER_ADMIN'), vali
   if (!salon) return res.status(404).json({ success: false, message: 'Salon not found' });
   res.json({ success: true, data: salon });
 }, 'Failed to update subscription'));
+
+// @route   GET /api/subscriptions
+router.get('/subscriptions', safeHandler(async (req, res) => {
+  const salon = await models.Salon.findById(req.user.salonId);
+  const sub = await models.Subscription.findOne({ salonId: req.user.salonId, status: 'Active' });
+  res.json({
+    success: true,
+    data: {
+      plan: salon ? salon.subscriptionPlan : 'Starter Salon',
+      status: salon ? salon.subscriptionStatus : 'Active',
+      details: sub
+    }
+  });
+}, 'Failed to fetch subscription'));
 
 // @route   GET /api/salons/mine
 router.get('/salons/mine', safeHandler(async (req, res) => {
