@@ -529,6 +529,32 @@ const InventoryConsumptionSchema = new mongoose.Schema({
 
 InventoryConsumptionSchema.index({ salonId: 1, createdAt: -1 });
 
+// 20b. InventoryMovement Schema (Authoritative Stock Movement & Audit Trail)
+const InventoryMovementSchema = new mongoose.Schema({
+  salonId: { type: mongoose.Schema.Types.ObjectId, ref: 'Salon', required: true },
+  branchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch' },
+  productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },
+  productName: { type: String, required: true },
+  sku: { type: String },
+  type: { 
+    type: String, 
+    enum: ['SALE', 'REFUND', 'ADJUSTMENT', 'SERVICE_USAGE', 'PURCHASE', 'DAMAGE', 'MANUAL_CORRECTION'], 
+    required: true 
+  },
+  previousQuantity: { type: Number, required: true },
+  changeQuantity: { type: Number, required: true },
+  newQuantity: { type: Number, required: true },
+  reason: { type: String, default: '' },
+  referenceType: { type: String, enum: ['Invoice', 'Appointment', 'Manual', 'SupplierOrder', 'None'], default: 'None' },
+  referenceId: { type: mongoose.Schema.Types.ObjectId },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  userName: { type: String, default: 'System' },
+  timestamp: { type: Date, default: Date.now }
+}, { timestamps: true });
+
+InventoryMovementSchema.index({ salonId: 1, productId: 1, createdAt: -1 });
+InventoryMovementSchema.index({ salonId: 1, type: 1, createdAt: -1 });
+
 // 21. AuditLog Schema (Immutable Business & Security Event Logs)
 const AuditLogSchema = new mongoose.Schema({
   salonId: { type: mongoose.Schema.Types.ObjectId, ref: 'Salon', required: true },
@@ -539,12 +565,12 @@ const AuditLogSchema = new mongoose.Schema({
   userRole: { type: String, required: true },
   action: { 
     type: String, 
-    enum: ['CREATE', 'UPDATE', 'DELETE', 'PRICE_CHANGE', 'PERMISSION_CHANGE', 'STATUS_CHANGE'], 
+    enum: ['CREATE', 'UPDATE', 'DELETE', 'PRICE_CHANGE', 'PERMISSION_CHANGE', 'STATUS_CHANGE', 'LOGIN', 'LOGOUT'], 
     required: true 
   },
   entity: { 
     type: String, 
-    enum: ['Customer', 'Appointment', 'Invoice', 'Expense', 'Product', 'Service', 'Staff', 'User', 'Membership', 'Loyalty'], 
+    enum: ['Customer', 'Appointment', 'Invoice', 'Expense', 'Product', 'Service', 'Staff', 'User', 'Membership', 'Loyalty', 'Session'], 
     required: true 
   },
   entityId: { type: String },
@@ -584,6 +610,7 @@ module.exports = {
   NotificationPref: mongoose.model('NotificationPref', NotificationPrefSchema),
   Review: mongoose.model('Review', ReviewSchema),
   InventoryConsumption: mongoose.model('InventoryConsumption', InventoryConsumptionSchema),
+  InventoryMovement: mongoose.model('InventoryMovement', InventoryMovementSchema),
   AuditLog: mongoose.model('AuditLog', AuditLogSchema),
   SlotReservation: mongoose.model('SlotReservation', SlotReservationSchema)
 };

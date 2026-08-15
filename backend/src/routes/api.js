@@ -397,9 +397,119 @@ router.get('/customers', requirePermission('customers.view'), safeHandler(async 
   if (req.user.role === 'CLIENT') {
     filter.$or = [{ email: req.user.email }, { phone: req.user.phone }];
   }
-  const customers = await models.Customer.find(filter);
+  if (req.query.search && req.query.search.trim()) {
+    const q = req.query.search.trim();
+    filter.$and = filter.$and || [];
+    filter.$and.push({
+      $or: [
+        { name: { $regex: q, $options: 'i' } },
+        { phone: { $regex: q, $options: 'i' } },
+        { email: { $regex: q, $options: 'i' } }
+      ]
+    });
+  }
+
+  const page = parseInt(req.query.page, 10);
+  const limit = parseInt(req.query.limit, 10);
+
+  if (!isNaN(page) && page > 0 && !isNaN(limit) && limit > 0) {
+    const skip = (page - 1) * limit;
+    const total = await models.Customer.countDocuments(filter);
+    const customers = await models.Customer.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit);
+    return res.json({
+      success: true,
+      count: customers.length,
+      data: customers,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit)
+      }
+    });
+  }
+
+  const customers = await models.Customer.find(filter).sort({ createdAt: -1 });
   res.json({ success: true, count: customers.length, data: customers });
 }, 'Failed to fetch customers'));
+
+// @route   GET /api/customers/:id/profile (Comprehensive 360 Customer CRM Profile)
+router.get('/customers/:id/profile', requirePermission('customers.view'), validateObjectId, safeHandler(async (req, res) => {
+  const customer = await models.Customer.findOne({ _id: req.params.id, ...req.tenantFilter });
+  if (!customer) return res.status(404).json({ success: false, message: 'Customer not found' });
+
+  // 1. Fetch customer appointment history
+  const appointments = await models.Appointment.find({ customerId: customer._id, ...req.tenantFilter })
+    .populate('staffId', 'name role avatar')
+    .sort({ date: -1 });
+
+  // 2. Fetch customer invoices
+  const invoices = await models.Invoice.find({ customerId: customer._id, ...req.tenantFilter })
+    .populate('staffId', 'name')
+    .sort({ createdAt: -1 });
+
+  // 3. Fetch active customer membership
+  const membership = await models.CustomerMembership.findOne({ customerId: customer._id, status: 'Active' })
+    .populate('membershipPlanId');
+
+  // 4. Fetch loyalty point history
+  const loyaltyHistory = await models.LoyaltyPoint.find({ customerId: customer._id })
+    .sort({ date: -1 })
+    .limit(20);
+
+  // 5. Fetch reviews submitted by customer
+  const reviews = await models.Review.find({ customerId: customer._id }).sort({ date: -1 });
+
+  // Compute CRM metrics
+  const completedAppointments = appointments.filter(a => ['Completed', 'Confirmed', 'In Progress'].includes(a.status));
+  const totalVisits = completedAppointments.length > 0 ? completedAppointments.length : invoices.length;
+  const totalSpent = invoices.reduce((sum, inv) => sum + (inv.paymentStatus === 'Refunded' ? 0 : (Number(inv.finalAmount) || 0)), 0);
+  const averageSpend = totalVisits > 0 ? Math.round(totalSpent / totalVisits) : 0;
+  const lastVisit = appointments[0]?.date || invoices[0]?.createdAt || null;
+
+  // Favorite Services & Staff
+  const serviceCountMap = {};
+  appointments.forEach(a => {
+    (a.services || []).forEach(s => {
+      const sName = s.name || 'Salon Service';
+      serviceCountMap[sName] = (serviceCountMap[sName] || 0) + 1;
+    });
+  });
+  const topServices = Object.entries(serviceCountMap)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([name, count]) => ({ name, count }));
+
+  const staffCountMap = {};
+  appointments.forEach(a => {
+    if (a.staffId && a.staffId.name) {
+      staffCountMap[a.staffId.name] = (staffCountMap[a.staffId.name] || 0) + 1;
+    }
+  });
+  const favoriteStaff = Object.entries(staffCountMap).sort((a, b) => b[1] - a[1])[0]?.[0] || 'Any Staff';
+
+  res.json({
+    success: true,
+    data: {
+      customer,
+      stats: {
+        totalVisits,
+        totalSpent,
+        averageSpend,
+        lastVisit,
+        loyaltyPoints: customer.loyaltyPoints || 0,
+        membershipTier: customer.membershipLevel || 'None',
+        favoriteStaff
+      },
+      topServices,
+      membership,
+      appointments,
+      invoices,
+      loyaltyHistory,
+      reviews
+    }
+  });
+}, 'Failed to fetch customer profile'));
 
 router.post('/customers', requirePermission('customers.create'), sanitizeBody([...CUSTOMER_CREATE_FIELDS]), safeHandler(async (req, res) => {
   const newCustomer = await models.Customer.create({
@@ -531,9 +641,49 @@ router.get('/appointments', requirePermission('appointments.view'), safeHandler(
     const myIds = myCustomers.map(c => c._id);
     filter.customerId = { $in: myIds };
   }
+  if (req.query.status && req.query.status !== 'ALL') {
+    filter.status = req.query.status;
+  }
+  if (req.query.staffId && mongoose.Types.ObjectId.isValid(req.query.staffId)) {
+    filter.staffId = req.query.staffId;
+  }
+  if (req.query.date) {
+    const startOfDay = new Date(req.query.date);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(req.query.date);
+    endOfDay.setHours(23, 59, 59, 999);
+    filter.date = { $gte: startOfDay, $lte: endOfDay };
+  }
+
+  const page = parseInt(req.query.page, 10);
+  const limit = parseInt(req.query.limit, 10);
+
+  if (!isNaN(page) && page > 0 && !isNaN(limit) && limit > 0) {
+    const skip = (page - 1) * limit;
+    const total = await models.Appointment.countDocuments(filter);
+    const appointments = await models.Appointment.find(filter)
+      .populate('customerId')
+      .populate('staffId')
+      .sort({ date: -1, time: 1 })
+      .skip(skip)
+      .limit(limit);
+
+    return res.json({
+      success: true,
+      data: appointments,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit)
+      }
+    });
+  }
+
   const appointments = await models.Appointment.find(filter)
     .populate('customerId')
-    .populate('staffId');
+    .populate('staffId')
+    .sort({ date: -1, time: 1 });
   res.json({ success: true, data: appointments });
 }, 'Failed to fetch appointments'));
 
@@ -904,6 +1054,23 @@ router.put('/appointments/:id', requirePermission('appointments.edit'), validate
                     staffName: staffMember ? staffMember.name : 'Staff',
                     appointmentId: claimedAppt._id,
                     date: new Date()
+                  });
+
+                  await models.InventoryMovement.create({
+                    salonId: claimedAppt.salonId,
+                    branchId: claimedAppt.branchId,
+                    productId: product._id,
+                    productName: product.name,
+                    sku: product.sku,
+                    type: 'SERVICE_USAGE',
+                    previousQuantity: product.quantity + reqProd.quantity,
+                    changeQuantity: -reqProd.quantity,
+                    newQuantity: product.quantity,
+                    reason: `Backbar consumption for service: ${srv.name}`,
+                    referenceType: 'Appointment',
+                    referenceId: claimedAppt._id,
+                    userId: req.user ? req.user._id : null,
+                    userName: staffMember ? staffMember.name : 'Stylist'
                   });
 
                   if (product.quantity <= (product.reorderLevel || product.lowStockThreshold || 5)) {
@@ -1453,7 +1620,7 @@ router.put('/notifications/preferences', sanitizeBody(['customerChannels', 'staf
 // ----------------------------------------------------
 
 router.get('/audit-logs', authorize('SALON_OWNER', 'FRANCHISE_OWNER', 'SUPER_ADMIN'), safeHandler(async (req, res) => {
-  const { entity, action, search } = req.query;
+  const { entity, action, search, page, limit } = req.query;
   const filter = { salonId: req.user.salonId };
 
   if (entity && entity !== 'ALL') filter.entity = entity;
@@ -1466,6 +1633,26 @@ router.get('/audit-logs', authorize('SALON_OWNER', 'FRANCHISE_OWNER', 'SUPER_ADM
       { entityName: { $regex: q, $options: 'i' } },
       { entityId: { $regex: q, $options: 'i' } }
     ];
+  }
+
+  const pageNum = parseInt(page, 10);
+  const limitNum = parseInt(limit, 10);
+
+  if (!isNaN(pageNum) && pageNum > 0 && !isNaN(limitNum) && limitNum > 0) {
+    const skip = (pageNum - 1) * limitNum;
+    const total = await models.AuditLog.countDocuments(filter);
+    const logs = await models.AuditLog.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limitNum);
+
+    return res.json({
+      success: true,
+      data: logs,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        totalPages: Math.ceil(total / limitNum)
+      }
+    });
   }
 
   const logs = await models.AuditLog.find(filter).sort({ createdAt: -1 }).limit(200);
@@ -1564,6 +1751,36 @@ router.get('/expenses', requirePermission('reports.view'), safeHandler(async (re
       { category: { $regex: q, $options: 'i' } },
       { createdBy: { $regex: q, $options: 'i' } }
     ];
+  }
+
+  const page = parseInt(req.query.page, 10);
+  const limit = parseInt(req.query.limit, 10);
+
+  if (!isNaN(page) && page > 0 && !isNaN(limit) && limit > 0) {
+    const skip = (page - 1) * limit;
+    const total = await models.Expense.countDocuments(filter);
+    const expenses = await models.Expense.find(filter).sort({ date: -1 }).skip(skip).limit(limit);
+    const allExpensesForTotal = await models.Expense.find(filter).select('amount category');
+    const totalAmount = allExpensesForTotal.reduce((sum, exp) => sum + (Number(exp.amount) || 0), 0);
+    const categoryBreakdown = {};
+    allExpensesForTotal.forEach(exp => {
+      const cat = exp.category || 'Other';
+      categoryBreakdown[cat] = (categoryBreakdown[cat] || 0) + (Number(exp.amount) || 0);
+    });
+
+    return res.json({
+      success: true,
+      count: expenses.length,
+      totalAmount,
+      categoryBreakdown,
+      data: expenses,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit)
+      }
+    });
   }
 
   const expenses = await models.Expense.find(filter).sort({ date: -1 });
@@ -1676,7 +1893,39 @@ router.get('/invoices', requirePermission('billing.view'), safeHandler(async (re
     const myIds = myCustomers.map(c => c._id);
     filter.customerId = { $in: myIds };
   }
-  const invoices = await models.Invoice.find(filter).populate('customerId');
+  if (req.query.paymentStatus && req.query.paymentStatus !== 'ALL') {
+    filter.paymentStatus = req.query.paymentStatus;
+  }
+  if (req.query.paymentMethod && req.query.paymentMethod !== 'ALL') {
+    filter.paymentMethod = req.query.paymentMethod;
+  }
+
+  const page = parseInt(req.query.page, 10);
+  const limit = parseInt(req.query.limit, 10);
+
+  if (!isNaN(page) && page > 0 && !isNaN(limit) && limit > 0) {
+    const skip = (page - 1) * limit;
+    const total = await models.Invoice.countDocuments(filter);
+    const invoices = await models.Invoice.find(filter)
+      .populate('customerId')
+      .populate('staffId', 'name')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    return res.json({
+      success: true,
+      data: invoices,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit)
+      }
+    });
+  }
+
+  const invoices = await models.Invoice.find(filter).populate('customerId').sort({ createdAt: -1 });
   res.json({ success: true, data: invoices });
 }, 'Failed to fetch invoices'));
 
@@ -1815,6 +2064,9 @@ router.post('/invoices', requirePermission('billing.create'), safeHandler(async 
 
         decrementedProducts.push({
           productId: targetProduct._id,
+          product: targetProduct,
+          previousQuantity: updatedProduct.quantity + qty,
+          newQuantity: updatedProduct.quantity,
           quantity: qty
         });
 
@@ -1909,6 +2161,26 @@ router.post('/invoices', requirePermission('billing.create'), safeHandler(async 
       );
     }
     throw createErr;
+  }
+
+  // Create InventoryMovement records for all retail deductions on this invoice
+  for (const dec of decrementedProducts) {
+    await models.InventoryMovement.create({
+      salonId: req.user.salonId,
+      branchId: targetBranchId,
+      productId: dec.productId,
+      productName: dec.product.name,
+      sku: dec.product.sku,
+      type: 'SALE',
+      previousQuantity: dec.previousQuantity,
+      changeQuantity: -dec.quantity,
+      newQuantity: dec.newQuantity,
+      reason: `Retail sale on Invoice ${invoiceNumber}`,
+      referenceType: 'Invoice',
+      referenceId: invoice._id,
+      userId: req.user._id,
+      userName: req.user.name || 'Staff'
+    }).catch(err => console.error('Failed to create InventoryMovement for sale:', err));
   }
 
   // 1. Configurable Loyalty Points Crediting with Fraud/Duplicate Prevention
@@ -2008,13 +2280,33 @@ router.post('/invoices/:id/refund', requirePermission('billing.create'), validat
     return res.json({ success: true, message: 'Invoice is already refunded', data: existing });
   }
 
-  // Restore inventory items atomically
+  // Restore inventory items atomically and record movement
   for (const item of (invoice.products || [])) {
     if (item.productId && item.quantity > 0) {
-      await models.Product.updateOne(
+      const restored = await models.Product.findOneAndUpdate(
         { _id: item.productId, salonId: invoice.salonId },
-        { $inc: { quantity: item.quantity } }
+        { $inc: { quantity: item.quantity } },
+        { new: true }
       );
+
+      if (restored) {
+        await models.InventoryMovement.create({
+          salonId: invoice.salonId,
+          branchId: invoice.branchId,
+          productId: restored._id,
+          productName: restored.name,
+          sku: restored.sku,
+          type: 'REFUND',
+          previousQuantity: restored.quantity - item.quantity,
+          changeQuantity: item.quantity,
+          newQuantity: restored.quantity,
+          reason: `Stock restored from refunded Invoice ${invoice.invoiceNumber}`,
+          referenceType: 'Invoice',
+          referenceId: invoice._id,
+          userId: req.user ? req.user._id : null,
+          userName: req.user ? (req.user.name || 'Manager') : 'System'
+        }).catch(err => console.error('Failed to create InventoryMovement for refund:', err));
+      }
     }
   }
 
@@ -2027,7 +2319,7 @@ router.post('/invoices/:id/refund', requirePermission('billing.create'), validat
 const PRODUCT_FIELDS = ['name', 'sku', 'category', 'quantity', 'purchasePrice', 'sellingPrice', 'supplierId', 'lowStockThreshold', 'unit', 'minStock', 'reorderLevel', 'expiryDate'];
 const SUPPLIER_FIELDS = ['name', 'phone', 'email', 'address', 'outstandingDues'];
 
-router.post('/products/:id/adjust-stock', requirePermission('inventory.edit'), validateObjectId, sanitizeBody(['delta', 'reason']), safeHandler(async (req, res) => {
+router.post('/products/:id/adjust-stock', requirePermission('inventory.edit'), validateObjectId, sanitizeBody(['delta', 'reason', 'type']), safeHandler(async (req, res) => {
   const delta = Number(req.body.delta);
   if (isNaN(delta) || !isFinite(delta) || delta === 0) {
     return res.status(400).json({ success: false, message: 'Delta must be a non-zero number' });
@@ -2048,8 +2340,75 @@ router.post('/products/:id/adjust-stock', requirePermission('inventory.edit'), v
     return res.status(400).json({ success: false, message: 'Insufficient inventory to perform deduction' });
   }
 
+  // Authoritative InventoryMovement Audit Log
+  const movementType = req.body.type || (delta > 0 ? 'PURCHASE' : 'ADJUSTMENT');
+  await models.InventoryMovement.create({
+    salonId: req.user.salonId,
+    branchId: product.branchId || req.user.branchId,
+    productId: product._id,
+    productName: product.name,
+    sku: product.sku,
+    type: movementType,
+    previousQuantity: product.quantity - delta,
+    changeQuantity: delta,
+    newQuantity: product.quantity,
+    reason: req.body.reason || 'Manual inventory adjustment',
+    referenceType: 'Manual',
+    userId: req.user._id,
+    userName: req.user.name || 'Manager'
+  }).catch(err => console.error('Failed to create InventoryMovement for adjust-stock:', err));
+
   res.json({ success: true, data: product });
 }, 'Failed to adjust stock'));
+
+// @route   GET /api/inventory/movements (Full Stock Movement Audit Trail)
+router.get('/inventory/movements', requirePermission('inventory.view'), safeHandler(async (req, res) => {
+  const { productId, type, startDate, endDate, page, limit } = req.query;
+  const filter = { ...req.tenantFilter };
+
+  if (productId && mongoose.Types.ObjectId.isValid(productId)) {
+    filter.productId = productId;
+  }
+  if (type && type !== 'ALL') {
+    filter.type = type;
+  }
+  if (startDate || endDate) {
+    filter.timestamp = {};
+    if (startDate) filter.timestamp.$gte = new Date(startDate);
+    if (endDate) filter.timestamp.$lte = new Date(endDate);
+  }
+
+  const pageNum = parseInt(page, 10);
+  const limitNum = parseInt(limit, 10);
+
+  if (!isNaN(pageNum) && pageNum > 0 && !isNaN(limitNum) && limitNum > 0) {
+    const skip = (pageNum - 1) * limitNum;
+    const total = await models.InventoryMovement.countDocuments(filter);
+    const movements = await models.InventoryMovement.find(filter)
+      .populate('productId', 'name sku unit')
+      .sort({ timestamp: -1 })
+      .skip(skip)
+      .limit(limitNum);
+
+    return res.json({
+      success: true,
+      data: movements,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        totalPages: Math.ceil(total / limitNum)
+      }
+    });
+  }
+
+  const movements = await models.InventoryMovement.find(filter)
+    .populate('productId', 'name sku unit')
+    .sort({ timestamp: -1 })
+    .limit(100);
+
+  res.json({ success: true, count: movements.length, data: movements });
+}, 'Failed to fetch inventory movements'));
 
 router.get('/inventory-consumptions', requirePermission('inventory.view'), safeHandler(async (req, res) => {
   const logs = await models.InventoryConsumption.find(req.tenantFilter).sort({ date: -1 });
@@ -2057,7 +2416,39 @@ router.get('/inventory-consumptions', requirePermission('inventory.view'), safeH
 }, 'Failed to fetch inventory consumption logs'));
 
 router.get('/products', requirePermission('inventory.view'), safeHandler(async (req, res) => {
-  const products = await models.Product.find(req.tenantFilter).populate('supplierId');
+  const filter = { ...req.tenantFilter };
+  if (req.query.category && req.query.category !== 'ALL') {
+    filter.category = req.query.category;
+  }
+  if (req.query.lowStock === 'true') {
+    filter.$expr = { $lte: ['$quantity', { $ifNull: ['$lowStockThreshold', 5] }] };
+  }
+
+  const page = parseInt(req.query.page, 10);
+  const limit = parseInt(req.query.limit, 10);
+
+  if (!isNaN(page) && page > 0 && !isNaN(limit) && limit > 0) {
+    const skip = (page - 1) * limit;
+    const total = await models.Product.countDocuments(filter);
+    const products = await models.Product.find(filter)
+      .populate('supplierId')
+      .sort({ name: 1 })
+      .skip(skip)
+      .limit(limit);
+
+    return res.json({
+      success: true,
+      data: products,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit)
+      }
+    });
+  }
+
+  const products = await models.Product.find(filter).populate('supplierId').sort({ name: 1 });
   res.json({ success: true, data: products });
 }, 'Failed to fetch products'));
 
@@ -2458,8 +2849,59 @@ router.post('/attendance', requirePermission('staff.view'), safeHandler(async (r
 }, 'Failed to process attendance'));
 
 router.get('/commissions', requirePermission('staff.view'), safeHandler(async (req, res) => {
-  const commissions = await models.Commission.find(req.tenantFilter).populate('staffId').populate('invoiceId');
-  res.json({ success: true, data: commissions });
+  let filter = { ...req.tenantFilter };
+
+  // PRIVACY HARDENING: Staff can only see their own earned commissions
+  if (req.user.role === 'STAFF') {
+    const staffDoc = await models.Staff.findOne({
+      salonId: req.user.salonId,
+      $or: [{ userId: req.user._id }, { email: req.user.email }, { phone: req.user.phone }]
+    });
+    if (staffDoc) {
+      filter.staffId = staffDoc._id;
+    } else {
+      return res.json({ success: true, count: 0, data: [] });
+    }
+  } else if (req.query.staffId && mongoose.Types.ObjectId.isValid(req.query.staffId)) {
+    filter.staffId = req.query.staffId;
+  }
+
+  if (req.query.startDate || req.query.endDate) {
+    filter.date = {};
+    if (req.query.startDate) filter.date.$gte = new Date(req.query.startDate);
+    if (req.query.endDate) filter.date.$lte = new Date(req.query.endDate);
+  }
+
+  const page = parseInt(req.query.page, 10);
+  const limit = parseInt(req.query.limit, 10);
+
+  if (!isNaN(page) && page > 0 && !isNaN(limit) && limit > 0) {
+    const skip = (page - 1) * limit;
+    const total = await models.Commission.countDocuments(filter);
+    const commissions = await models.Commission.find(filter)
+      .populate('staffId', 'name role commissionPercentage')
+      .populate('invoiceId', 'invoiceNumber finalAmount createdAt')
+      .sort({ date: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    return res.json({
+      success: true,
+      data: commissions,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit)
+      }
+    });
+  }
+
+  const commissions = await models.Commission.find(filter)
+    .populate('staffId', 'name role commissionPercentage')
+    .populate('invoiceId', 'invoiceNumber finalAmount createdAt')
+    .sort({ date: -1 });
+  res.json({ success: true, count: commissions.length, data: commissions });
 }, 'Failed to fetch commissions'));
 
 // ----------------------------------------------------
