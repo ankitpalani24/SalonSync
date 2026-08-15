@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { EmptyState } from '../components/UIComponents';
+import { formatCurrency, formatPercent, formatNumber } from '../utils/formatters';
 
 // Profitability calculation engine helper
 const calculateServiceProfitability = (price, cost, commissionPct = 10, taxPct = 18, discountAmt = 0, allocatedCostPct = 5) => {
@@ -566,7 +567,7 @@ const Services = () => {
                   {serviceProfitabilityReport.highestRevenueService ? serviceProfitabilityReport.highestRevenueService.name : 'N/A'}
                 </div>
                 <div className="crm-metric-sub" style={{ color: 'var(--gold-primary)', fontWeight: '600' }}>
-                  ₹{serviceProfitabilityReport.highestRevenueService ? serviceProfitabilityReport.highestRevenueService.totalCustomerPayment.toLocaleString() : 0} gross
+                  {formatCurrency(serviceProfitabilityReport.highestRevenueService ? serviceProfitabilityReport.highestRevenueService.totalCustomerPayment : 0)} gross
                 </div>
               </div>
             </div>
@@ -582,7 +583,7 @@ const Services = () => {
                   {serviceProfitabilityReport.highestProfitService ? serviceProfitabilityReport.highestProfitService.name : 'N/A'}
                 </div>
                 <div className="crm-metric-sub" style={{ color: '#2ecc71', fontWeight: '600' }}>
-                  ₹{serviceProfitabilityReport.highestProfitService ? serviceProfitabilityReport.highestProfitService.totalActualProfit.toLocaleString() : 0} net profit
+                  {formatCurrency(serviceProfitabilityReport.highestProfitService ? serviceProfitabilityReport.highestProfitService.totalActualProfit : 0)} net profit
                 </div>
               </div>
             </div>
@@ -598,7 +599,7 @@ const Services = () => {
                   {serviceProfitabilityReport.lowestProfitService ? serviceProfitabilityReport.lowestProfitService.name : 'N/A'}
                 </div>
                 <div className="crm-metric-sub" style={{ color: '#e74c3c', fontWeight: '600' }}>
-                  ₹{serviceProfitabilityReport.lowestProfitService ? serviceProfitabilityReport.lowestProfitService.totalActualProfit.toLocaleString() : 0} net profit
+                  {formatCurrency(serviceProfitabilityReport.lowestProfitService ? serviceProfitabilityReport.lowestProfitService.totalActualProfit : 0)} net profit
                 </div>
               </div>
             </div>
@@ -614,7 +615,7 @@ const Services = () => {
                   {serviceProfitabilityReport.mostBookedService ? serviceProfitabilityReport.mostBookedService.name : 'N/A'}
                 </div>
                 <div className="crm-metric-sub">
-                  {serviceProfitabilityReport.mostBookedService ? serviceProfitabilityReport.mostBookedService.count : 0} checkouts
+                  {formatNumber(serviceProfitabilityReport.mostBookedService ? serviceProfitabilityReport.mostBookedService.count : 0)} checkouts
                 </div>
               </div>
             </div>
@@ -632,7 +633,7 @@ const Services = () => {
               </div>
 
               <div style={{ fontSize: '0.85rem', color: 'var(--gold-primary)', fontWeight: '700' }}>
-                Average Service Value: ₹{serviceProfitabilityReport.avgServiceValue.toLocaleString()}
+                Average Service Value: {formatCurrency(serviceProfitabilityReport.avgServiceValue)}
               </div>
             </div>
 
@@ -659,18 +660,18 @@ const Services = () => {
                         <td><strong style={{ color: 'var(--text-primary)' }}>{srv.name}</strong></td>
                         <td><span className="gcal-tag">{srv.category}</span></td>
                         <td><strong>{srv.count} x</strong></td>
-                        <td><strong style={{ color: 'var(--gold-primary)' }}>₹{srv.totalCustomerPayment.toLocaleString()}</strong></td>
-                        <td>₹{srv.totalStaffCommission.toLocaleString()}</td>
-                        <td>₹{srv.totalProductCost.toLocaleString()}</td>
-                        <td>₹{srv.totalAllocatedCosts.toLocaleString()}</td>
+                        <td><strong style={{ color: 'var(--gold-primary)' }}>{formatCurrency(srv.totalCustomerPayment)}</strong></td>
+                        <td>{formatCurrency(srv.totalStaffCommission)}</td>
+                        <td>{formatCurrency(srv.totalProductCost)}</td>
+                        <td>{formatCurrency(srv.totalAllocatedCosts)}</td>
                         <td>
                           <strong style={{ color: srv.totalActualProfit >= 0 ? '#2ecc71' : 'var(--accent-red)', fontSize: '0.95rem' }}>
-                            ₹{srv.totalActualProfit.toLocaleString()}
+                            {formatCurrency(srv.totalActualProfit)}
                           </strong>
                         </td>
                         <td>
                           <span className={`badge ${isHighMargin ? 'vip' : 'confirm'}`} style={{ fontSize: '0.75rem' }}>
-                            {srv.profitMarginPct}%
+                            {formatPercent(srv.profitMarginPct)}
                           </span>
                         </td>
                       </tr>

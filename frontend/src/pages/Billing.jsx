@@ -68,10 +68,11 @@ const InvoiceTemplate = React.forwardRef(({ invoice, customer, salon, branch, st
   const custEmail = customer?.email || '';
   const qrData = `upi://pay?pa=salonsync@upi&pn=${encodeURIComponent(salonName)}&am=${invoice.finalAmount}&tn=Invoice-${invoice.invoiceNumber}`;
   const qrImg = generateQRDataURL(qrData);
-  const servicesTotal = (invoice.services || []).reduce((s, i) => s + (i.price * i.quantity), 0);
-  const productsTotal = (invoice.products || []).reduce((s, i) => s + (i.price * i.quantity), 0);
-  const subTotal = servicesTotal + productsTotal;
-  const taxAmt = Math.round(subTotal * (invoice.tax / 100));
+  const servicesTotal = (invoice.services || []).reduce((s, i) => s + ((Number(i.price) || 0) * (Number(i.quantity) || 1)), 0);
+  const productsTotal = (invoice.products || []).reduce((s, i) => s + ((Number(i.price) || 0) * (Number(i.quantity) || 1)), 0);
+  const subTotal = (servicesTotal + productsTotal) || Number(invoice.finalAmount) || 0;
+  const taxPercent = Number(invoice.tax) || 0;
+  const taxAmt = Math.round(subTotal * (taxPercent / 100));
 
   return (
     <div ref={ref} style={{
@@ -170,12 +171,12 @@ const InvoiceTemplate = React.forwardRef(({ invoice, customer, salon, branch, st
                 <tr key={`srv-${idx}`} style={{ borderBottom: '1px solid #f0f0f0' }}>
                   <td style={{ padding: '10px 0', fontSize: '12px', color: '#888' }}>{idx + 1}</td>
                   <td style={{ padding: '10px 0' }}>
-                    <span style={{ fontWeight: '600', color: '#1a1a1a' }}>{item.name}</span>
+                    <span style={{ fontWeight: '600', color: '#1a1a1a' }}>{item.name || 'Salon Treatment'}</span>
                     {item.category && <span style={{ display: 'block', fontSize: '10px', color: '#999' }}>{item.category}</span>}
                   </td>
-                  <td style={{ padding: '10px 0', textAlign: 'center', color: '#555' }}>{item.quantity}</td>
-                  <td style={{ padding: '10px 0', textAlign: 'right', color: '#555' }}>₹{item.price?.toLocaleString()}</td>
-                  <td style={{ padding: '10px 0', textAlign: 'right', fontWeight: '600', color: '#1a1a1a' }}>₹{(item.price * item.quantity).toLocaleString()}</td>
+                  <td style={{ padding: '10px 0', textAlign: 'center', color: '#555' }}>{item.quantity || 1}</td>
+                  <td style={{ padding: '10px 0', textAlign: 'right', color: '#555' }}>{formatCurrency(item.price)}</td>
+                  <td style={{ padding: '10px 0', textAlign: 'right', fontWeight: '600', color: '#1a1a1a' }}>{formatCurrency((Number(item.price) || 0) * (Number(item.quantity) || 1))}</td>
                 </tr>
               ))}
             </tbody>
@@ -202,11 +203,11 @@ const InvoiceTemplate = React.forwardRef(({ invoice, customer, salon, branch, st
                 <tr key={`prod-${idx}`} style={{ borderBottom: '1px solid #f0f0f0' }}>
                   <td style={{ padding: '10px 0', fontSize: '12px', color: '#888' }}>{idx + 1}</td>
                   <td style={{ padding: '10px 0' }}>
-                    <span style={{ fontWeight: '600', color: '#1a1a1a' }}>{item.name}</span>
+                    <span style={{ fontWeight: '600', color: '#1a1a1a' }}>{item.name || 'Retail Product'}</span>
                   </td>
-                  <td style={{ padding: '10px 0', textAlign: 'center', color: '#555' }}>{item.quantity}</td>
-                  <td style={{ padding: '10px 0', textAlign: 'right', color: '#555' }}>₹{item.price?.toLocaleString()}</td>
-                  <td style={{ padding: '10px 0', textAlign: 'right', fontWeight: '600', color: '#1a1a1a' }}>₹{(item.price * item.quantity).toLocaleString()}</td>
+                  <td style={{ padding: '10px 0', textAlign: 'center', color: '#555' }}>{item.quantity || 1}</td>
+                  <td style={{ padding: '10px 0', textAlign: 'right', color: '#555' }}>{formatCurrency(item.price)}</td>
+                  <td style={{ padding: '10px 0', textAlign: 'right', fontWeight: '600', color: '#1a1a1a' }}>{formatCurrency((Number(item.price) || 0) * (Number(item.quantity) || 1))}</td>
                 </tr>
               ))}
             </tbody>
@@ -226,24 +227,24 @@ const InvoiceTemplate = React.forwardRef(({ invoice, customer, salon, branch, st
         <div style={{ flex: 1, maxWidth: '280px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: '13px', color: '#555' }}>
             <span>Subtotal</span>
-            <span>₹{subTotal.toLocaleString()}</span>
+            <span>{formatCurrency(subTotal)}</span>
           </div>
-          {invoice.discount > 0 && (
+          {Number(invoice.discount) > 0 && (
             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: '13px', color: '#e53935' }}>
               <span>Discount</span>
-              <span>- ₹{invoice.discount.toLocaleString()}</span>
+              <span>- {formatCurrency(invoice.discount)}</span>
             </div>
           )}
           <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: '13px', color: '#555' }}>
             <span>GST ({invoice.tax}%)</span>
-            <span>₹{taxAmt.toLocaleString()}</span>
+            <span>{formatCurrency(taxAmt)}</span>
           </div>
           <div style={{
             display: 'flex', justifyContent: 'space-between', padding: '12px 0', marginTop: '6px',
             borderTop: '2px solid #1a1a2e', fontSize: '18px', fontWeight: '800', color: '#1a1a2e'
           }}>
             <span>Total</span>
-            <span>₹{invoice.finalAmount?.toLocaleString()}</span>
+            <span>{formatCurrency(invoice.finalAmount)}</span>
           </div>
         </div>
       </div>
@@ -337,23 +338,51 @@ const Billing = ({ apptForCheckout, clearApptCheckout }) => {
   // ── CALCULATIONS ──
   const getSubTotal = () => {
     let sum = 0;
-    checkoutServices.forEach(item => { const s = services.find(srv => String(srv._id) === String(item.serviceId)); if (s) sum += s.price * item.quantity; });
-    checkoutProducts.forEach(item => { const p = products.find(prod => String(prod._id) === String(item.productId)); if (p) sum += p.sellingPrice * item.quantity; });
+    checkoutServices.forEach(item => {
+      const s = services.find(srv => String(srv._id) === String(item.serviceId));
+      const rate = Number(item.price) || (s ? Number(s.price) : 0) || 0;
+      sum += rate * (Number(item.quantity) || 1);
+    });
+    checkoutProducts.forEach(item => {
+      const p = products.find(prod => String(prod._id) === String(item.productId));
+      const rate = Number(item.price) || (p ? Number(p.sellingPrice) : 0) || 0;
+      sum += rate * (Number(item.quantity) || 1);
+    });
     return sum;
   };
   const subTotal = getSubTotal();
-  const calculatedTax = Math.round(subTotal * (taxPercent / 100));
-  const finalAmount = Math.max(0, Math.round(subTotal + calculatedTax - Number(discountAmt) - actualPointsRedeemed));
+  const calculatedTax = Math.round(subTotal * (Number(taxPercent || 0) / 100));
+  const finalAmount = Math.max(0, Math.round(subTotal + calculatedTax - Number(discountAmt || 0) - Number(actualPointsRedeemed || 0)));
 
   // ── CART HANDLERS ──
-  const handleAddService = () => { if (!tempSrvId) return; if (checkoutServices.some(s => String(s.serviceId) === String(tempSrvId))) return; setCheckoutServices(prev => [...prev, { serviceId: tempSrvId, quantity: 1 }]); setTempSrvId(''); };
+  const handleAddService = () => {
+    if (!tempSrvId) return;
+    const s = services.find(srv => String(srv._id) === String(tempSrvId));
+    if (!s) return;
+    if (checkoutServices.some(item => String(item.serviceId) === String(tempSrvId))) return;
+    setCheckoutServices(prev => [...prev, {
+      serviceId: s._id,
+      name: s.name,
+      price: Number(s.price) || 0,
+      category: s.category || 'Service',
+      quantity: 1
+    }]);
+    setTempSrvId('');
+  };
+
   const handleAddProduct = () => {
     if (!tempProdId) return;
     const p = products.find(prod => String(prod._id) === String(tempProdId));
     if (!p) return;
     if (p.quantity <= 0) { addToast(`Cannot add ${p.name}. Out of stock!`, 'error'); return; }
     if (checkoutProducts.some(item => String(item.productId) === String(tempProdId))) return;
-    setCheckoutProducts(prev => [...prev, { productId: tempProdId, quantity: 1 }]);
+    setCheckoutProducts(prev => [...prev, {
+      productId: p._id,
+      name: p.name,
+      price: Number(p.sellingPrice) || 0,
+      sku: p.sku || 'N/A',
+      quantity: 1
+    }]);
     setTempProdId('');
   };
   const handleRemoveService = (id) => setCheckoutServices(prev => prev.filter(s => s.serviceId !== id));

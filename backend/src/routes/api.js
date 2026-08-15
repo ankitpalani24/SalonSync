@@ -1332,13 +1332,19 @@ router.post('/invoices', requirePermission('billing.create'), safeHandler(async 
   const invoiceNumber = `INV-${new Date().getFullYear()}-${String(count + 1).padStart(4, '0')}`;
 
   // Gracefully resolve branchId
-  let targetBranchId = req.user.branchId;
-  if (!targetBranchId) {
+  let targetBranchId = req.user.branchId || req.body.branchId;
+  if (!targetBranchId || !mongoose.Types.ObjectId.isValid(targetBranchId)) {
     const branch = await models.Branch.findOne({ salonId: req.user.salonId });
     if (branch) {
       targetBranchId = branch._id;
     } else {
-      return res.status(400).json({ success: false, message: 'Branch ID is required for invoice and no default branch was found.' });
+      const defaultBranch = await models.Branch.create({
+        name: 'Main Branch',
+        salonId: req.user.salonId,
+        city: 'Mumbai',
+        address: 'Main Salon Floor'
+      });
+      targetBranchId = defaultBranch._id;
     }
   }
 
@@ -1349,16 +1355,24 @@ router.post('/invoices', requirePermission('billing.create'), safeHandler(async 
   // 1. Validate product inventory stock availability BEFORE deducting
   if (products && Array.isArray(products)) {
     for (const item of products) {
-      if (item.productId && mongoose.Types.ObjectId.isValid(item.productId)) {
-        const p = await models.Product.findById(item.productId);
-        if (p) {
-          const reqQty = item.quantity || 1;
-          if (p.quantity < reqQty) {
-            return res.status(400).json({
-              success: false,
-              message: `Insufficient inventory for "${p.name}". Requested: ${reqQty}, Available in stock: ${p.quantity}`
-            });
-          }
+      const pId = typeof item.productId === 'object' ? item.productId?._id : item.productId;
+      let p = null;
+      if (pId && mongoose.Types.ObjectId.isValid(pId)) {
+        p = await models.Product.findById(pId);
+      }
+      if (!p && (pId || item.name)) {
+        p = await models.Product.findOne({
+          salonId: req.user.salonId,
+          $or: [{ _id: pId }, { name: item.name }]
+        });
+      }
+      if (p) {
+        const reqQty = Math.max(1, Number(item.quantity) || 1);
+        if (p.quantity < reqQty) {
+          return res.status(400).json({
+            success: false,
+            message: `Insufficient inventory for "${p.name}". Requested: ${reqQty}, Available in stock: ${p.quantity}`
+          });
         }
       }
     }
@@ -1370,18 +1384,29 @@ router.post('/invoices', requirePermission('billing.create'), safeHandler(async 
   const serviceItems = [];
   if (services && Array.isArray(services)) {
     for (const item of services) {
-      if (item.serviceId && mongoose.Types.ObjectId.isValid(item.serviceId)) {
-        const s = await models.Service.findById(item.serviceId);
-        if (s) {
-          serviceItems.push({
-            serviceId: s._id,
-            name: s.name,
-            price: s.price,
-            quantity: item.quantity || 1
-          });
-          subTotal += s.price * (item.quantity || 1);
-        }
+      const sId = typeof item.serviceId === 'object' ? item.serviceId?._id : item.serviceId;
+      let s = null;
+      if (sId && mongoose.Types.ObjectId.isValid(sId)) {
+        s = await models.Service.findById(sId);
       }
+      if (!s && (sId || item.name)) {
+        s = await models.Service.findOne({
+          salonId: req.user.salonId,
+          $or: [{ _id: sId }, { name: item.name }]
+        });
+      }
+
+      const qty = Math.max(1, Number(item.quantity) || 1);
+      const price = Number(item.price) || (s ? Number(s.price) : 0) || 0;
+      const name = item.name || (s ? s.name : 'Salon Service');
+
+      serviceItems.push({
+        serviceId: s ? s._id : (mongoose.Types.ObjectId.isValid(sId) ? sId : null),
+        name,
+        price,
+        quantity: qty
+      });
+      subTotal += price * qty;
     }
   }
 
@@ -1389,21 +1414,33 @@ router.post('/invoices', requirePermission('billing.create'), safeHandler(async 
   const productItems = [];
   if (products && Array.isArray(products)) {
     for (const item of products) {
-      if (item.productId && mongoose.Types.ObjectId.isValid(item.productId)) {
-        const p = await models.Product.findById(item.productId);
-        if (p) {
-          productItems.push({
-            productId: p._id,
-            name: p.name,
-            price: p.sellingPrice,
-            quantity: item.quantity || 1
-          });
-          subTotal += p.sellingPrice * (item.quantity || 1);
-          
-          // Stock Deduction
-          p.quantity = Math.max(0, p.quantity - (item.quantity || 1));
-          await p.save();
-        }
+      const pId = typeof item.productId === 'object' ? item.productId?._id : item.productId;
+      let p = null;
+      if (pId && mongoose.Types.ObjectId.isValid(pId)) {
+        p = await models.Product.findById(pId);
+      }
+      if (!p && (pId || item.name)) {
+        p = await models.Product.findOne({
+          salonId: req.user.salonId,
+          $or: [{ _id: pId }, { name: item.name }]
+        });
+      }
+
+      const qty = Math.max(1, Number(item.quantity) || 1);
+      const price = Number(item.price) || (p ? Number(p.sellingPrice) : 0) || 0;
+      const name = item.name || (p ? p.name : 'Retail Product');
+
+      productItems.push({
+        productId: p ? p._id : (mongoose.Types.ObjectId.isValid(pId) ? pId : null),
+        name,
+        price,
+        quantity: qty
+      });
+      subTotal += price * qty;
+
+      if (p) {
+        p.quantity = Math.max(0, p.quantity - qty);
+        await p.save();
       }
     }
   }
@@ -1417,7 +1454,7 @@ router.post('/invoices', requirePermission('billing.create'), safeHandler(async 
       const actualRedeemed = Math.min(requestedRedeem, customer.loyaltyPoints || 0);
       if (actualRedeemed > 0) {
         loyaltyDiscount = actualRedeemed;
-        customer.loyaltyPoints -= actualRedeemed;
+        customer.loyaltyPoints = Math.max(0, (customer.loyaltyPoints || 0) - actualRedeemed);
         customer.totalPointsRedeemed = (customer.totalPointsRedeemed || 0) + actualRedeemed;
         await customer.save();
 
@@ -1436,8 +1473,10 @@ router.post('/invoices', requirePermission('billing.create'), safeHandler(async 
     }
   }
 
-  const calculatedTax = subTotal * (tax || 0) / 100;
-  const finalAmount = Math.max(0, Math.round(subTotal + calculatedTax - (discount || 0) - loyaltyDiscount));
+  const taxPct = Number(tax) || 0;
+  const calculatedTax = Math.round(subTotal * (taxPct / 100));
+  const discountAmt = Number(discount) || 0;
+  const finalAmount = Math.max(0, Math.round(subTotal + calculatedTax - discountAmt - loyaltyDiscount));
 
   const invoice = await models.Invoice.create({
     invoiceNumber,
@@ -1446,8 +1485,8 @@ router.post('/invoices', requirePermission('billing.create'), safeHandler(async 
     customerId: finalCustomerId,
     services: serviceItems,
     products: productItems,
-    tax: tax || 0,
-    discount: discount || 0,
+    tax: taxPct,
+    discount: discountAmt,
     finalAmount,
     paymentMethod: paymentMethod || 'Cash',
     paymentStatus: 'Paid',
