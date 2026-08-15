@@ -1445,9 +1445,13 @@ router.get('/invoices', requirePermission('billing.view'), safeHandler(async (re
 router.post('/invoices', requirePermission('billing.create'), safeHandler(async (req, res) => {
   const { customerId, services, products, tax, discount, paymentMethod, staffId, redeemPoints } = req.body;
   
-  // Auto-generate invoice number
-  const count = await models.Invoice.countDocuments({ salonId: req.user.salonId });
-  const invoiceNumber = `INV-${new Date().getFullYear()}-${String(count + 1).padStart(4, '0')}`;
+  // Auto-generate unique invoice number with concurrency collision resilience
+  let invoiceNumber = req.body.invoiceNumber;
+  if (!invoiceNumber) {
+    const count = await models.Invoice.countDocuments({ salonId: req.user.salonId });
+    const randSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
+    invoiceNumber = `INV-${new Date().getFullYear()}-${String(count + 1).padStart(4, '0')}-${randSuffix}`;
+  }
 
   // Gracefully resolve branchId
   let targetBranchId = req.user.branchId || req.body.branchId;
@@ -1508,6 +1512,19 @@ router.post('/invoices', requirePermission('billing.create'), safeHandler(async 
 
   if (products && Array.isArray(products)) {
     for (const item of products) {
+      const rawQty = Number(item.quantity);
+      if (isNaN(rawQty) || !isFinite(rawQty) || rawQty <= 0) {
+        // Rollback any products already decremented in this request
+        for (const rolled of decrementedProducts) {
+          await models.Product.updateOne(
+            { _id: rolled.productId, salonId: req.user.salonId },
+            { $inc: { quantity: rolled.quantity } }
+          );
+        }
+        return res.status(400).json({ success: false, message: 'Invalid product quantity requested' });
+      }
+      const qty = Math.floor(rawQty);
+
       const pId = typeof item.productId === 'object' ? item.productId?._id : item.productId;
       let targetProduct = null;
 
@@ -1524,7 +1541,6 @@ router.post('/invoices', requirePermission('billing.create'), safeHandler(async 
         });
       }
 
-      const qty = Math.max(1, Number(item.quantity) || 1);
       const price = Number(item.price) || (targetProduct ? Number(targetProduct.sellingPrice) : 0) || 0;
       const name = item.name || (targetProduct ? targetProduct.name : 'Retail Product');
 
@@ -1630,20 +1646,32 @@ router.post('/invoices', requirePermission('billing.create'), safeHandler(async 
   const discountAmt = Number(discount) || 0;
   const finalAmount = Math.max(0, Math.round(subTotal + calculatedTax - discountAmt - loyaltyDiscount));
 
-  const invoice = await models.Invoice.create({
-    invoiceNumber,
-    salonId: req.user.salonId,
-    branchId: targetBranchId,
-    customerId: finalCustomerId,
-    services: serviceItems,
-    products: productItems,
-    tax: taxPct,
-    discount: discountAmt,
-    finalAmount,
-    paymentMethod: paymentMethod || 'Cash',
-    paymentStatus: 'Paid',
-    staffId: finalStaffId
-  });
+  let invoice;
+  try {
+    invoice = await models.Invoice.create({
+      invoiceNumber,
+      salonId: req.user.salonId,
+      branchId: targetBranchId,
+      customerId: finalCustomerId,
+      services: serviceItems,
+      products: productItems,
+      tax: taxPct,
+      discount: discountAmt,
+      finalAmount,
+      paymentMethod: paymentMethod || 'Cash',
+      paymentStatus: 'Paid',
+      staffId: finalStaffId
+    });
+  } catch (createErr) {
+    // Rollback any products already decremented in this request if invoice insertion fails
+    for (const rolled of decrementedProducts) {
+      await models.Product.updateOne(
+        { _id: rolled.productId, salonId: req.user.salonId },
+        { $inc: { quantity: rolled.quantity } }
+      );
+    }
+    throw createErr;
+  }
 
   // 1. Configurable Loyalty Points Crediting with Fraud/Duplicate Prevention
   if (finalCustomerId) {
@@ -1726,11 +1754,64 @@ router.post('/invoices', requirePermission('billing.create'), safeHandler(async 
   res.status(201).json({ success: true, data: invoice });
 }, 'Failed to create invoice'));
 
+// @route   POST /api/invoices/:id/refund
+router.post('/invoices/:id/refund', requirePermission('billing.create'), validateObjectId, safeHandler(async (req, res) => {
+  // Atomically claim the refund state so stock is restored exactly once
+  const invoice = await models.Invoice.findOneAndUpdate(
+    { _id: req.params.id, ...req.tenantFilter, paymentStatus: { $ne: 'Refunded' } },
+    { paymentStatus: 'Refunded' },
+    { new: true }
+  );
+
+  if (!invoice) {
+    const existing = await models.Invoice.findOne({ _id: req.params.id, ...req.tenantFilter });
+    if (!existing) return res.status(404).json({ success: false, message: 'Invoice not found' });
+    // Already refunded - return success without double-restoring inventory (idempotent)
+    return res.json({ success: true, message: 'Invoice is already refunded', data: existing });
+  }
+
+  // Restore inventory items atomically
+  for (const item of (invoice.products || [])) {
+    if (item.productId && item.quantity > 0) {
+      await models.Product.updateOne(
+        { _id: item.productId, salonId: invoice.salonId },
+        { $inc: { quantity: item.quantity } }
+      );
+    }
+  }
+
+  res.json({ success: true, message: 'Invoice refunded and inventory restored successfully', data: invoice });
+}, 'Failed to refund invoice'));
+
 // ----------------------------------------------------
 // INVENTORY
 // ----------------------------------------------------
 const PRODUCT_FIELDS = ['name', 'sku', 'category', 'quantity', 'purchasePrice', 'sellingPrice', 'supplierId', 'lowStockThreshold', 'unit', 'minStock', 'reorderLevel', 'expiryDate'];
 const SUPPLIER_FIELDS = ['name', 'phone', 'email', 'address', 'outstandingDues'];
+
+router.post('/products/:id/adjust-stock', requirePermission('inventory.edit'), validateObjectId, sanitizeBody(['delta', 'reason']), safeHandler(async (req, res) => {
+  const delta = Number(req.body.delta);
+  if (isNaN(delta) || !isFinite(delta) || delta === 0) {
+    return res.status(400).json({ success: false, message: 'Delta must be a non-zero number' });
+  }
+
+  const query = { _id: req.params.id, ...req.tenantFilter };
+  if (delta < 0) {
+    query.quantity = { $gte: Math.abs(delta) };
+  }
+
+  const product = await models.Product.findOneAndUpdate(
+    query,
+    { $inc: { quantity: delta } },
+    { new: true }
+  );
+
+  if (!product) {
+    return res.status(400).json({ success: false, message: 'Insufficient inventory to perform deduction' });
+  }
+
+  res.json({ success: true, data: product });
+}, 'Failed to adjust stock'));
 
 router.get('/inventory-consumptions', requirePermission('inventory.view'), safeHandler(async (req, res) => {
   const logs = await models.InventoryConsumption.find(req.tenantFilter).sort({ date: -1 });
