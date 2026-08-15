@@ -15,36 +15,42 @@ const smoothLine = (points) => {
 };
 
 // ─── 1. REVENUE VS EXPENSES ──────────────────────────────────────────────────
-export const RevenueExpenseChart = ({ revenueData = [], expenseData = [] }) => {
+export const RevenueExpenseChart = ({
+  months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+  revenues = [0, 0, 0, 0, 0, 0],
+  expenses = [0, 0, 0, 0, 0, 0],
+  revenueData,
+  expenseData
+}) => {
   const [hoveredIdx, setHoveredIdx] = useState(null);
   const [hoveredType, setHoveredType] = useState(null);
 
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
-  const revenues = revenueData.length > 0 ? revenueData : [120000, 145000, 110000, 165000, 190000, 215000];
-  const expenses = expenseData.length > 0 ? expenseData : [65000, 72000, 58000, 80000, 75000, 85000];
+  const activeRevenues = revenueData && revenueData.length > 0 ? revenueData : revenues;
+  const activeExpenses = expenseData && expenseData.length > 0 ? expenseData : expenses;
 
   const width = 600;
   const height = 260;
   const padding = 50;
 
-  const allVals = [...revenues, ...expenses];
-  const maxVal = Math.max(...allVals) * 1.15;
+  const allVals = [...activeRevenues, ...activeExpenses];
+  const rawMax = Math.max(...allVals, 0);
+  const maxVal = rawMax > 0 ? rawMax * 1.15 : 10000;
 
   const getPoints = (data) =>
     data.map((val, idx) => ({
-      x: padding + (idx * (width - padding * 2)) / (data.length - 1),
-      y: height - padding - ((val) * (height - padding * 2)) / maxVal,
-      val,
+      x: padding + (idx * (width - padding * 2)) / Math.max(data.length - 1, 1),
+      y: height - padding - ((val || 0) * (height - padding * 2)) / maxVal,
+      val: val || 0,
     }));
 
-  const revPoints = getPoints(revenues);
-  const expPoints = getPoints(expenses);
+  const revPoints = getPoints(activeRevenues);
+  const expPoints = getPoints(activeExpenses);
 
   const revLine = smoothLine(revPoints);
   const expLine = smoothLine(expPoints);
 
   const makeArea = (points, line) => {
-    if (points.length < 2) return '';
+    if (points.length < 2 || !line) return '';
     return `${line} L ${points[points.length - 1].x} ${height - padding} L ${points[0].x} ${height - padding} Z`;
   };
 
@@ -90,7 +96,7 @@ export const RevenueExpenseChart = ({ revenueData = [], expenseData = [] }) => {
 
         {/* X labels */}
         {months.map((m, idx) => {
-          const x = padding + (idx * (width - padding * 2)) / (months.length - 1);
+          const x = padding + (idx * (width - padding * 2)) / Math.max(months.length - 1, 1);
           return (
             <text key={m} x={x} y={height - padding + 22} fill="var(--text-secondary)" fontSize="10" textAnchor="middle" fontFamily="var(--font-sans)">
               {m}
@@ -140,7 +146,7 @@ export const RevenueExpenseChart = ({ revenueData = [], expenseData = [] }) => {
         <div style={{
           position: 'absolute',
           top: (hoveredType === 'rev' ? revPoints : expPoints)[hoveredIdx].y - 48,
-          left: (hoveredType === 'rev' ? revPoints : expPoints)[hoveredIdx].x - 55,
+          left: Math.max(10, (hoveredType === 'rev' ? revPoints : expPoints)[hoveredIdx].x - 55),
           background: 'rgba(15,15,15,0.95)',
           border: `1px solid ${hoveredType === 'rev' ? 'var(--gold-border)' : 'rgba(231,76,60,0.4)'}`,
           borderRadius: '6px',
@@ -161,20 +167,24 @@ export const RevenueExpenseChart = ({ revenueData = [], expenseData = [] }) => {
 
 
 // ─── 2. MONTHLY PROFIT BAR CHART ─────────────────────────────────────────────
-export const MonthlyProfitChart = ({ data = [] }) => {
+export const MonthlyProfitChart = ({
+  months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+  profits = [0, 0, 0, 0, 0, 0],
+  data
+}) => {
   const [hoveredBar, setHoveredBar] = useState(null);
 
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
-  const values = data.length > 0 ? data : [55000, 73000, 52000, 85000, 115000, 130000];
+  const values = data && data.length > 0 ? data : profits;
 
   const width = 500;
   const height = 250;
   const padding = 50;
 
-  const maxVal = Math.max(...values) * 1.15;
+  const rawMax = Math.max(...values, 0);
+  const maxVal = rawMax > 0 ? rawMax * 1.15 : 10000;
   const barWidth = 32;
   const chartWidth = width - padding * 2;
-  const step = chartWidth / months.length;
+  const step = chartWidth / Math.max(months.length, 1);
 
   return (
     <div style={{ position: 'relative', width: '100%' }}>
@@ -213,7 +223,7 @@ export const MonthlyProfitChart = ({ data = [] }) => {
         {/* Bars */}
         {values.map((val, idx) => {
           const x = padding + (idx * step) + (step / 2) - (barWidth / 2);
-          const barHeight = ((val) * (height - padding * 2)) / maxVal;
+          const barHeight = ((Math.max(0, val)) * (height - padding * 2)) / maxVal;
           const y = height - padding - barHeight;
           const isHovered = hoveredBar === idx;
 
@@ -221,7 +231,7 @@ export const MonthlyProfitChart = ({ data = [] }) => {
             <g key={idx}>
               <rect
                 x={x} y={y}
-                width={barWidth} height={barHeight}
+                width={barWidth} height={Math.max(barHeight, 2)}
                 rx="4"
                 fill={isHovered ? 'var(--gold-primary)' : 'url(#profitBarGrad)'}
                 opacity={isHovered ? 1 : 0.8}
@@ -245,26 +255,30 @@ export const MonthlyProfitChart = ({ data = [] }) => {
 
 
 // ─── 3. APPOINTMENT TREND ────────────────────────────────────────────────────
-export const AppointmentTrendChart = ({ data = [] }) => {
+export const AppointmentTrendChart = ({
+  days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+  appointments = [0, 0, 0, 0, 0, 0, 0],
+  data
+}) => {
   const [hoveredIdx, setHoveredIdx] = useState(null);
 
-  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-  const values = data.length > 0 ? data : [12, 18, 15, 22, 28, 35, 20];
+  const values = data && data.length > 0 ? data : appointments;
 
   const width = 500;
   const height = 220;
   const padding = 45;
 
-  const maxVal = Math.max(...values) * 1.2;
+  const rawMax = Math.max(...values, 0);
+  const maxVal = rawMax > 0 ? rawMax * 1.2 : 10;
 
   const points = values.map((val, idx) => ({
-    x: padding + (idx * (width - padding * 2)) / (values.length - 1),
-    y: height - padding - ((val) * (height - padding * 2)) / maxVal,
-    val,
+    x: padding + (idx * (width - padding * 2)) / Math.max(values.length - 1, 1),
+    y: height - padding - ((val || 0) * (height - padding * 2)) / maxVal,
+    val: val || 0,
   }));
 
   const line = smoothLine(points);
-  const area = `${line} L ${points[points.length - 1].x} ${height - padding} L ${points[0].x} ${height - padding} Z`;
+  const area = points.length > 1 && line ? `${line} L ${points[points.length - 1].x} ${height - padding} L ${points[0].x} ${height - padding} Z` : '';
 
   return (
     <div style={{ position: 'relative', width: '100%' }}>
@@ -292,7 +306,7 @@ export const AppointmentTrendChart = ({ data = [] }) => {
 
         {/* X labels */}
         {days.map((d, idx) => {
-          const x = padding + (idx * (width - padding * 2)) / (days.length - 1);
+          const x = padding + (idx * (width - padding * 2)) / Math.max(days.length - 1, 1);
           return (
             <text key={d} x={x} y={height - padding + 20} fill="var(--text-secondary)" fontSize="10" textAnchor="middle" fontFamily="var(--font-sans)">
               {d}
@@ -300,8 +314,8 @@ export const AppointmentTrendChart = ({ data = [] }) => {
           );
         })}
 
-        <path d={area} fill="url(#apptAreaGrad)" />
-        <path d={line} fill="none" stroke="#3498db" strokeWidth="2.5" strokeLinecap="round" />
+        {area && <path d={area} fill="url(#apptAreaGrad)" />}
+        {line && <path d={line} fill="none" stroke="#3498db" strokeWidth="2.5" strokeLinecap="round" />}
 
         {points.map((p, idx) => (
           <circle
@@ -321,7 +335,7 @@ export const AppointmentTrendChart = ({ data = [] }) => {
         <div style={{
           position: 'absolute',
           top: points[hoveredIdx].y - 42,
-          left: points[hoveredIdx].x - 40,
+          left: Math.max(10, points[hoveredIdx].x - 40),
           background: 'rgba(15,15,15,0.95)',
           border: '1px solid rgba(52,152,219,0.4)',
           borderRadius: '6px',
@@ -342,26 +356,30 @@ export const AppointmentTrendChart = ({ data = [] }) => {
 
 
 // ─── 4. CUSTOMER GROWTH ──────────────────────────────────────────────────────
-export const CustomerGrowthChart = ({ data = [] }) => {
+export const CustomerGrowthChart = ({
+  months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+  customers = [0, 0, 0, 0, 0, 0],
+  data
+}) => {
   const [hoveredIdx, setHoveredIdx] = useState(null);
 
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
-  const values = data.length > 0 ? data : [45, 62, 78, 95, 118, 142];
+  const values = data && data.length > 0 ? data : customers;
 
   const width = 500;
   const height = 220;
   const padding = 45;
 
-  const maxVal = Math.max(...values) * 1.2;
+  const rawMax = Math.max(...values, 0);
+  const maxVal = rawMax > 0 ? rawMax * 1.2 : 10;
 
   const points = values.map((val, idx) => ({
-    x: padding + (idx * (width - padding * 2)) / (values.length - 1),
-    y: height - padding - ((val) * (height - padding * 2)) / maxVal,
-    val,
+    x: padding + (idx * (width - padding * 2)) / Math.max(values.length - 1, 1),
+    y: height - padding - ((val || 0) * (height - padding * 2)) / maxVal,
+    val: val || 0,
   }));
 
   const line = smoothLine(points);
-  const area = `${line} L ${points[points.length - 1].x} ${height - padding} L ${points[0].x} ${height - padding} Z`;
+  const area = points.length > 1 && line ? `${line} L ${points[points.length - 1].x} ${height - padding} L ${points[0].x} ${height - padding} Z` : '';
 
   return (
     <div style={{ position: 'relative', width: '100%' }}>
@@ -387,7 +405,7 @@ export const CustomerGrowthChart = ({ data = [] }) => {
         })}
 
         {months.map((m, idx) => {
-          const x = padding + (idx * (width - padding * 2)) / (months.length - 1);
+          const x = padding + (idx * (width - padding * 2)) / Math.max(months.length - 1, 1);
           return (
             <text key={m} x={x} y={height - padding + 20} fill="var(--text-secondary)" fontSize="10" textAnchor="middle" fontFamily="var(--font-sans)">
               {m}
@@ -395,8 +413,8 @@ export const CustomerGrowthChart = ({ data = [] }) => {
           );
         })}
 
-        <path d={area} fill="url(#custAreaGrad)" />
-        <path d={line} fill="none" stroke="#2ecc71" strokeWidth="2.5" strokeLinecap="round" />
+        {area && <path d={area} fill="url(#custAreaGrad)" />}
+        {line && <path d={line} fill="none" stroke="#2ecc71" strokeWidth="2.5" strokeLinecap="round" />}
 
         {points.map((p, idx) => (
           <circle
@@ -416,7 +434,7 @@ export const CustomerGrowthChart = ({ data = [] }) => {
         <div style={{
           position: 'absolute',
           top: points[hoveredIdx].y - 42,
-          left: points[hoveredIdx].x - 50,
+          left: Math.max(10, points[hoveredIdx].x - 50),
           background: 'rgba(15,15,15,0.95)',
           border: '1px solid rgba(46,204,113,0.4)',
           borderRadius: '6px',
@@ -437,12 +455,19 @@ export const CustomerGrowthChart = ({ data = [] }) => {
 
 
 // ─── 5. POPULAR SERVICES DONUT ───────────────────────────────────────────────
-export const PopularServicesDonut = ({ data = [] }) => {
+export const PopularServicesDonut = ({
+  labels = ['Haircut', 'Hair Color', 'Facial', 'Spa & Massage', 'Bridal'],
+  values = [0, 0, 0, 0, 0],
+  data
+}) => {
   const [hoveredSeg, setHoveredSeg] = useState(null);
 
-  const categories = ['Haircut', 'Hair Color', 'Facial', 'Spa & Massage', 'Bridal'];
-  const values = data.length > 0 ? data : [32, 24, 18, 15, 11];
-  const colors = ['#708238', '#8b9b6a', '#3498db', '#2ecc71', '#9b59b6'];
+  const categories = labels && labels.length > 0 ? labels : ['Haircut', 'Hair Color', 'Facial', 'Spa & Massage', 'Bridal'];
+  const activeValues = data && data.length > 0 ? data : values;
+  const colors = ['#708238', '#8b9b6a', '#3498db', '#2ecc71', '#9b59b6', '#e67e22', '#e74c3c'];
+
+  const total = activeValues.reduce((sum, v) => sum + (Number(v) || 0), 0);
+  const percentages = activeValues.map(v => total > 0 ? Math.round(((Number(v) || 0) / total) * 100) : 0);
 
   const cx = 100;
   const cy = 100;
@@ -456,7 +481,8 @@ export const PopularServicesDonut = ({ data = [] }) => {
     <div className="donut-chart-wrapper">
       <svg width="200" height="200" viewBox="0 0 200 200">
         <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(255,255,255,0.03)" strokeWidth={strokeWidth} />
-        {values.map((pct, idx) => {
+        {percentages.map((pct, idx) => {
+          if (pct === 0) return null;
           const strokeDashoffset = circumference - (pct / 100) * circumference;
           const rotation = (accumulatedPercent / 100) * 360;
           accumulatedPercent += pct;
@@ -467,7 +493,7 @@ export const PopularServicesDonut = ({ data = [] }) => {
               key={idx}
               cx={cx} cy={cy} r={r}
               fill="none"
-              stroke={colors[idx]}
+              stroke={colors[idx % colors.length]}
               strokeWidth={isHovered ? strokeWidth + 5 : strokeWidth}
               strokeDasharray={circumference}
               strokeDashoffset={strokeDashoffset}
@@ -481,10 +507,10 @@ export const PopularServicesDonut = ({ data = [] }) => {
 
         {/* Center */}
         <text x={cx} y={cy - 4} textAnchor="middle" fill="var(--text-primary)" fontSize="12" fontWeight="bold" fontFamily="var(--font-sans)">
-          {hoveredSeg !== null ? `${values[hoveredSeg]}%` : 'Services'}
+          {hoveredSeg !== null && percentages[hoveredSeg] !== undefined ? `${percentages[hoveredSeg]}%` : `${total}`}
         </text>
         <text x={cx} y={cy + 12} textAnchor="middle" fill="var(--text-muted)" fontSize="8.5" fontFamily="var(--font-sans)">
-          {hoveredSeg !== null ? categories[hoveredSeg] : 'Share Ratio'}
+          {hoveredSeg !== null && categories[hoveredSeg] ? categories[hoveredSeg] : 'Total Serviced'}
         </text>
       </svg>
 
@@ -507,14 +533,16 @@ export const PopularServicesDonut = ({ data = [] }) => {
           >
             <span style={{
               width: 10, height: 10,
-              background: colors[i],
+              background: colors[i % colors.length],
               borderRadius: '2px',
               display: 'inline-block',
-              boxShadow: hoveredSeg === i ? `0 0 6px ${colors[i]}` : 'none',
+              boxShadow: hoveredSeg === i ? `0 0 6px ${colors[i % colors.length]}` : 'none',
               transition: 'box-shadow 0.2s ease'
             }} />
             <span style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-sans)' }}>{c}</span>
-            <span style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-sans)', marginLeft: 'auto', fontWeight: 600 }}>{values[i]}%</span>
+            <span style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-sans)', marginLeft: 'auto', fontWeight: 600 }}>
+              {percentages[i] !== undefined ? `${percentages[i]}%` : `${activeValues[i] || 0}`}
+            </span>
           </div>
         ))}
       </div>

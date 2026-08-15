@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   TrendingUp, Users, Calendar, AlertTriangle,
   CreditCard, Sparkles, UserPlus, FileText, ArrowUpRight,
@@ -17,6 +17,7 @@ import {
   PopularServicesDonut
 } from '../components/DashboardCharts';
 import StaffDashboard from '../components/StaffDashboard';
+import { formatCurrency, formatPercent, formatNumber } from '../utils/formatters';
 
 // ─── KPI CARD COMPONENT ──────────────────────────────────────────────────────
 const KpiCard = ({ title, value, subtitle, icon: Icon, iconColor, trend, trendUp, accentBorder, glowColor, delay = 0 }) => (
@@ -70,30 +71,51 @@ const SectionHeader = ({ icon: Icon, title, action, actionLabel, actionIcon: Act
 // MAIN DASHBOARD COMPONENT
 // ═══════════════════════════════════════════════════════════════════════════════
 const Dashboard = ({ setActivePage }) => {
-  const { currentUser, currentBranch, tenantFilter, db, updateAppointmentStatus, addAppointment, addNotification, addToast } = useApp();
+  const { currentUser, currentBranch, tenantFilter, db, updateAppointmentStatus, addAppointment, addNotification, addToast, fetchDashboardStats } = useApp();
 
   // Exploration / Client States
-  const [activeTab, setActiveTab] = React.useState('my-desk');
-  const [selectedSalon, setSelectedSalon] = React.useState(null);
-  const [selectedService, setSelectedService] = React.useState(null);
-  const [searchQuery, setSearchQuery] = React.useState('');
-  const [showBookingModal, setShowBookingModal] = React.useState(false);
+  const [activeTab, setActiveTab] = useState('my-desk');
+  const [selectedSalon, setSelectedSalon] = useState(null);
+  const [selectedService, setSelectedService] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showBookingModal, setShowBookingModal] = useState(false);
+
+  // Live Backend Stats State
+  const [backendStats, setBackendStats] = useState(null);
+  const [loadingStats, setLoadingStats] = useState(false);
 
   // Booking Form States
-  const [bookingBranchId, setBookingBranchId] = React.useState('');
-  const [bookingStaffId, setBookingStaffId] = React.useState('');
-  const [bookingDate, setBookingDate] = React.useState('');
-  const [bookingTime, setBookingTime] = React.useState('10:00');
-  const [bookingLoading, setBookingLoading] = React.useState(false);
-  const [bookingSuccess, setBookingSuccess] = React.useState('');
+  const [bookingBranchId, setBookingBranchId] = useState('');
+  const [bookingStaffId, setBookingStaffId] = useState('');
+  const [bookingDate, setBookingDate] = useState('');
+  const [bookingTime, setBookingTime] = useState('10:00');
+  const [bookingLoading, setBookingLoading] = useState(false);
+  const [bookingSuccess, setBookingSuccess] = useState('');
+
+  // Fetch live stats on mount or when active branch changes
+  useEffect(() => {
+    let isMounted = true;
+    const loadStats = async () => {
+      if (fetchDashboardStats) {
+        setLoadingStats(true);
+        const data = await fetchDashboardStats(currentBranch?._id || null);
+        if (isMounted && data) {
+          setBackendStats(data);
+        }
+        if (isMounted) setLoadingStats(false);
+      }
+    };
+    loadStats();
+    return () => { isMounted = false; };
+  }, [currentBranch?._id, db.invoices?.length, db.expenses?.length, db.appointments?.length]);
 
   // Filter entities by tenant (salonId) and active branch
-  const salonInvoices = tenantFilter(db.invoices);
-  const salonAppointments = tenantFilter(db.appointments);
-  const salonExpenses = tenantFilter(db.expenses);
-  const salonCustomers = tenantFilter(db.customers);
-  const salonProducts = tenantFilter(db.products);
-  const salonStaff = tenantFilter(db.staff);
+  const salonInvoices = tenantFilter(db.invoices || []);
+  const salonAppointments = tenantFilter(db.appointments || []);
+  const salonExpenses = tenantFilter(db.expenses || []);
+  const salonCustomers = tenantFilter(db.customers || []);
+  const salonProducts = tenantFilter(db.products || []);
+  const salonStaff = tenantFilter(db.staff || []);
 
   // Branch filter helper
   const matchBranch = (itemBranchId) => {
@@ -107,93 +129,74 @@ const Dashboard = ({ setActivePage }) => {
   const branchExpenses = salonExpenses.filter(e => matchBranch(e.branchId));
 
   // Date ranges
-  const today = new Date().toLocaleDateString('en-CA');
-  const getLatestDataMonthStr = () => {
-    const dates = [
-      ...branchInvoices.map(i => i.createdAt ? i.createdAt.split('T')[0] : ''),
-      ...branchExpenses.map(e => e.date ? (e.date.includes('T') ? e.date.split('T')[0] : e.date) : '')
-    ].filter(Boolean);
-    if (dates.length === 0) {
-      const today = new Date();
-      today.setDate(1);
-      return today.toLocaleDateString('en-CA');
-    }
-    dates.sort();
-    const latestDate = new Date(dates[dates.length - 1]);
-    latestDate.setDate(1);
-    return latestDate.toLocaleDateString('en-CA');
+  const now = new Date();
+  const currentMonthName = now.toLocaleString('default', { month: 'long' });
+
+  const isToday = (dateVal) => {
+    if (!dateVal) return false;
+    const d = new Date(dateVal);
+    return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
   };
 
-  const startOfMonthStr = getLatestDataMonthStr();
-  const currentMonthName = new Date(startOfMonthStr).toLocaleString('default', { month: 'long' });
+  const isThisMonth = (dateVal) => {
+    if (!dateVal) return false;
+    const d = new Date(dateVal);
+    return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+  };
 
   // ────────────────────────────────────────────────────────────────────────────
-  // CALCULATIONS (PROFIT & LOSS ENGINE)
+  // CALCULATIONS (AUTHORITATIVE P&L WITH LIVE BACKEND PARITY)
   // ────────────────────────────────────────────────────────────────────────────
+  const todayRevenue = backendStats?.todayRevenue !== undefined
+    ? backendStats.todayRevenue
+    : branchInvoices.filter(i => isToday(i.createdAt || i.date) && i.paymentStatus !== 'Refunded').reduce((sum, i) => sum + (Number(i.finalAmount) || 0), 0);
 
-  // Today's Revenue
-  const todayRevenue = branchInvoices
-    .filter(i => i.createdAt && i.createdAt.startsWith(today))
-    .reduce((sum, i) => sum + i.finalAmount, 0);
+  const monthlyRevenue = backendStats?.monthlyRevenue !== undefined
+    ? backendStats.monthlyRevenue
+    : branchInvoices.filter(i => isThisMonth(i.createdAt || i.date) && i.paymentStatus !== 'Refunded').reduce((sum, i) => sum + (Number(i.finalAmount) || 0), 0);
 
-  // Monthly Revenue
-  const monthlyRevenue = branchInvoices
-    .filter(i => i.createdAt && i.createdAt >= startOfMonthStr)
-    .reduce((sum, i) => sum + i.finalAmount, 0);
+  const todayExpenses = backendStats?.todayExpenses !== undefined
+    ? backendStats.todayExpenses
+    : branchExpenses.filter(e => isToday(e.date || e.createdAt)).reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
 
-  // Today's Expenses
-  const todayExpenses = branchExpenses
-    .filter(e => {
-      if (!e.date) return false;
-      const expDateStr = e.date.includes('T') ? e.date.split('T')[0] : e.date;
-      return expDateStr === today;
-    })
-    .reduce((sum, e) => sum + e.amount, 0);
+  const monthlyExpenses = backendStats?.monthlyExpenses !== undefined
+    ? backendStats.monthlyExpenses
+    : branchExpenses.filter(e => isThisMonth(e.date || e.createdAt)).reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
 
-  // Monthly Expenses
-  const monthlyExpenses = branchExpenses
-    .filter(e => {
-      if (!e.date) return false;
-      const expDateStr = e.date.includes('T') ? e.date.split('T')[0] : e.date;
-      return expDateStr >= startOfMonthStr;
-    })
-    .reduce((sum, e) => sum + e.amount, 0);
+  const todayProfit = backendStats?.todayProfit !== undefined
+    ? backendStats.todayProfit
+    : (todayRevenue - todayExpenses);
 
-  // Material costs
-  let monthlyMaterialCost = 0;
-  branchInvoices.forEach(inv => {
-    inv.services.forEach(item => {
-      const originalServ = db.services.find(s => s._id === item.serviceId);
-      if (originalServ) {
-        monthlyMaterialCost += (originalServ.materialCost || 0) * (item.quantity || 1);
-      }
-    });
-  });
+  const netProfit = backendStats?.netProfit !== undefined
+    ? backendStats.netProfit
+    : (monthlyRevenue - monthlyExpenses);
 
-  const todayProfit = todayRevenue - todayExpenses;
-  const netProfit = monthlyRevenue - monthlyExpenses - monthlyMaterialCost;
+  const profitMargin = backendStats?.profitMargin !== undefined
+    ? backendStats.profitMargin
+    : (monthlyRevenue > 0 ? Number(((netProfit / monthlyRevenue) * 100).toFixed(1)) : 0);
 
   // Today's Appointments
-  const todayAppointments = branchAppointments.filter(a => a.date === today);
-  const todayAppointmentCount = todayAppointments.length;
+  const todayAppointments = branchAppointments.filter(a => isToday(a.date));
+  const todayAppointmentCount = backendStats?.todayAppointments !== undefined ? backendStats.todayAppointments : todayAppointments.length;
+  const todayCompletedCount = backendStats?.todayCompletedAppointments !== undefined ? backendStats.todayCompletedAppointments : todayAppointments.filter(a => a.status === 'Completed').length;
 
   // Total Customers
-  const totalCustomers = salonCustomers.length;
+  const totalCustomers = backendStats?.totalCustomers !== undefined ? backendStats.totalCustomers : salonCustomers.length;
 
   // New Customers (this month)
-  const newCustomersThisMonth = salonCustomers.filter(c => {
-    if (!c.createdAt) return false;
-    return c.createdAt >= startOfMonthStr;
-  }).length;
+  const newCustomersThisMonth = salonCustomers.filter(c => isThisMonth(c.createdAt)).length;
 
   // Active Staff
-  const activeStaffCount = salonStaff.filter(s => s.status === 'Active' || !s.status).length;
+  const activeStaffCount = backendStats?.activeStaffCount !== undefined ? backendStats.activeStaffCount : salonStaff.filter(s => s.status === 'Active' || !s.status).length;
 
   // Stock Warnings
-  const lowStockAlerts = salonProducts.filter(p => p.quantity <= p.lowStockThreshold);
+  const lowStockAlerts = salonProducts.filter(p => p.quantity <= (p.lowStockThreshold || 5));
 
   // Active Memberships
-  const activeMemberships = salonCustomers.filter(c => c.membershipLevel !== 'None');
+  const activeMemberships = salonCustomers.filter(c => c.membershipLevel && c.membershipLevel !== 'None');
+
+  // Chart datasets from backend trends or local aggregates
+  const trends = backendStats?.trends || {};
 
   // Widget Lists
   const upcomingAppointments = branchAppointments
@@ -1047,8 +1050,8 @@ const Dashboard = ({ setActivePage }) => {
       <div className="dash-kpi-grid">
         <KpiCard
           title="Today's Revenue"
-          value={`₹${todayRevenue.toLocaleString()}`}
-          subtitle="Updated live"
+          value={formatCurrency(todayRevenue)}
+          subtitle="Updated live from database"
           icon={TrendingUp}
           iconColor="var(--gold-primary)"
           glowColor="rgba(112,130,56,0.2)"
@@ -1059,19 +1062,19 @@ const Dashboard = ({ setActivePage }) => {
         />
         <KpiCard
           title="Today's Profit"
-          value={`₹${todayProfit.toLocaleString()}`}
-          subtitle={`Net after ₹${todayExpenses.toLocaleString()} expenses`}
+          value={formatCurrency(todayProfit)}
+          subtitle={`Net after ${formatCurrency(todayExpenses)} expenses`}
           icon={DollarSign}
           iconColor="#2ecc71"
           glowColor="rgba(46,204,113,0.15)"
           trend={8.3}
-          trendUp={true}
+          trendUp={todayProfit >= 0}
           accentBorder="#2ecc71"
           delay={50}
         />
         <KpiCard
           title="Today's Expenses"
-          value={`₹${todayExpenses.toLocaleString()}`}
+          value={formatCurrency(todayExpenses)}
           subtitle="Salary, Rent & Utilities"
           icon={Receipt}
           iconColor="var(--accent-red)"
@@ -1082,8 +1085,8 @@ const Dashboard = ({ setActivePage }) => {
         />
         <KpiCard
           title="Today's Appointments"
-          value={todayAppointmentCount}
-          subtitle={`${todayAppointments.filter(a => a.status === 'Completed').length} completed`}
+          value={formatNumber(todayAppointmentCount)}
+          subtitle={`${todayCompletedCount} completed`}
           icon={Calendar}
           iconColor="#3498db"
           glowColor="rgba(52,152,219,0.15)"
@@ -1094,7 +1097,7 @@ const Dashboard = ({ setActivePage }) => {
         />
         <KpiCard
           title="Total Customers"
-          value={totalCustomers}
+          value={formatNumber(totalCustomers)}
           subtitle={`${activeMemberships.length} active members`}
           icon={Users}
           iconColor="#9b59b6"
@@ -1106,7 +1109,7 @@ const Dashboard = ({ setActivePage }) => {
         />
         <KpiCard
           title="New Customers"
-          value={newCustomersThisMonth || totalCustomers}
+          value={formatNumber(newCustomersThisMonth || totalCustomers)}
           subtitle={`Acquired in ${currentMonthName}`}
           icon={UserPlus}
           iconColor="#2ecc71"
@@ -1118,7 +1121,7 @@ const Dashboard = ({ setActivePage }) => {
         />
         <KpiCard
           title="Active Staff"
-          value={activeStaffCount}
+          value={formatNumber(activeStaffCount)}
           subtitle="Currently on roster"
           icon={UserCheck}
           iconColor="var(--gold-primary)"
@@ -1130,7 +1133,7 @@ const Dashboard = ({ setActivePage }) => {
         />
         <KpiCard
           title="Inventory Alerts"
-          value={lowStockAlerts.length}
+          value={formatNumber(lowStockAlerts.length)}
           subtitle={lowStockAlerts.length > 0 ? 'Items need restocking' : 'All items fully stocked'}
           icon={Package}
           iconColor={lowStockAlerts.length > 0 ? 'var(--accent-red)' : 'var(--accent-green)'}
@@ -1147,11 +1150,18 @@ const Dashboard = ({ setActivePage }) => {
       <div className="dash-charts-row">
         <div className="dash-chart-card dash-chart-wide">
           <SectionHeader icon={BarChart3} title="Revenue vs Expenses" action={() => setActivePage('analytics')} actionLabel="View Analytics" actionIcon={ArrowUpRight} />
-          <RevenueExpenseChart />
+          <RevenueExpenseChart
+            months={trends.revenueExpenseChartData?.months}
+            revenues={trends.revenueExpenseChartData?.revenues}
+            expenses={trends.revenueExpenseChartData?.expenses}
+          />
         </div>
         <div className="dash-chart-card">
           <SectionHeader icon={TrendingUp} title="Monthly Profit" />
-          <MonthlyProfitChart />
+          <MonthlyProfitChart
+            months={trends.monthlyProfitChartData?.months}
+            profits={trends.monthlyProfitChartData?.profits}
+          />
         </div>
       </div>
 
@@ -1160,15 +1170,24 @@ const Dashboard = ({ setActivePage }) => {
       <div className="dash-charts-row-3">
         <div className="dash-chart-card">
           <SectionHeader icon={Calendar} title="Appointment Trend" action={() => setActivePage('appointments')} actionLabel="Schedule" actionIcon={ArrowUpRight} />
-          <AppointmentTrendChart />
+          <AppointmentTrendChart
+            days={trends.appointmentTrendChartData?.days}
+            appointments={trends.appointmentTrendChartData?.appointments}
+          />
         </div>
         <div className="dash-chart-card">
           <SectionHeader icon={Users} title="Customer Growth" action={() => setActivePage('customers')} actionLabel="View All" actionIcon={ArrowUpRight} />
-          <CustomerGrowthChart />
+          <CustomerGrowthChart
+            months={trends.customerGrowthChartData?.months}
+            customers={trends.customerGrowthChartData?.customers}
+          />
         </div>
         <div className="dash-chart-card">
           <SectionHeader icon={Sparkles} title="Popular Services" />
-          <PopularServicesDonut />
+          <PopularServicesDonut
+            labels={trends.popularServicesData?.labels}
+            values={trends.popularServicesData?.values}
+          />
         </div>
       </div>
 

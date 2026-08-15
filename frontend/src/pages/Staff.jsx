@@ -6,6 +6,7 @@ import {
   MessageSquare, Briefcase, Eye, EyeOff, Sparkles, Camera, Upload, Image as ImageIcon
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { formatCurrency, formatPercent, formatNumber } from '../utils/formatters';
 
 const PRESET_STAFF_AVATARS = [
   'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80',

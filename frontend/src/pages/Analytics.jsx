@@ -7,6 +7,7 @@ import {
   Filter, Layers, Bookmark, AlertCircle
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { formatCurrency, formatPercent, formatNumber } from '../utils/formatters';
 
 // Helper for live material & commission calculation
 const calculateServiceProfitability = (price, cost, commissionPct = 10, taxPct = 18, discountAmt = 0, allocatedCostPct = 5) => {
@@ -89,8 +90,10 @@ const Analytics = () => {
   const { tenantFilter, db, fetchFinancialAnalytics, addToast } = useApp();
   const reportRef = useRef(null);
 
-  // Time Horizon: 'TODAY' (Daily), 'WEEK' (Weekly), 'MONTH' (Monthly), 'YEAR' (Yearly), 'ALL'
+  // Time Horizon: 'TODAY' (Daily), 'WEEK' (Weekly), 'MONTH' (Monthly), 'LAST_MONTH', 'YEAR' (Yearly), 'CUSTOM', 'ALL'
   const [dateHorizon, setDateHorizon] = useState('MONTH');
+  const [customStartDate, setCustomStartDate] = useState('');
+  const [customEndDate, setCustomEndDate] = useState('');
   const [selectedBranchId, setSelectedBranchId] = useState('ALL');
   const [isExportingPDF, setIsExportingPDF] = useState(false);
   const [backendAnalyticsData, setBackendAnalyticsData] = useState(null);
@@ -110,7 +113,7 @@ const Analytics = () => {
     const loadAnalytics = async () => {
       setLoadingBackend(true);
       const bId = selectedBranchId !== 'ALL' ? selectedBranchId : null;
-      const res = await fetchFinancialAnalytics(dateHorizon.toLowerCase(), bId);
+      const res = await fetchFinancialAnalytics(dateHorizon.toLowerCase(), bId, customStartDate, customEndDate);
       if (isMounted && res) {
         setBackendAnalyticsData(res);
       }
@@ -118,7 +121,7 @@ const Analytics = () => {
     };
     loadAnalytics();
     return () => { isMounted = false; };
-  }, [dateHorizon, selectedBranchId, fetchFinancialAnalytics]);
+  }, [dateHorizon, selectedBranchId, customStartDate, customEndDate, fetchFinancialAnalytics]);
 
   // ────────────────────────────────────────────────────────────────────────────
   // CLIENT-SIDE BUSINESS LOGIC ENGINE (FALLBACK / PARALLEL CALCULATION)
@@ -126,21 +129,35 @@ const Analytics = () => {
   const filteredData = useMemo(() => {
     const now = new Date();
     let startDate = null;
+    let endDate = null;
 
     if (dateHorizon === 'TODAY') {
-      startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+      endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
     } else if (dateHorizon === 'WEEK') {
       startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      endDate = new Date();
     } else if (dateHorizon === 'MONTH') {
-      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+      endDate = new Date();
+    } else if (dateHorizon === 'LAST_MONTH') {
+      startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0, 0);
+      endDate = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
     } else if (dateHorizon === 'YEAR') {
-      startDate = new Date(now.getFullYear(), 0, 1);
+      startDate = new Date(now.getFullYear(), 0, 1, 0, 0, 0, 0);
+      endDate = new Date();
+    } else if (dateHorizon === 'CUSTOM' && customStartDate) {
+      startDate = new Date(customStartDate + 'T00:00:00.000Z');
+      endDate = customEndDate ? new Date(customEndDate + 'T23:59:59.999Z') : new Date();
     }
 
     const matchesDate = (dateStr) => {
       if (!startDate || !dateStr) return true;
       const d = new Date(dateStr);
-      return d >= startDate;
+      if (isNaN(d.getTime())) return true;
+      if (startDate && d < startDate) return false;
+      if (endDate && d > endDate) return false;
+      return true;
     };
 
     const matchesBranch = (bId) => {
@@ -149,12 +166,12 @@ const Analytics = () => {
       return String(bid) === String(selectedBranchId);
     };
 
-    const invoices = rawInvoices.filter(i => matchesDate(i.createdAt) && matchesBranch(i.branchId));
+    const invoices = rawInvoices.filter(i => matchesDate(i.createdAt || i.date) && matchesBranch(i.branchId));
     const expenses = rawExpenses.filter(e => matchesDate(e.date || e.createdAt) && matchesBranch(e.branchId));
     const customers = rawCustomers.filter(c => matchesDate(c.createdAt));
 
     return { invoices, expenses, customers };
-  }, [dateHorizon, selectedBranchId, rawInvoices, rawExpenses, rawCustomers]);
+  }, [dateHorizon, customStartDate, customEndDate, selectedBranchId, rawInvoices, rawExpenses, rawCustomers]);
 
   const { invoices, expenses, customers } = filteredData;
 
@@ -170,15 +187,15 @@ const Analytics = () => {
 
     invoices.forEach(inv => {
       if (inv.paymentStatus === 'Refunded' || inv.status === 'Cancelled') {
-        refunds += inv.finalAmount || 0;
+        refunds += Number(inv.finalAmount) || 0;
         return;
       }
       let invGross = 0;
-      (inv.services || []).forEach(s => { invGross += (s.price || 0) * (s.quantity || 1); });
-      (inv.products || []).forEach(p => { invGross += (p.price || 0) * (p.quantity || 1); });
+      (inv.services || []).forEach(s => { invGross += (Number(s.price) || 0) * (Number(s.quantity) || 1); });
+      (inv.products || []).forEach(p => { invGross += (Number(p.price) || 0) * (Number(p.quantity) || 1); });
 
-      grossRevenue += (invGross || inv.finalAmount || 0);
-      discounts += (inv.discount || 0);
+      grossRevenue += (invGross || Number(inv.finalAmount) || 0);
+      discounts += (Number(inv.discount) || 0);
     });
 
     const netRevenue = Math.max(0, grossRevenue - discounts - refunds);
@@ -188,11 +205,11 @@ const Analytics = () => {
       if (inv.paymentStatus !== 'Refunded' && inv.status !== 'Cancelled') {
         (inv.services || []).forEach(item => {
           const srv = services.find(s => String(s._id) === String(item.serviceId) || s.name === item.name);
-          if (srv) productCosts += (srv.materialCost || 0) * (item.quantity || 1);
+          if (srv) productCosts += (Number(srv.materialCost) || 0) * (Number(item.quantity) || 1);
         });
         (inv.products || []).forEach(item => {
           const prod = products.find(p => String(p._id) === String(item.productId) || p.name === item.name);
-          if (prod) productCosts += (prod.purchasePrice || 0) * (item.quantity || 1);
+          if (prod) productCosts += (Number(prod.purchasePrice) || 0) * (Number(item.quantity) || 1);
         });
       }
     });
@@ -202,13 +219,13 @@ const Analytics = () => {
       if (inv.paymentStatus !== 'Refunded' && inv.status !== 'Cancelled') {
         const sid = typeof inv.staffId === 'object' ? inv.staffId?._id : inv.staffId;
         const stMember = staff.find(s => String(s._id) === String(sid));
-        const commPct = stMember ? (stMember.commissionPercentage || 10) : 10;
-        staffCommissions += ((inv.finalAmount || 0) * commPct) / 100;
+        const commPct = stMember ? (Number(stMember.commissionPercentage) || 10) : 10;
+        staffCommissions += ((Number(inv.finalAmount) || 0) * commPct) / 100;
       }
     });
     staffCommissions = Math.round(staffCommissions);
 
-    const operatingExpenses = Math.round(expenses.reduce((sum, e) => sum + (e.amount || 0), 0));
+    const operatingExpenses = Math.round(expenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0));
     const grossProfit = Math.round(netRevenue - productCosts - staffCommissions);
     const netProfit = Math.round(grossProfit - operatingExpenses);
     const profitMargin = netRevenue > 0 ? Math.round((netProfit / netRevenue) * 1000) / 10 : 0;
@@ -235,7 +252,7 @@ const Analytics = () => {
     const map = {};
     expenses.forEach(e => {
       const cat = e.category || 'Other';
-      map[cat] = (map[cat] || 0) + (e.amount || 0);
+      map[cat] = (map[cat] || 0) + (Number(e.amount) || 0);
     });
     return map;
   }, [backendAnalyticsData, expenses]);
@@ -262,41 +279,48 @@ const Analytics = () => {
 
     invoices.forEach(inv => {
       if (inv.paymentStatus !== 'Refunded' && inv.status !== 'Cancelled') {
-        (inv.services || []).forEach(item => {
-          const sid = String(item.serviceId);
-          let srvRec = reportMap[sid];
-          if (!srvRec) {
-            const found = services.find(s => s.name === item.name);
-            if (found) srvRec = reportMap[String(found._id)];
-          }
-          if (srvRec) {
-            const qty = item.quantity || 1;
-            const rev = (item.price || 0) * qty;
-            const srvObj = services.find(s => String(s._id) === String(srvRec.id));
-            const matCost = (srvObj?.materialCost || 0) * qty;
-            const comm = (rev * 10) / 100;
+        const sid = typeof inv.staffId === 'object' ? inv.staffId?._id : inv.staffId;
+        const stMember = staff.find(s => String(s._id) === String(sid));
+        const commPct = stMember ? (Number(stMember.commissionPercentage) || 10) : 10;
 
-            srvRec.volume += qty;
-            srvRec.revenue += rev;
-            srvRec.productCost += matCost;
-            srvRec.staffCommission += comm;
-            srvRec.netProfit += (rev - matCost - comm);
+        (inv.services || []).forEach(item => {
+          const sId = String(item.serviceId);
+          if (reportMap[sId]) {
+            const qty = Number(item.quantity) || 1;
+            const rev = (Number(item.price) || 0) * qty;
+            const srv = services.find(s => String(s._id) === sId);
+            const cost = (Number(srv?.materialCost) || 0) * qty;
+            const comm = (rev * commPct) / 100;
+
+            reportMap[sId].volume += qty;
+            reportMap[sId].revenue += rev;
+            reportMap[sId].productCost += cost;
+            reportMap[sId].staffCommission += comm;
+            reportMap[sId].netProfit += (rev - cost - comm);
           }
         });
       }
     });
 
     return Object.values(reportMap).sort((a, b) => b.revenue - a.revenue);
-  }, [backendAnalyticsData, services, invoices]);
+  }, [backendAnalyticsData, services, invoices, staff]);
 
-  // 4. Staff Revenue Leaderboard
+  // 4. Staff Revenue & Performance Matrix
   const staffRevenue = useMemo(() => {
     if (backendAnalyticsData && backendAnalyticsData.staffRevenue) {
       return backendAnalyticsData.staffRevenue;
     }
+
     const map = {};
-    staff.forEach(st => {
-      map[String(st._id)] = { id: st._id, name: st.name, role: st.role, count: 0, revenue: 0, commission: 0 };
+    staff.forEach(s => {
+      map[String(s._id)] = {
+        id: s._id,
+        name: s.name,
+        role: s.role,
+        revenue: 0,
+        commission: 0,
+        count: 0
+      };
     });
 
     invoices.forEach(inv => {
@@ -304,9 +328,9 @@ const Analytics = () => {
         const sid = String(typeof inv.staffId === 'object' ? inv.staffId?._id : inv.staffId);
         if (map[sid]) {
           map[sid].count += 1;
-          map[sid].revenue += inv.finalAmount || 0;
+          map[sid].revenue += Number(inv.finalAmount) || 0;
           const commPct = staff.find(s => String(s._id) === sid)?.commissionPercentage || 10;
-          map[sid].commission += ((inv.finalAmount || 0) * commPct) / 100;
+          map[sid].commission += ((Number(inv.finalAmount) || 0) * commPct) / 100;
         }
       }
     });
@@ -324,8 +348,8 @@ const Analytics = () => {
       const bInvoices = rawInvoices.filter(i => String(typeof i.branchId === 'object' ? i.branchId?._id : i.branchId) === String(br._id));
       const bExpenses = rawExpenses.filter(e => String(typeof e.branchId === 'object' ? e.branchId?._id : e.branchId) === String(br._id));
 
-      const bRev = bInvoices.reduce((sum, i) => sum + (i.finalAmount || 0), 0);
-      const bExp = bExpenses.reduce((sum, e) => sum + (e.amount || 0), 0);
+      const bRev = bInvoices.reduce((sum, i) => sum + (Number(i.finalAmount) || 0), 0);
+      const bExp = bExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
       const bProfit = Math.max(0, bRev - bExp);
       const bAov = bInvoices.length > 0 ? Math.round(bRev / bInvoices.length) : 0;
 
@@ -405,21 +429,21 @@ const Analytics = () => {
     csv += `Time Horizon,${dateHorizon}\n\n`;
 
     csv += "1. CORE FINANCIAL METRICS SUMMARY\n";
-    csv += `Gross Revenue,₹${financialMetrics.grossRevenue}\n`;
-    csv += `Discounts,₹${financialMetrics.discounts}\n`;
-    csv += `Refunds,₹${financialMetrics.refunds}\n`;
-    csv += `Net Revenue,₹${financialMetrics.netRevenue}\n`;
-    csv += `Material/Product Costs,₹${financialMetrics.productCosts}\n`;
-    csv += `Staff Commissions,₹${financialMetrics.staffCommissions}\n`;
-    csv += `Gross Profit,₹${financialMetrics.grossProfit}\n`;
-    csv += `Operating Expenses,₹${financialMetrics.operatingExpenses}\n`;
-    csv += `Net Actual Profit,₹${financialMetrics.netProfit}\n`;
-    csv += `Profit Margin %,${financialMetrics.profitMargin}%\n\n`;
+    csv += `Gross Revenue,${formatCurrency(financialMetrics.grossRevenue)}\n`;
+    csv += `Discounts,${formatCurrency(financialMetrics.discounts)}\n`;
+    csv += `Refunds,${formatCurrency(financialMetrics.refunds)}\n`;
+    csv += `Net Revenue,${formatCurrency(financialMetrics.netRevenue)}\n`;
+    csv += `Material/Product Costs,${formatCurrency(financialMetrics.productCosts)}\n`;
+    csv += `Staff Commissions,${formatCurrency(financialMetrics.staffCommissions)}\n`;
+    csv += `Gross Profit,${formatCurrency(financialMetrics.grossProfit)}\n`;
+    csv += `Operating Expenses,${formatCurrency(financialMetrics.operatingExpenses)}\n`;
+    csv += `Net Actual Profit,${formatCurrency(financialMetrics.netProfit)}\n`;
+    csv += `Profit Margin %,${formatPercent(financialMetrics.profitMargin)}\n\n`;
 
     csv += "2. SERVICE PROFITABILITY BREAKDOWN\n";
     csv += "Service Name,Category,Volume,Revenue (INR),Product Cost (INR),Staff Comm (INR),Net Profit (INR)\n";
     serviceProfitability.forEach(s => {
-      csv += `"${s.name}","${s.category}","${s.volume}","₹${s.revenue}","₹${s.productCost}","₹${s.staffCommission}","₹${s.netProfit}"\n`;
+      csv += `"${s.name}","${s.category}","${s.volume}","${formatCurrency(s.revenue)}","${formatCurrency(s.productCost)}","${formatCurrency(s.staffCommission)}","${formatCurrency(s.netProfit)}"\n`;
     });
 
     const encodedUri = encodeURI(csv);
@@ -443,7 +467,7 @@ const Analytics = () => {
             <BarChart3 size={24} style={{ color: 'var(--gold-primary)' }} /> Financial Analytics & Business Intelligence
           </h1>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-            Strict backend business logic engine: Revenue − Discounts − Refunds − Product Costs − Commissions − Expenses = Net Profit.
+            Authoritative financial calculation engine: Revenue − Discounts − Refunds − Product Costs − Commissions − Expenses = Net Profit.
           </p>
         </div>
 
@@ -478,12 +502,14 @@ const Analytics = () => {
 
 
       {/* ─── TIME HORIZON SELECTION TABS ───────────────────────────────────── */}
-      <div className="crm-workspace-tabs" style={{ marginBottom: '1.5rem' }}>
+      <div className="crm-workspace-tabs" style={{ marginBottom: '1.5rem', flexWrap: 'wrap' }}>
         {[
           { id: 'TODAY', label: 'Daily Report (Today)', icon: Calendar },
           { id: 'WEEK', label: 'Weekly Report (7 Days)', icon: Clock },
           { id: 'MONTH', label: 'Monthly Report (This Month)', icon: BarChart3 },
+          { id: 'LAST_MONTH', label: 'Last Month', icon: Calendar },
           { id: 'YEAR', label: 'Yearly Report (This Year)', icon: Activity },
+          { id: 'CUSTOM', label: 'Custom Date Range', icon: Filter },
           { id: 'ALL', label: 'All-Time Horizon', icon: Layers }
         ].map(horizon => {
           const Icon = horizon.icon;
@@ -500,15 +526,42 @@ const Analytics = () => {
         })}
       </div>
 
+      {/* Custom Date Range Inputs */}
+      {dateHorizon === 'CUSTOM' && (
+        <div className="glass-card" style={{ marginBottom: '1.5rem', display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap', padding: '0.75rem 1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Start Date:</label>
+            <input
+              type="date"
+              value={customStartDate}
+              onChange={e => setCustomStartDate(e.target.value)}
+              className="form-control"
+              style={{ width: 'auto', padding: '0.35rem 0.6rem', fontSize: '0.8rem' }}
+            />
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>End Date:</label>
+            <input
+              type="date"
+              value={customEndDate}
+              onChange={e => setCustomEndDate(e.target.value)}
+              className="form-control"
+              style={{ width: 'auto', padding: '0.35rem 0.6rem', fontSize: '0.8rem' }}
+            />
+          </div>
+          {loadingBackend && <span style={{ fontSize: '0.75rem', color: 'var(--gold-primary)' }}>Recalculating...</span>}
+        </div>
+      )}
 
-      {/* ─── 8 CORE FINANCIAL INDICATOR CARDS (REQUIRED BY PROMPT) ─────────── */}
+
+      {/* ─── 8 CORE FINANCIAL INDICATOR CARDS ──────────────────────────────── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
         
         {/* Metric 1: Gross Revenue */}
         <div className="glass-card">
           <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Gross Revenue (Pre-Discount)</span>
           <h3 style={{ fontSize: '1.5rem', color: 'var(--gold-primary)', marginTop: '0.25rem', fontWeight: '800' }}>
-            ₹{financialMetrics.grossRevenue.toLocaleString()}
+            {formatCurrency(financialMetrics.grossRevenue)}
           </h3>
           <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>From billed invoices & services</span>
         </div>
@@ -517,16 +570,16 @@ const Analytics = () => {
         <div className="glass-card">
           <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Net Revenue (After Discounts & Refunds)</span>
           <h3 style={{ fontSize: '1.5rem', color: '#3498db', marginTop: '0.25rem', fontWeight: '800' }}>
-            ₹{financialMetrics.netRevenue.toLocaleString()}
+            {formatCurrency(financialMetrics.netRevenue)}
           </h3>
-          <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>−₹{financialMetrics.discounts} disc & −₹{financialMetrics.refunds} refunds</span>
+          <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>−{formatCurrency(financialMetrics.discounts)} disc & −{formatCurrency(financialMetrics.refunds)} refunds</span>
         </div>
 
         {/* Metric 3: Operating Expenses */}
         <div className="glass-card">
           <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Operating Expenses</span>
           <h3 style={{ fontSize: '1.5rem', color: '#e74c3c', marginTop: '0.25rem', fontWeight: '800' }}>
-            ₹{financialMetrics.operatingExpenses.toLocaleString()}
+            {formatCurrency(financialMetrics.operatingExpenses)}
           </h3>
           <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>Rent, Salary, Utilities, Vendor bills</span>
         </div>
@@ -535,7 +588,7 @@ const Analytics = () => {
         <div className="glass-card">
           <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Product & Consumable Material Cost</span>
           <h3 style={{ fontSize: '1.5rem', color: '#9b59b6', marginTop: '0.25rem', fontWeight: '800' }}>
-            ₹{financialMetrics.productCosts.toLocaleString()}
+            {formatCurrency(financialMetrics.productCosts)}
           </h3>
           <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>Service recipes + retail stock cost</span>
         </div>
@@ -544,7 +597,7 @@ const Analytics = () => {
         <div className="glass-card">
           <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Staff Commissions</span>
           <h3 style={{ fontSize: '1.5rem', color: '#e67e22', marginTop: '0.25rem', fontWeight: '800' }}>
-            ₹{financialMetrics.staffCommissions.toLocaleString()}
+            {formatCurrency(financialMetrics.staffCommissions)}
           </h3>
           <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>Earned stylist commissions</span>
         </div>
@@ -553,7 +606,7 @@ const Analytics = () => {
         <div className="glass-card">
           <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Gross Profit</span>
           <h3 style={{ fontSize: '1.5rem', color: '#1abc9c', marginTop: '0.25rem', fontWeight: '800' }}>
-            ₹{financialMetrics.grossProfit.toLocaleString()}
+            {formatCurrency(financialMetrics.grossProfit)}
           </h3>
           <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>Net Revenue − Materials − Comm.</span>
         </div>
@@ -562,7 +615,7 @@ const Analytics = () => {
         <div className="glass-card" style={{ borderLeft: financialMetrics.netProfit >= 0 ? '4px solid #2ecc71' : '4px solid var(--accent-red)' }}>
           <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Net Actual Profit</span>
           <h3 style={{ fontSize: '1.6rem', color: financialMetrics.netProfit >= 0 ? '#2ecc71' : 'var(--accent-red)', marginTop: '0.25rem', fontWeight: '800' }}>
-            ₹{financialMetrics.netProfit.toLocaleString()}
+            {formatCurrency(financialMetrics.netProfit)}
           </h3>
           <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>Gross Profit − Operating Expenses</span>
         </div>
@@ -571,7 +624,7 @@ const Analytics = () => {
         <div className="glass-card">
           <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Profit Margin %</span>
           <h3 style={{ fontSize: '1.6rem', color: 'var(--gold-primary)', marginTop: '0.25rem', fontWeight: '800' }}>
-            {financialMetrics.profitMargin}%
+            {formatPercent(financialMetrics.profitMargin)}
           </h3>
           <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>(Net Profit / Net Revenue) * 100</span>
         </div>
@@ -579,7 +632,7 @@ const Analytics = () => {
       </div>
 
 
-      {/* ─── 6 REQUIRED FINANCIAL CHARTS & BREAKDOWN PANELS ────────────────── */}
+      {/* ─── 6 FINANCIAL CHARTS & BREAKDOWN PANELS ─────────────────────────── */}
 
       {/* CHART 1 & CHART 2: REVENUE VS EXPENSES & PROFIT TREND */}
       <div className="grid-2-cols" style={{ marginBottom: '1.5rem' }}>
@@ -598,7 +651,7 @@ const Analytics = () => {
             <div style={{ marginBottom: '1rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '0.35rem' }}>
                 <span style={{ color: 'var(--gold-primary)', fontWeight: '700' }}>📈 Net Revenue</span>
-                <strong>₹{financialMetrics.netRevenue.toLocaleString()}</strong>
+                <strong>{formatCurrency(financialMetrics.netRevenue)}</strong>
               </div>
               <div style={{ width: '100%', height: '14px', background: 'rgba(255,255,255,0.05)', borderRadius: '7px', overflow: 'hidden' }}>
                 <div style={{ width: '100%', height: '100%', background: 'linear-gradient(90deg, var(--gold-primary), #b38f20)' }} />
@@ -608,7 +661,7 @@ const Analytics = () => {
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '0.35rem' }}>
                 <span style={{ color: '#e74c3c', fontWeight: '700' }}>📉 Operating Expenses</span>
-                <strong>₹{financialMetrics.operatingExpenses.toLocaleString()}</strong>
+                <strong>{formatCurrency(financialMetrics.operatingExpenses)}</strong>
               </div>
               <div style={{ width: '100%', height: '14px', background: 'rgba(255,255,255,0.05)', borderRadius: '7px', overflow: 'hidden' }}>
                 <div style={{
@@ -628,19 +681,19 @@ const Analytics = () => {
               <h3 style={{ fontSize: '1.1rem', color: 'var(--text-primary)' }}>2. Net Profit Evolution & Margin %</h3>
               <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Net actual bottom-line profit retention after all deductions</p>
             </div>
-            <span className="gcal-tag" style={{ background: 'rgba(46, 204, 113, 0.15)', color: '#2ecc71' }}>{financialMetrics.profitMargin}% Margin</span>
+            <span className="gcal-tag" style={{ background: 'rgba(46, 204, 113, 0.15)', color: '#2ecc71' }}>{formatPercent(financialMetrics.profitMargin)} Margin</span>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', padding: '1rem', background: 'rgba(255,255,255,0.01)', borderRadius: '8px', border: '1px solid var(--border-light)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Gross Profit (Pre-Expense)</span>
-                <div style={{ fontSize: '1.15rem', color: '#1abc9c', fontWeight: '700' }}>₹{financialMetrics.grossProfit.toLocaleString()}</div>
+                <div style={{ fontSize: '1.15rem', color: '#1abc9c', fontWeight: '700' }}>{formatCurrency(financialMetrics.grossProfit)}</div>
               </div>
               <div style={{ textAlign: 'right' }}>
                 <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Net Bottom-Line Profit</span>
                 <div style={{ fontSize: '1.25rem', color: financialMetrics.netProfit >= 0 ? '#2ecc71' : 'var(--accent-red)', fontWeight: '800' }}>
-                  ₹{financialMetrics.netProfit.toLocaleString()}
+                  {formatCurrency(financialMetrics.netProfit)}
                 </div>
               </div>
             </div>
@@ -660,14 +713,14 @@ const Analytics = () => {
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.75rem' }}>
           {Object.entries(expenseBreakdown).length === 0 ? (
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', italic: 'true' }}>No operating expense entries recorded yet.</span>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>No operating expense entries recorded yet.</span>
           ) : (
             Object.entries(expenseBreakdown).map(([cat, amt]) => {
               const pct = financialMetrics.operatingExpenses > 0 ? Math.round((amt / financialMetrics.operatingExpenses) * 100) : 0;
               return (
                 <div key={cat} style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-light)', padding: '0.85rem', borderRadius: '6px' }}>
                   <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: '600' }}>{cat}</div>
-                  <div style={{ fontSize: '1.15rem', color: 'var(--text-primary)', fontWeight: '700', marginTop: '0.2rem' }}>₹{amt.toLocaleString()}</div>
+                  <div style={{ fontSize: '1.15rem', color: 'var(--text-primary)', fontWeight: '700', marginTop: '0.2rem' }}>{formatCurrency(amt)}</div>
                   <div style={{ fontSize: '0.7rem', color: 'var(--gold-primary)', marginTop: '0.15rem' }}>{pct}% of operating budget</div>
                 </div>
               );
@@ -700,12 +753,12 @@ const Analytics = () => {
                   <td><strong style={{ color: 'var(--text-primary)' }}>{srv.name}</strong></td>
                   <td><span className="gcal-tag">{srv.category}</span></td>
                   <td><strong>{srv.volume} x</strong></td>
-                  <td><strong style={{ color: 'var(--gold-primary)' }}>₹{srv.revenue.toLocaleString()}</strong></td>
-                  <td>₹{srv.productCost.toLocaleString()}</td>
-                  <td>₹{srv.staffCommission.toLocaleString()}</td>
+                  <td><strong style={{ color: 'var(--gold-primary)' }}>{formatCurrency(srv.revenue)}</strong></td>
+                  <td>{formatCurrency(srv.productCost)}</td>
+                  <td>{formatCurrency(srv.staffCommission)}</td>
                   <td>
                     <strong style={{ color: srv.netProfit >= 0 ? '#2ecc71' : 'var(--accent-red)' }}>
-                      ₹{srv.netProfit.toLocaleString()}
+                      {formatCurrency(srv.netProfit)}
                     </strong>
                   </td>
                 </tr>
@@ -731,8 +784,8 @@ const Analytics = () => {
                   <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{st.role} • {st.count} checkouts</div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                  <strong style={{ color: 'var(--gold-primary)', fontSize: '0.95rem' }}>₹{st.revenue.toLocaleString()}</strong>
-                  <div style={{ fontSize: '0.7rem', color: '#e67e22' }}>₹{st.commission.toLocaleString()} comm.</div>
+                  <strong style={{ color: 'var(--gold-primary)', fontSize: '0.95rem' }}>{formatCurrency(st.revenue)}</strong>
+                  <div style={{ fontSize: '0.7rem', color: '#e67e22' }}>{formatCurrency(st.commission)} comm.</div>
                 </div>
               </div>
             ))}
@@ -751,13 +804,13 @@ const Analytics = () => {
                     <strong style={{ color: 'var(--gold-primary)', fontSize: '0.95rem' }}>{br.name}</strong>
                     <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginLeft: '0.5rem' }}>({br.city})</span>
                   </div>
-                  <strong style={{ color: '#2ecc71', fontSize: '1rem' }}>₹{br.profit.toLocaleString()} Net Profit</strong>
+                  <strong style={{ color: '#2ecc71', fontSize: '1rem' }}>{formatCurrency(br.profit)} Net Profit</strong>
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                  <span>Revenue: ₹{br.revenue.toLocaleString()}</span>
-                  <span>Expenses: ₹{br.expenses.toLocaleString()}</span>
-                  <span>Avg Bill: ₹{br.averageBill}</span>
+                  <span>Revenue: {formatCurrency(br.revenue)}</span>
+                  <span>Expenses: {formatCurrency(br.expenses)}</span>
+                  <span>Avg Bill: {formatCurrency(br.averageBill)}</span>
                 </div>
               </div>
             ))}

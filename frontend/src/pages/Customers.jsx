@@ -8,6 +8,7 @@ import {
   ChevronLeft, Send, AlertCircle, Bookmark, Layers3
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { formatCurrency, formatPercent, formatNumber } from '../utils/formatters';
 
 // ─── SAMPLE BEFORE & AFTER TRANSFORMATION SEED DATA ──────────────────────────
 const INITIAL_BEFORE_AFTER = {

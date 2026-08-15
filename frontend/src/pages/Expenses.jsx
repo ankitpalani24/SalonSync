@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { EmptyState, DataGridHeader } from '../components/UIComponents';
+import { formatCurrency, formatPercent, formatNumber } from '../utils/formatters';
 
 const EXPENSE_CATEGORIES = [
   'Rent',
@@ -53,7 +54,9 @@ const Expenses = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('ALL');
   const [paymentMethodFilter, setPaymentMethodFilter] = useState('ALL');
-  const [dateRangeFilter, setDateRangeFilter] = useState('ALL'); // 'TODAY' | 'WEEK' | 'MONTH' | 'YEAR' | 'ALL'
+  const [dateRangeFilter, setDateRangeFilter] = useState('ALL'); // 'TODAY' | 'WEEK' | 'MONTH' | 'LAST_MONTH' | 'YEAR' | 'CUSTOM' | 'ALL'
+  const [customStartDate, setCustomStartDate] = useState('');
+  const [customEndDate, setCustomEndDate] = useState('');
   const [branchFilter, setBranchFilter] = useState('ALL');
 
   // Modals State
@@ -77,22 +80,40 @@ const Expenses = () => {
   const filteredExpenses = useMemo(() => {
     const now = new Date();
     let startDate = null;
+    let endDate = null;
 
     if (dateRangeFilter === 'TODAY') {
-      startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+      endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
     } else if (dateRangeFilter === 'WEEK') {
-      startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6, 0, 0, 0, 0);
+      endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
     } else if (dateRangeFilter === 'MONTH') {
-      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+      endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    } else if (dateRangeFilter === 'LAST_MONTH') {
+      startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0, 0);
+      endDate = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
     } else if (dateRangeFilter === 'YEAR') {
-      startDate = new Date(now.getFullYear(), 0, 1);
+      startDate = new Date(now.getFullYear(), 0, 1, 0, 0, 0, 0);
+      endDate = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
+    } else if (dateRangeFilter === 'CUSTOM') {
+      if (customStartDate) {
+        startDate = new Date(customStartDate);
+        startDate.setHours(0, 0, 0, 0);
+      }
+      if (customEndDate) {
+        endDate = new Date(customEndDate);
+        endDate.setHours(23, 59, 59, 999);
+      }
     }
 
     return rawExpenses.filter(exp => {
-      // Date filter
-      if (startDate) {
+      // Date filter strictly on expense date
+      if (startDate || endDate) {
         const expD = new Date(exp.date || exp.createdAt);
-        if (expD < startDate) return false;
+        if (startDate && expD < startDate) return false;
+        if (endDate && expD > endDate) return false;
       }
 
       // Category filter
@@ -121,7 +142,7 @@ const Expenses = () => {
 
       return true;
     });
-  }, [rawExpenses, dateRangeFilter, categoryFilter, paymentMethodFilter, branchFilter, searchTerm]);
+  }, [rawExpenses, dateRangeFilter, customStartDate, customEndDate, categoryFilter, paymentMethodFilter, branchFilter, searchTerm]);
 
   // ────────────────────────────────────────────────────────────────────────────
   // FINANCIAL REPORTS CALCULATIONS
@@ -323,7 +344,7 @@ const Expenses = () => {
           <div>
             <div className="crm-sum-title">Total Filtered Expenses</div>
             <div className="crm-sum-value" style={{ color: '#e74c3c', fontSize: '1.4rem' }}>
-              ₹{totalExpenseAmount.toLocaleString()}
+              {formatCurrency(totalExpenseAmount)}
             </div>
             <div className="crm-metric-sub">{filteredExpenses.length} expense receipts</div>
           </div>
@@ -339,7 +360,7 @@ const Expenses = () => {
               {topCategory.category}
             </div>
             <div className="crm-metric-sub" style={{ color: '#f39c12', fontWeight: '600' }}>
-              ₹{topCategory.amount.toLocaleString()} ({topCategory.percentage}%)
+              {formatCurrency(topCategory.amount)} ({formatPercent(topCategory.percentage)})
             </div>
           </div>
         </div>
@@ -351,7 +372,7 @@ const Expenses = () => {
           <div>
             <div className="crm-sum-title">Daily Average Spend</div>
             <div className="crm-sum-value" style={{ fontSize: '1.4rem' }}>
-              ₹{dailyReport.length > 0 ? Math.round(totalExpenseAmount / dailyReport.length).toLocaleString() : 0}
+              {formatCurrency(dailyReport.length > 0 ? Math.round(totalExpenseAmount / dailyReport.length) : 0)}
             </div>
             <div className="crm-metric-sub">Across {dailyReport.length} active spend days</div>
           </div>
@@ -397,7 +418,7 @@ const Expenses = () => {
 
 
       {/* ─── SEARCH & MULTI-FILTER BAR ────────────────────────────────────── */}
-      <div className="gcal-filters-bar" style={{ marginBottom: '1.5rem' }}>
+      <div className="gcal-filters-bar" style={{ marginBottom: '1.5rem', flexWrap: 'wrap' }}>
         {/* Search */}
         <div className="gcal-search-box">
           <Search size={15} style={{ color: 'var(--gold-primary)' }} />
@@ -443,9 +464,35 @@ const Expenses = () => {
             <option value="TODAY">Today</option>
             <option value="WEEK">Last 7 Days</option>
             <option value="MONTH">This Month</option>
+            <option value="LAST_MONTH">Last Month</option>
             <option value="YEAR">This Year</option>
+            <option value="CUSTOM">Custom Date Range</option>
           </select>
         </div>
+
+        {/* Custom Start & End Date Pickers */}
+        {dateRangeFilter === 'CUSTOM' && (
+          <>
+            <div className="gcal-filter-item">
+              <label>Start Date:</label>
+              <input
+                type="date"
+                value={customStartDate}
+                onChange={e => setCustomStartDate(e.target.value)}
+                style={{ padding: '0.35rem 0.6rem', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: '0.8rem' }}
+              />
+            </div>
+            <div className="gcal-filter-item">
+              <label>End Date:</label>
+              <input
+                type="date"
+                value={customEndDate}
+                onChange={e => setCustomEndDate(e.target.value)}
+                style={{ padding: '0.35rem 0.6rem', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: '0.8rem' }}
+              />
+            </div>
+          </>
+        )}
 
         {/* Branch Filter */}
         {branches.length > 0 && (
@@ -515,7 +562,7 @@ const Expenses = () => {
                         </td>
                         <td>
                           <strong style={{ color: 'var(--accent-red)', fontSize: '0.95rem' }}>
-                            ₹{(Number(exp.amount) || 0).toLocaleString()}
+                            {formatCurrency(exp.amount)}
                           </strong>
                         </td>
                         <td>
@@ -597,7 +644,7 @@ const Expenses = () => {
                       <strong style={{ color: 'var(--text-primary)', fontSize: '0.95rem' }}>{day.date}</strong>
                       <span className="gcal-tag">{day.count} receipts</span>
                     </div>
-                    <strong style={{ color: 'var(--accent-red)', fontSize: '1.05rem' }}>₹{day.total.toLocaleString()}</strong>
+                    <strong style={{ color: 'var(--accent-red)', fontSize: '1.05rem' }}>{formatCurrency(day.total)}</strong>
                   </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
@@ -606,7 +653,7 @@ const Expenses = () => {
                         <div>
                           <strong style={{ color: CATEGORY_COLORS[item.category] || '#fff' }}>[{item.category}]</strong> {item.description || item.vendor || 'Expense Item'}
                         </div>
-                        <span style={{ fontWeight: '600', color: 'var(--text-primary)' }}>₹{item.amount}</span>
+                        <span style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{formatCurrency(item.amount)}</span>
                       </div>
                     ))}
                   </div>
@@ -645,9 +692,9 @@ const Expenses = () => {
                       <tr key={idx}>
                         <td><strong style={{ color: 'var(--text-primary)' }}>{m.month}</strong></td>
                         <td><strong>{m.count} receipts</strong></td>
-                        <td><strong style={{ color: 'var(--accent-red)', fontSize: '1rem' }}>₹{m.total.toLocaleString()}</strong></td>
+                        <td><strong style={{ color: 'var(--accent-red)', fontSize: '1rem' }}>{formatCurrency(m.total)}</strong></td>
                         <td>
-                          <span className="badge confirm">{topCatInMonth[0]}: ₹{topCatInMonth[1].toLocaleString()}</span>
+                          <span className="badge confirm">{topCatInMonth[0]}: {formatCurrency(topCatInMonth[1])}</span>
                         </td>
                       </tr>
                     );
@@ -676,8 +723,8 @@ const Expenses = () => {
                     <strong style={{ color: 'var(--text-primary)', fontSize: '0.9rem' }}>{item.category}</strong>
                   </div>
                   <div>
-                    <strong style={{ color: 'var(--text-primary)', fontSize: '0.95rem' }}>₹{item.amount.toLocaleString()}</strong>
-                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginLeft: '0.5rem' }}>({item.percentage}%)</span>
+                    <strong style={{ color: 'var(--text-primary)', fontSize: '0.95rem' }}>{formatCurrency(item.amount)}</strong>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginLeft: '0.5rem' }}>({formatPercent(item.percentage)})</span>
                   </div>
                 </div>
 
@@ -703,10 +750,10 @@ const Expenses = () => {
               <div key={item.category} style={{ padding: '1.25rem', background: 'rgba(255,255,255,0.02)', border: `1px solid ${item.color}40`, borderRadius: '8px', borderLeft: `4px solid ${item.color}` }}>
                 <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>{item.category} Spending</div>
                 <div style={{ fontSize: '1.3rem', fontWeight: '800', color: 'var(--text-primary)', marginTop: '0.2rem' }}>
-                  ₹{item.amount.toLocaleString()}
+                  {formatCurrency(item.amount)}
                 </div>
                 <div style={{ fontSize: '0.75rem', color: item.color, marginTop: '0.4rem', fontWeight: '600' }}>
-                  Accounts for {item.percentage}% of total operational budget
+                  Accounts for {formatPercent(item.percentage)} of total operational budget
                 </div>
               </div>
             ))}

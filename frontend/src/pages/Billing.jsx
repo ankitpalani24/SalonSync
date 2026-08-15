@@ -6,6 +6,7 @@ import {
   CheckCircle2, ChevronDown, Eye, Share2, Building2, Phone, MapPin
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { formatCurrency, formatPercent, formatNumber } from '../utils/formatters';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // HELPERS
@@ -642,12 +643,12 @@ const Billing = ({ apptForCheckout, clearApptCheckout }) => {
 
             {/* Bill Summary */}
             <div className="billing-summary-box">
-              <div className="billing-sum-row"><span>Subtotal</span><span>₹{subTotal.toLocaleString()}</span></div>
+              <div className="billing-sum-row"><span>Subtotal</span><span>{formatCurrency(subTotal)}</span></div>
               <div className="billing-sum-row">
                 <span>GST (%)</span>
                 <input type="number" className="form-control" style={{ width: '60px', padding: '0.2rem 0.4rem', fontSize: '0.8rem', textAlign: 'center' }} value={taxPercent} onChange={(e) => setTaxPercent(e.target.value)} />
               </div>
-              <div className="billing-sum-row"><span>Tax Amount</span><span>₹{calculatedTax.toLocaleString()}</span></div>
+              <div className="billing-sum-row"><span>Tax Amount</span><span>{formatCurrency(calculatedTax)}</span></div>
               <div className="billing-sum-row">
                 <span>Discount (₹)</span>
                 <input type="number" className="form-control" style={{ width: '85px', padding: '0.2rem 0.4rem', fontSize: '0.8rem', textAlign: 'center' }} value={discountAmt} onChange={(e) => setDiscountAmt(e.target.value)} />
@@ -655,12 +656,12 @@ const Billing = ({ apptForCheckout, clearApptCheckout }) => {
               {actualPointsRedeemed > 0 && (
                 <div className="billing-sum-row" style={{ color: 'var(--gold-primary)' }}>
                   <span>Points Redeemed</span>
-                  <span>− ₹{actualPointsRedeemed}</span>
+                  <span>− {formatCurrency(actualPointsRedeemed)}</span>
                 </div>
               )}
               <div className="billing-sum-total">
                 <span>Grand Total</span>
-                <span>₹{finalAmount.toLocaleString()}</span>
+                <span>{formatCurrency(finalAmount)}</span>
               </div>
             </div>
 
@@ -692,19 +693,19 @@ const Billing = ({ apptForCheckout, clearApptCheckout }) => {
           <div className="billing-kpi-grid">
             <div className="billing-kpi-card">
               <div className="billing-kpi-icon" style={{ background: 'rgba(112,130,56,0.12)', color: 'var(--gold-primary)' }}><Receipt size={20} /></div>
-              <div><div className="billing-kpi-value">{historyStats.total}</div><div className="billing-kpi-label">Total Invoices</div></div>
+              <div><div className="billing-kpi-value">{formatNumber(historyStats.total)}</div><div className="billing-kpi-label">Total Invoices</div></div>
             </div>
             <div className="billing-kpi-card">
               <div className="billing-kpi-icon" style={{ background: 'rgba(46,204,113,0.12)', color: '#2ecc71' }}><IndianRupee size={20} /></div>
-              <div><div className="billing-kpi-value">₹{historyStats.totalRev.toLocaleString()}</div><div className="billing-kpi-label">Lifetime Revenue</div></div>
+              <div><div className="billing-kpi-value">{formatCurrency(historyStats.totalRev)}</div><div className="billing-kpi-label">Lifetime Revenue</div></div>
             </div>
             <div className="billing-kpi-card">
               <div className="billing-kpi-icon" style={{ background: 'rgba(52,152,219,0.12)', color: '#3498db' }}><TrendingUp size={20} /></div>
-              <div><div className="billing-kpi-value">₹{historyStats.avgValue.toLocaleString()}</div><div className="billing-kpi-label">Avg Invoice Value</div></div>
+              <div><div className="billing-kpi-value">{formatCurrency(historyStats.avgValue)}</div><div className="billing-kpi-label">Avg Invoice Value</div></div>
             </div>
             <div className="billing-kpi-card">
               <div className="billing-kpi-icon" style={{ background: 'rgba(230,126,34,0.12)', color: '#e67e22' }}><ArrowUpRight size={20} /></div>
-              <div><div className="billing-kpi-value">{historyStats.todayCount}</div><div className="billing-kpi-label">Today's Bills (₹{historyStats.todayRev.toLocaleString()})</div></div>
+              <div><div className="billing-kpi-value">{formatNumber(historyStats.todayCount)}</div><div className="billing-kpi-label">Today's Bills ({formatCurrency(historyStats.todayRev)})</div></div>
             </div>
           </div>
 
@@ -764,7 +765,7 @@ const Billing = ({ apptForCheckout, clearApptCheckout }) => {
                             {(inv.services || []).length} svc, {(inv.products || []).length} prod
                           </span>
                         </td>
-                        <td><span style={{ fontWeight: '700', color: 'var(--text-primary)', fontSize: '0.9rem' }}>₹{inv.finalAmount?.toLocaleString()}</span></td>
+                        <td><span style={{ fontWeight: '700', color: 'var(--text-primary)', fontSize: '0.9rem' }}>{formatCurrency(inv.finalAmount)}</span></td>
                         <td>
                           <span className={`badge ${inv.paymentMethod === 'UPI' ? 'confirmed' : inv.paymentMethod === 'Card' ? 'pending' : 'completed'}`} style={{ fontSize: '0.72rem' }}>
                             {inv.paymentMethod}

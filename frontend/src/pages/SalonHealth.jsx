@@ -5,6 +5,7 @@ import {
   ArrowUpRight, ArrowDownRight, CheckCircle2, ChevronRight, Zap
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { formatCurrency, formatPercent, formatNumber } from '../utils/formatters';
 
 const SalonHealth = ({ setActivePage }) => {
   const { calculateSalonHealthScore, addToast } = useApp();
@@ -128,15 +129,15 @@ const SalonHealth = ({ setActivePage }) => {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', background: 'rgba(0,0,0,0.3)', padding: '0.85rem', borderRadius: '10px', border: '1px solid var(--border-light)' }}>
               <div>
                 <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>MoM Billed Revenue</span>
-                <strong style={{ display: 'block', fontSize: '0.95rem', color: 'var(--gold-primary)' }}>₹{metrics.totalRevenue.toLocaleString()}</strong>
+                <strong style={{ display: 'block', fontSize: '0.95rem', color: 'var(--gold-primary)' }}>{formatCurrency(metrics.totalRevenue)}</strong>
               </div>
               <div>
                 <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>Net Profit Margin</span>
-                <strong style={{ display: 'block', fontSize: '0.95rem', color: 'var(--accent-green)' }}>{metrics.profitMarginPercent}%</strong>
+                <strong style={{ display: 'block', fontSize: '0.95rem', color: 'var(--accent-green)' }}>{formatPercent(metrics.profitMarginPercent)}</strong>
               </div>
               <div>
                 <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>Repeat Clients Rate</span>
-                <strong style={{ display: 'block', fontSize: '0.95rem', color: '#fff' }}>{metrics.retentionPercent}%</strong>
+                <strong style={{ display: 'block', fontSize: '0.95rem', color: '#fff' }}>{formatPercent(metrics.retentionPercent)}</strong>
               </div>
             </div>
           </div>
@@ -164,7 +165,7 @@ const SalonHealth = ({ setActivePage }) => {
             <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.06)', borderRadius: '3px', marginBottom: '0.5rem', overflow: 'hidden' }}>
               <div style={{ width: `${categoryScores.revenueGrowth}%`, height: '100%', background: getScoreColor(categoryScores.revenueGrowth), borderRadius: '3px' }} />
             </div>
-            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>MoM Billed Revenue: ₹{metrics.totalRevenue.toLocaleString()}</span>
+            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>MoM Billed Revenue: {formatCurrency(metrics.totalRevenue)}</span>
           </div>
 
           {/* 2. Profit Margin */}
@@ -178,7 +179,7 @@ const SalonHealth = ({ setActivePage }) => {
             <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.06)', borderRadius: '3px', marginBottom: '0.5rem', overflow: 'hidden' }}>
               <div style={{ width: `${categoryScores.profitMargin}%`, height: '100%', background: getScoreColor(categoryScores.profitMargin), borderRadius: '3px' }} />
             </div>
-            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Net Margin: {metrics.profitMarginPercent}% (₹{metrics.netProfit.toLocaleString()} Net)</span>
+            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Net Margin: {formatPercent(metrics.profitMarginPercent)} ({formatCurrency(metrics.netProfit)} Net)</span>
           </div>
 
           {/* 3. Customer Retention */}

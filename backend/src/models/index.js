@@ -268,8 +268,6 @@ const LoyaltyRuleSchema = new mongoose.Schema({
   maxRedemptionsPerMonth: { type: Number, default: 10 }
 }, { timestamps: true });
 
-LoyaltyRuleSchema.index({ salonId: 1 });
-
 // 10. Invoice Schema
 const InvoiceSchema = new mongoose.Schema({
   invoiceNumber: { type: String, required: true },
@@ -315,7 +313,7 @@ const ExpenseSchema = new mongoose.Schema({
     enum: ['Rent', 'Salary', 'Electricity', 'Water', 'Products', 'Equipment', 'Maintenance', 'Marketing', 'Internet', 'Transportation', 'Other'], 
     required: true 
   },
-  amount: { type: Number, required: true },
+  amount: { type: Number, required: true, min: 0 },
   description: { type: String },
   date: { type: Date, default: Date.now },
   paymentMethod: { type: String, enum: ['Cash', 'UPI', 'Card', 'Bank Transfer'], default: 'Cash' },
@@ -325,6 +323,7 @@ const ExpenseSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 ExpenseSchema.index({ salonId: 1, date: -1 });
+ExpenseSchema.index({ salonId: 1, branchId: 1, date: -1 });
 
 // 12. Product Schema (Inventory items)
 const ProductSchema = new mongoose.Schema({

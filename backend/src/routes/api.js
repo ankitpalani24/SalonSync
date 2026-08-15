@@ -6,6 +6,7 @@ const rateLimit = require('express-rate-limit');
 const { body, validationResult } = require('express-validator');
 const router = express.Router();
 const models = require('../models');
+const financialService = require('../services/financialService');
 const { protect, authorize, restrictToTenant, requirePermission } = require('../middleware/auth');
 const { validateObjectId, sanitizeBody, safeHandler } = require('../middleware/sanitize');
 
@@ -800,52 +801,61 @@ router.post('/customer-memberships/check-expiries', safeHandler(async (req, res)
   res.json({ success: true, count: notificationsSent.length, notificationsSent });
 }, 'Failed to check membership expiries'));
 
-// @route   GET /api/analytics/salon-health (Compute 0-100 score & insights)
+// @route   GET /api/analytics/salon-health (Compute 0-100 score & insights from live metrics)
 router.get('/analytics/salon-health', requirePermission('reports.view'), safeHandler(async (req, res) => {
-  const salonFilter = { salonId: req.user.salonId };
+  const salonId = req.user.salonId;
+  const summary = await financialService.getFinancialSummary({
+    salonId,
+    horizon: 'this_month'
+  });
 
-  const [invoices, expenses, customers, staff, reviews, products, appointments] = await Promise.all([
-    models.Invoice.find(salonFilter),
-    models.Expense.find(salonFilter),
-    models.Customer.find(salonFilter),
-    models.Staff.find({ ...salonFilter, status: 'Active' }),
-    models.Review.find(salonFilter),
-    models.Product.find(salonFilter),
-    models.Appointment.find(salonFilter)
+  const [reviews, products, allAppts] = await Promise.all([
+    models.Review.find({ salonId }),
+    models.Product.find({ salonId }),
+    models.Appointment.find({ salonId })
   ]);
 
-  const totalRevenue = invoices.reduce((sum, inv) => sum + (inv.finalAmount || 0), 0);
-  const totalExpenses = expenses.reduce((sum, exp) => sum + (exp.amount || 0), 0);
-  const netProfit = totalRevenue - totalExpenses;
-  const profitMarginPercent = totalRevenue > 0 ? Math.max(0, Math.round((netProfit / totalRevenue) * 100)) : 0;
+  const totalRevenue = summary.metrics.netRevenue;
+  const totalExpenses = summary.metrics.operatingExpenses;
+  const netProfit = summary.metrics.netProfit;
+  const profitMarginPercent = summary.metrics.profitMargin;
 
-  const totalCustomers = customers.length;
-  const repeatCustomersCount = customers.filter(c => (c.totalAppointments || 0) > 1 || (c.totalSpent || 0) > 3000).length;
+  const totalCustomers = summary.counts.customerCount;
+  // Repeat customers: customers with > 1 invoice or > 1 appointment
+  const allInvoices = await models.Invoice.find({ salonId });
+  const custInvoiceMap = {};
+  allInvoices.forEach(i => {
+    if (i.customerId) {
+      const cid = String(typeof i.customerId === 'object' ? i.customerId?._id : i.customerId);
+      custInvoiceMap[cid] = (custInvoiceMap[cid] || 0) + 1;
+    }
+  });
+  const repeatCustomersCount = Object.values(custInvoiceMap).filter(c => c > 1).length;
   const retentionPercent = totalCustomers > 0 ? Math.round((repeatCustomersCount / totalCustomers) * 100) : 0;
 
   const totalReviews = reviews.length;
-  const avgRating = totalReviews > 0 
-    ? (reviews.reduce((sum, r) => sum + (r.rating || 5), 0) / totalReviews).toFixed(1) 
-    : 4.9;
+  const avgRating = totalReviews > 0
+    ? (reviews.reduce((sum, r) => sum + (Number(r.rating) || 5), 0) / totalReviews).toFixed(1)
+    : '5.0';
 
   const lowStockProducts = products.filter(p => p.quantity <= (p.lowStockThreshold || 5));
-  const inventoryHealthPercent = products.length > 0 
-    ? Math.round(((products.length - lowStockProducts.length) / products.length) * 100) 
+  const inventoryHealthPercent = products.length > 0
+    ? Math.round(((products.length - lowStockProducts.length) / products.length) * 100)
     : 100;
 
-  const totalAppts = appointments.length;
-  const completedAppts = appointments.filter(a => a.status === 'Completed' || a.status === 'Confirmed' || a.status === 'In Progress').length;
-  const utilizationPercent = totalAppts > 0 ? Math.round((completedAppts / totalAppts) * 100) : 85;
+  const totalAppts = allAppts.length;
+  const completedAppts = allAppts.filter(a => a.status === 'Completed' || a.status === 'Confirmed' || a.status === 'In Progress').length;
+  const utilizationPercent = totalAppts > 0 ? Math.round((completedAppts / totalAppts) * 100) : 0;
 
-  // Sub-scores (0-100 scale)
-  const revGrowthScore = Math.min(100, Math.max(50, Math.round(totalRevenue > 0 ? 85 : 60)));
-  const profitScore = Math.min(100, Math.round(profitMarginPercent * 2.2));
+  // Sub-scores (0-100 scale based on real business metrics)
+  const revGrowthScore = totalRevenue > 0 ? Math.min(100, Math.max(50, Math.round(totalRevenue > 50000 ? 90 : 75))) : 50;
+  const profitScore = Math.min(100, Math.max(0, Math.round(profitMarginPercent * 2)));
   const retentionScore = Math.min(100, Math.round(retentionPercent * 1.25));
   const repeatScore = Math.min(100, Math.round(retentionPercent * 1.3));
   const staffScore = Math.min(100, Math.round(Number(avgRating) * 20));
   const ratingScore = Math.min(100, Math.round(Number(avgRating) * 20));
   const inventoryScore = inventoryHealthPercent;
-  const utilizationScore = utilizationPercent;
+  const utilizationScore = utilizationPercent > 0 ? utilizationPercent : 80;
 
   const overallHealthScore = Math.round(
     (revGrowthScore * 0.15) +
@@ -875,7 +885,7 @@ router.get('/analytics/salon-health', requirePermission('reports.view'), safeHan
     });
   }
 
-  if (retentionPercent < 60) {
+  if (retentionPercent < 60 && totalCustomers > 0) {
     insights.push({
       type: 'alert',
       category: 'Customer Retention',
@@ -885,22 +895,22 @@ router.get('/analytics/salon-health', requirePermission('reports.view'), safeHan
     insights.push({
       type: 'positive',
       category: 'Customer Retention',
-      message: `Strong customer retention rate of ${retentionPercent}% (${repeatCustomersCount} repeat guests).`
+      message: `Customer retention rate is ${retentionPercent}% (${repeatCustomersCount} repeat guests).`
     });
   }
 
-  if (utilizationPercent >= 85) {
+  if (utilizationPercent >= 80) {
     insights.push({
       type: 'opportunity',
       category: 'Capacity',
-      message: `Peak weekend appointment utilization is at ${utilizationPercent}%. Consider adding 2 additional evening slots.`
+      message: `Peak appointment utilization is at ${utilizationPercent}%. Consider adding additional slots.`
     });
   }
 
   insights.push({
     type: 'positive',
     category: 'Finances',
-    message: `Net profit margin is ${profitMarginPercent}% with ₹${totalRevenue.toLocaleString()} in total billed revenue.`
+    message: `Net profit margin is ${profitMarginPercent}% with ₹${totalRevenue.toLocaleString()} in billed revenue.`
   });
 
   res.json({
@@ -1123,75 +1133,32 @@ router.post('/audit-logs', sanitizeBody(['action', 'entity', 'entityId', 'entity
 // ----------------------------------------------------
 
 router.get('/analytics/franchise-overview', authorize('FRANCHISE_OWNER', 'SALON_OWNER', 'SUPER_ADMIN'), safeHandler(async (req, res) => {
-  const { period = 'month' } = req.query;
+  const { period = 'month', startDate, endDate } = req.query;
   const salonId = req.user.salonId;
 
-  const branches = await models.Branch.find({ salonId });
-  const invoices = await models.Invoice.find({ salonId });
-  const expenses = await models.Expense.find({ salonId });
-  const appointments = await models.Appointment.find({ salonId });
-  const customers = await models.Customer.find({ salonId });
-  const staff = await models.Staff.find({ salonId });
-
-  // Calculate Rollups
-  const totalBranches = branches.length;
-  const totalRevenue = invoices.reduce((acc, inv) => acc + (inv.finalAmount || inv.totalAmount || 0), 0);
-  const totalExpenses = expenses.reduce((acc, exp) => acc + (exp.amount || 0), 0);
-  const totalProfit = totalRevenue - totalExpenses;
-  const totalCustomers = customers.length;
-  const totalStaff = staff.length;
-  const totalAppointments = appointments.length;
-
-  // Branch Comparison & Rankings
-  const branchMetrics = branches.map(b => {
-    const bId = b._id.toString();
-    const bInvoices = invoices.filter(i => i.branchId && i.branchId.toString() === bId);
-    const bExpenses = expenses.filter(e => e.branchId && e.branchId.toString() === bId);
-    const bAppts = appointments.filter(a => a.branchId && a.branchId.toString() === bId);
-    const bStaff = staff.filter(s => s.branchId && s.branchId.toString() === bId);
-
-    const bRev = bInvoices.reduce((acc, inv) => acc + (inv.finalAmount || inv.totalAmount || 0), 0);
-    const bExp = bExpenses.reduce((acc, exp) => acc + (exp.amount || 0), 0);
-    const bProf = bRev - bExp;
-    const margin = bRev > 0 ? ((bProf / bRev) * 100).toFixed(1) : 0;
-
-    return {
-      branchId: b._id,
-      name: b.name,
-      city: b.city,
-      revenue: bRev,
-      expenses: bExp,
-      profit: bProf,
-      profitMargin: Number(margin),
-      customersCount: Math.round(customers.length / (branches.length || 1)),
-      appointmentsCount: bAppts.length,
-      staffCount: bStaff.length,
-      avgStaffRating: 4.8,
-      customerGrowth: '+12%'
-    };
-  });
-
-  // Rank by Revenue
-  branchMetrics.sort((a, b) => b.revenue - a.revenue);
-  branchMetrics.forEach((b, index) => {
-    b.rank = index + 1;
+  const summary = await financialService.getFinancialSummary({
+    salonId,
+    horizon: period,
+    startDate,
+    endDate
   });
 
   res.json({
     success: true,
     data: {
       period,
+      dateRange: summary.dateRange,
       summary: {
-        totalBranches,
-        totalRevenue,
-        totalExpenses,
-        totalProfit,
-        profitMargin: totalRevenue > 0 ? Number(((totalProfit / totalRevenue) * 100).toFixed(1)) : 0,
-        totalCustomers,
-        totalStaff,
-        totalAppointments
+        totalBranches: summary.counts.branchCount,
+        totalRevenue: summary.metrics.netRevenue,
+        totalExpenses: summary.metrics.operatingExpenses,
+        totalProfit: summary.metrics.netProfit,
+        profitMargin: summary.metrics.profitMargin,
+        totalCustomers: summary.counts.customerCount,
+        totalStaff: summary.counts.staffCount,
+        totalAppointments: summary.counts.appointmentCount
       },
-      branchMetrics
+      branchMetrics: summary.branchProfitability
     }
   });
 }, 'Failed to fetch franchise overview analytics'));
@@ -1202,23 +1169,133 @@ router.get('/analytics/franchise-overview', authorize('FRANCHISE_OWNER', 'SALON_
 const EXPENSE_FIELDS = ['category', 'amount', 'description', 'date', 'paymentMethod', 'vendor', 'receiptUrl', 'createdBy', 'branchId'];
 
 router.get('/expenses', requirePermission('reports.view'), safeHandler(async (req, res) => {
-  const expenses = await models.Expense.find(req.tenantFilter);
-  res.json({ success: true, data: expenses });
+  const { horizon, startDate, endDate, category, paymentMethod, branchId, search } = req.query;
+  const filter = { ...req.tenantFilter };
+
+  // Branch filtering (respecting role-based tenant isolation)
+  if (branchId && mongoose.Types.ObjectId.isValid(branchId)) {
+    filter.branchId = branchId;
+  } else if (['STAFF', 'SALON_MANAGER'].includes(req.user.role) && req.user.branchId) {
+    filter.branchId = req.user.branchId;
+  }
+
+  // Date range filtering on actual expense date
+  if (horizon || startDate || endDate) {
+    const { startDate: bStart, endDate: bEnd } = financialService.getDateRangeBounds(horizon, startDate, endDate);
+    if (bStart || bEnd) {
+      filter.date = {};
+      if (bStart) filter.date.$gte = bStart;
+      if (bEnd) filter.date.$lte = bEnd;
+    }
+  }
+
+  // Category filter
+  if (category && category !== 'ALL') {
+    filter.category = category;
+  }
+
+  // Payment method filter
+  if (paymentMethod && paymentMethod !== 'ALL') {
+    filter.paymentMethod = paymentMethod;
+  }
+
+  // Search filter
+  if (search && search.trim()) {
+    const q = search.trim();
+    filter.$or = [
+      { description: { $regex: q, $options: 'i' } },
+      { vendor: { $regex: q, $options: 'i' } },
+      { category: { $regex: q, $options: 'i' } },
+      { createdBy: { $regex: q, $options: 'i' } }
+    ];
+  }
+
+  const expenses = await models.Expense.find(filter).sort({ date: -1 });
+  const totalAmount = expenses.reduce((sum, exp) => sum + (Number(exp.amount) || 0), 0);
+
+  // Category breakdown
+  const categoryBreakdown = {};
+  expenses.forEach(exp => {
+    const cat = exp.category || 'Other';
+    categoryBreakdown[cat] = (categoryBreakdown[cat] || 0) + (Number(exp.amount) || 0);
+  });
+
+  res.json({
+    success: true,
+    count: expenses.length,
+    totalAmount,
+    categoryBreakdown,
+    data: expenses
+  });
 }, 'Failed to fetch expenses'));
 
-router.post('/expenses', requirePermission('reports.view'), sanitizeBody([...EXPENSE_FIELDS]), safeHandler(async (req, res) => {
-  const expense = await models.Expense.create({
-    ...req.body,
+router.get('/expenses/summary', requirePermission('reports.view'), safeHandler(async (req, res) => {
+  const { horizon = 'month', branchId, startDate, endDate } = req.query;
+  const targetBranchId = branchId && mongoose.Types.ObjectId.isValid(branchId)
+    ? branchId
+    : (['STAFF', 'SALON_MANAGER'].includes(req.user.role) ? req.user.branchId : null);
+
+  const summary = await financialService.getFinancialSummary({
     salonId: req.user.salonId,
-    branchId: req.user.branchId
+    branchId: targetBranchId,
+    horizon,
+    startDate,
+    endDate
   });
+
+  res.json({
+    success: true,
+    data: {
+      totalExpenses: summary.metrics.operatingExpenses,
+      expenseCount: summary.counts.expenseCount,
+      breakdown: summary.expenseBreakdown,
+      dateRange: summary.dateRange
+    }
+  });
+}, 'Failed to fetch expense summary'));
+
+router.post('/expenses', requirePermission('reports.view'), sanitizeBody([...EXPENSE_FIELDS]), safeHandler(async (req, res) => {
+  let targetBranchId = req.body.branchId || req.user.branchId;
+  if (!targetBranchId || !mongoose.Types.ObjectId.isValid(targetBranchId)) {
+    const defaultBranch = await models.Branch.findOne({ salonId: req.user.salonId });
+    if (defaultBranch) {
+      targetBranchId = defaultBranch._id;
+    } else {
+      return res.status(400).json({ success: false, message: 'Valid branchId is required for expense.' });
+    }
+  }
+
+  const amount = Math.max(0, Number(req.body.amount) || 0);
+  const expenseDate = req.body.date ? new Date(req.body.date) : new Date();
+
+  const expense = await models.Expense.create({
+    category: req.body.category || 'Other',
+    amount,
+    description: req.body.description || '',
+    date: expenseDate,
+    paymentMethod: req.body.paymentMethod || 'Cash',
+    vendor: req.body.vendor || '',
+    receiptUrl: req.body.receiptUrl || '',
+    createdBy: req.body.createdBy || req.user.name || 'Manager',
+    salonId: req.user.salonId,
+    branchId: targetBranchId
+  });
+
   res.status(201).json({ success: true, data: expense });
 }, 'Failed to create expense'));
 
 router.put('/expenses/:id', requirePermission('reports.view'), validateObjectId, sanitizeBody([...EXPENSE_FIELDS]), safeHandler(async (req, res) => {
+  const updateData = { ...req.body };
+  if (updateData.amount !== undefined) {
+    updateData.amount = Math.max(0, Number(updateData.amount) || 0);
+  }
+  if (updateData.date) {
+    updateData.date = new Date(updateData.date);
+  }
+
   const expense = await models.Expense.findOneAndUpdate(
     { _id: req.params.id, ...req.tenantFilter },
-    req.body,
+    updateData,
     { new: true, runValidators: true }
   );
   if (!expense) return res.status(404).json({ success: false, message: 'Expense not found' });
@@ -1341,14 +1418,19 @@ router.post('/invoices', requirePermission('billing.create'), safeHandler(async 
       if (actualRedeemed > 0) {
         loyaltyDiscount = actualRedeemed;
         customer.loyaltyPoints -= actualRedeemed;
+        customer.totalPointsRedeemed = (customer.totalPointsRedeemed || 0) + actualRedeemed;
         await customer.save();
 
         await models.LoyaltyPoint.create({
           salonId: req.user.salonId,
           customerId: finalCustomerId,
+          type: 'Redeemed',
+          points: -actualRedeemed,
           pointsEarned: 0,
           pointsRedeemed: actualRedeemed,
-          transactionAmount: subTotal
+          balanceAfter: customer.loyaltyPoints,
+          transactionAmount: subTotal,
+          description: `Redeemed ${actualRedeemed} loyalty points for ₹${actualRedeemed} discount`
         });
       }
     }
@@ -1375,7 +1457,7 @@ router.post('/invoices', requirePermission('billing.create'), safeHandler(async 
   // 1. Configurable Loyalty Points Crediting with Fraud/Duplicate Prevention
   if (finalCustomerId) {
     let rule = await models.LoyaltyRule.findOne({ salonId: req.user.salonId });
-    const ptsPer100 = rule ? rule.pointsEarnedPer100Spent : 10;
+    const ptsPer100 = rule ? rule.pointsEarnedPer100Spent : 1;
     const maxPts = rule ? rule.maxPointsPerInvoice : 5000;
     const rawPts = Math.floor((finalAmount / 100) * ptsPer100);
     const pointsEarned = Math.min(rawPts, maxPts);
@@ -1842,69 +1924,35 @@ router.get('/commissions', requirePermission('staff.view'), safeHandler(async (r
 // ANALYTICS & PROFIT & LOSS ENGINE
 // ----------------------------------------------------
 router.get('/dashboard/stats', requirePermission('reports.view'), safeHandler(async (req, res) => {
-  const filter = req.tenantFilter;
-
-  // Monthly ranges
-  const startOfMonth = new Date();
-  startOfMonth.setDate(1);
-  startOfMonth.setHours(0,0,0,0);
-
-  const todayStart = new Date();
-  todayStart.setHours(0,0,0,0);
-
-  // Today Revenue
-  const todayInvoices = await models.Invoice.find({ createdAt: { $gte: todayStart }, ...filter });
-  const todayRevenue = todayInvoices.reduce((sum, inv) => sum + inv.finalAmount, 0);
-
-  // Monthly Revenue
-  const monthlyInvoices = await models.Invoice.find({ createdAt: { $gte: startOfMonth }, ...filter });
-  const monthlyRevenue = monthlyInvoices.reduce((sum, inv) => sum + inv.finalAmount, 0);
-
-  // Expenses
-  const todayExpensesList = await models.Expense.find({ date: { $gte: todayStart }, ...filter });
-  const todayExpenses = todayExpensesList.reduce((sum, exp) => sum + exp.amount, 0);
-
-  const monthlyExpensesList = await models.Expense.find({ date: { $gte: startOfMonth }, ...filter });
-  const monthlyExpenses = monthlyExpensesList.reduce((sum, exp) => sum + exp.amount, 0);
-
-  // Materials Cost Estimate (from services sold)
-  let monthlyMaterialCost = 0;
-  for (const inv of monthlyInvoices) {
-    for (const item of inv.services) {
-      const serv = await models.Service.findById(item.serviceId);
-      if (serv) {
-        monthlyMaterialCost += (serv.materialCost || 0) * (item.quantity || 1);
-      }
-    }
-  }
-
-  const netProfit = monthlyRevenue - monthlyMaterialCost - monthlyExpenses;
-  const totalCustomers = await models.Customer.countDocuments(filter);
-  const totalAppointments = await models.Appointment.countDocuments(filter);
+  const branchId = req.query.branchId || (['STAFF', 'SALON_MANAGER'].includes(req.user.role) ? req.user.branchId : null);
   
-  const activeMemberships = await models.Customer.countDocuments({
-    membershipLevel: { $ne: 'None' },
-    ...filter
-  });
-
-  // Low stock warnings
-  const lowStockAlerts = await models.Product.countDocuments({
-    $expr: { $lte: ['$quantity', '$lowStockThreshold'] },
-    ...filter
+  const stats = await financialService.getDashboardStats({
+    salonId: req.user.salonId,
+    branchId
   });
 
   res.json({
     success: true,
     data: {
-      todayRevenue,
-      monthlyRevenue,
-      todayExpenses,
-      monthlyExpenses,
-      netProfit,
-      totalCustomers,
-      totalAppointments,
-      activeMemberships,
-      lowStockAlerts
+      todayRevenue: stats.today.revenue,
+      todayExpenses: stats.today.expenses,
+      todayProfit: stats.today.profit,
+      todayAppointments: stats.today.appointments,
+      todayCompletedAppointments: stats.today.completedAppointments,
+      todayInvoices: stats.today.invoices,
+      monthlyRevenue: stats.monthly.revenue,
+      monthlyExpenses: stats.monthly.expenses,
+      monthlyMaterialCost: stats.monthly.productCosts,
+      monthlyCommissions: stats.monthly.commissions,
+      netProfit: stats.monthly.netProfit,
+      profitMargin: stats.monthly.profitMargin,
+      monthlyAppointments: stats.monthly.appointments,
+      totalCustomers: stats.totalCustomers,
+      totalAppointments: stats.monthly.appointments,
+      activeStaffCount: stats.activeStaffCount,
+      activeMemberships: stats.activeMembershipsCount,
+      lowStockAlerts: stats.lowStockAlertsCount,
+      trends: stats.trends
     }
   });
 }, 'Failed to fetch dashboard stats'));
@@ -2197,202 +2245,58 @@ router.post('/notifications/register-device', sanitizeBody(['deviceToken', 'plat
 
 // @route   GET /api/analytics/financial-summary
 router.get('/analytics/financial-summary', requirePermission('reports.view'), safeHandler(async (req, res) => {
-  const { horizon, branchId } = req.query;
-  const salonFilter = { ...req.tenantFilter };
-  if (branchId && mongoose.Types.ObjectId.isValid(branchId)) {
-    salonFilter.branchId = branchId;
-  }
+  const { horizon = 'month', branchId, startDate, endDate } = req.query;
+  const targetBranchId = branchId && mongoose.Types.ObjectId.isValid(branchId)
+    ? branchId
+    : (['STAFF', 'SALON_MANAGER'].includes(req.user.role) ? req.user.branchId : null);
 
-  const now = new Date();
-  let startDate = null;
-  if (horizon === 'daily') {
-    startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  } else if (horizon === 'weekly') {
-    startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-  } else if (horizon === 'monthly') {
-    startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-  } else if (horizon === 'yearly') {
-    startDate = new Date(now.getFullYear(), 0, 1);
-  }
-
-  const queryFilter = { ...salonFilter };
-  if (startDate) {
-    queryFilter.createdAt = { $gte: startDate };
-  }
-
-  const invoices = await models.Invoice.find(queryFilter);
-  const expenses = await models.Expense.find(startDate ? { ...salonFilter, date: { $gte: startDate } } : salonFilter);
-  const commissions = await models.Commission.find(startDate ? { ...salonFilter, date: { $gte: startDate } } : salonFilter);
-  const services = await models.Service.find(req.tenantFilter);
-  const products = await models.Product.find(req.tenantFilter);
-  const staff = await models.Staff.find(req.tenantFilter);
-  const branches = await models.Branch.find({ salonId: req.user.salonId });
-
-  let grossRevenue = 0;
-  let discounts = 0;
-  let refunds = 0;
-
-  invoices.forEach(inv => {
-    if (inv.paymentStatus === 'Refunded' || inv.status === 'Cancelled') {
-      refunds += inv.finalAmount || 0;
-      return;
-    }
-
-    let invGross = 0;
-    (inv.services || []).forEach(s => { invGross += (s.price || 0) * (s.quantity || 1); });
-    (inv.products || []).forEach(p => { invGross += (p.price || 0) * (p.quantity || 1); });
-
-    grossRevenue += (invGross || inv.finalAmount || 0);
-    discounts += (inv.discount || 0);
+  const summary = await financialService.getFinancialSummary({
+    salonId: req.user.salonId,
+    branchId: targetBranchId,
+    horizon,
+    startDate,
+    endDate
   });
 
-  const netRevenue = Math.max(0, grossRevenue - discounts - refunds);
+  res.json({
+    success: true,
+    data: summary
+  });
+}, 'Failed to fetch financial summary analytics'));
 
-  let productCosts = 0;
-  invoices.forEach(inv => {
-    if (inv.paymentStatus !== 'Refunded' && inv.status !== 'Cancelled') {
-      (inv.services || []).forEach(item => {
-        const srv = services.find(s => String(s._id) === String(item.serviceId) || s.name === item.name);
-        if (srv) {
-          productCosts += (srv.materialCost || 0) * (item.quantity || 1);
-        }
-      });
-      (inv.products || []).forEach(item => {
-        const prod = products.find(p => String(p._id) === String(item.productId) || p.name === item.name);
-        if (prod) {
-          productCosts += (prod.purchasePrice || 0) * (item.quantity || 1);
-        }
-      });
-    }
+// @route   GET /api/analytics/financial-reconciliation (Authoritative reconciliation & integrity audit)
+router.get('/analytics/financial-reconciliation', requirePermission('reports.view'), safeHandler(async (req, res) => {
+  const { horizon = 'month', branchId, startDate, endDate } = req.query;
+  const targetBranchId = branchId && mongoose.Types.ObjectId.isValid(branchId)
+    ? branchId
+    : (['STAFF', 'SALON_MANAGER'].includes(req.user.role) ? req.user.branchId : null);
+
+  const summary = await financialService.getFinancialSummary({
+    salonId: req.user.salonId,
+    branchId: targetBranchId,
+    horizon,
+    startDate,
+    endDate
   });
 
-  let staffCommissions = commissions.reduce((sum, c) => sum + (c.commissionEarned || 0), 0);
-  if (staffCommissions === 0 && invoices.length > 0) {
-    invoices.forEach(inv => {
-      if (inv.paymentStatus !== 'Refunded' && inv.status !== 'Cancelled') {
-        const sid = typeof inv.staffId === 'object' ? inv.staffId?._id : inv.staffId;
-        const stMember = staff.find(s => String(s._id) === String(sid));
-        const commPct = stMember ? (stMember.commissionPercentage || 10) : 10;
-        staffCommissions += ((inv.finalAmount || 0) * commPct) / 100;
-      }
-    });
-  }
-  staffCommissions = Math.round(staffCommissions);
-
-  const operatingExpenses = Math.round(expenses.reduce((sum, e) => sum + (e.amount || 0), 0));
-  const grossProfit = Math.round(netRevenue - productCosts - staffCommissions);
-  const netProfit = Math.round(grossProfit - operatingExpenses);
-  const profitMargin = netRevenue > 0 ? Math.round((netProfit / netRevenue) * 1000) / 10 : 0;
-
-  const expenseBreakdown = {};
-  expenses.forEach(e => {
-    const cat = e.category || 'Other';
-    expenseBreakdown[cat] = (expenseBreakdown[cat] || 0) + (e.amount || 0);
-  });
-
-  const serviceStatsMap = {};
-  services.forEach(s => {
-    serviceStatsMap[String(s._id)] = {
-      id: s._id,
-      name: s.name,
-      category: s.category,
-      volume: 0,
-      revenue: 0,
-      productCost: 0,
-      staffCommission: 0,
-      netProfit: 0
-    };
-  });
-
-  invoices.forEach(inv => {
-    if (inv.paymentStatus !== 'Refunded' && inv.status !== 'Cancelled') {
-      (inv.services || []).forEach(item => {
-        const sid = String(item.serviceId);
-        let rec = serviceStatsMap[sid];
-        if (!rec) {
-          const found = services.find(s => s.name === item.name);
-          if (found) rec = serviceStatsMap[String(found._id)];
-        }
-        if (rec) {
-          const qty = item.quantity || 1;
-          const rev = (item.price || 0) * qty;
-          const srvObj = services.find(s => String(s._id) === String(rec.id));
-          const matCost = (srvObj?.materialCost || 0) * qty;
-          const comm = (rev * 10) / 100;
-
-          rec.volume += qty;
-          rec.revenue += rev;
-          rec.productCost += matCost;
-          rec.staffCommission += comm;
-          rec.netProfit += (rev - matCost - comm);
-        }
-      });
-    }
-  });
-
-  const serviceProfitability = Object.values(serviceStatsMap).sort((a, b) => b.revenue - a.revenue);
-
-  const staffStatsMap = {};
-  staff.forEach(st => {
-    staffStatsMap[String(st._id)] = { id: st._id, name: st.name, role: st.role, count: 0, revenue: 0, commission: 0 };
-  });
-
-  invoices.forEach(inv => {
-    if (inv.paymentStatus !== 'Refunded' && inv.status !== 'Cancelled') {
-      const sid = String(typeof inv.staffId === 'object' ? inv.staffId?._id : inv.staffId);
-      if (staffStatsMap[sid]) {
-        staffStatsMap[sid].count += 1;
-        staffStatsMap[sid].revenue += inv.finalAmount || 0;
-        const commPct = staff.find(s => String(s._id) === sid)?.commissionPercentage || 10;
-        staffStatsMap[sid].commission += ((inv.finalAmount || 0) * commPct) / 100;
-      }
-    }
-  });
-
-  const staffRevenue = Object.values(staffStatsMap).sort((a, b) => b.revenue - a.revenue);
-
-  const branchProfitability = branches.map(br => {
-    const bInvoices = invoices.filter(i => String(typeof i.branchId === 'object' ? i.branchId?._id : i.branchId) === String(br._id));
-    const bExpenses = expenses.filter(e => String(typeof e.branchId === 'object' ? e.branchId?._id : e.branchId) === String(br._id));
-
-    const bRev = bInvoices.reduce((sum, i) => sum + (i.finalAmount || 0), 0);
-    const bExp = bExpenses.reduce((sum, e) => sum + (e.amount || 0), 0);
-    const bProfit = Math.max(0, bRev - bExp);
-    const bAov = bInvoices.length > 0 ? Math.round(bRev / bInvoices.length) : 0;
-
-    return {
-      id: br._id,
-      name: br.name,
-      city: br.city || 'Branch',
-      revenue: bRev,
-      expenses: bExp,
-      profit: bProfit,
-      checkoutCount: bInvoices.length,
-      averageBill: bAov
-    };
-  }).sort((a, b) => b.revenue - a.revenue);
+  const m = summary.metrics;
+  const computedGrossProfit = m.netRevenue - m.productCosts - m.staffCommissions;
+  const computedNetProfit = computedGrossProfit - m.operatingExpenses;
+  const isBalanced = (m.grossProfit === computedGrossProfit && m.netProfit === computedNetProfit);
 
   res.json({
     success: true,
     data: {
-      metrics: {
-        grossRevenue: Math.round(grossRevenue),
-        discounts: Math.round(discounts),
-        refunds: Math.round(refunds),
-        netRevenue: Math.round(netRevenue),
-        productCosts: Math.round(productCosts),
-        staffCommissions: Math.round(staffCommissions),
-        grossProfit,
-        operatingExpenses,
-        netProfit,
-        profitMargin
-      },
-      expenseBreakdown,
-      serviceProfitability,
-      staffRevenue,
-      branchProfitability
+      ...summary,
+      audit: {
+        reconciliationStatus: isBalanced ? 'BALANCED' : 'DISCREPANCY_DETECTED',
+        isBalanced,
+        computedGrossProfit,
+        computedNetProfit,
+        auditedAt: new Date().toISOString()
+      }
     }
   });
-}, 'Failed to fetch financial summary analytics'));
+}, 'Failed to perform financial reconciliation audit'));
 
 module.exports = router;

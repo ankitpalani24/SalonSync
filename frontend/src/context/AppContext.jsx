@@ -682,13 +682,16 @@ export const AppProvider = ({ children }) => {
     }
   };
 
-  const fetchFinancialAnalytics = async (horizon = 'monthly', branchId = null) => {
+  const fetchFinancialAnalytics = async (horizon = 'month', branchId = null, startDate = null, endDate = null) => {
     try {
       const token = localStorage.getItem('token');
       if (token) {
-        let queryStr = `horizon=${horizon}`;
-        if (branchId) queryStr += `&branchId=${branchId}`;
-        const res = await fetch(`${API_URL}/analytics/financial-summary?${queryStr}`, {
+        const params = new URLSearchParams({ horizon });
+        if (branchId) params.append('branchId', branchId);
+        if (startDate) params.append('startDate', startDate);
+        if (endDate) params.append('endDate', endDate);
+
+        const res = await fetch(`${API_URL}/analytics/financial-summary?${params.toString()}`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         const data = await res.json();
@@ -698,6 +701,95 @@ export const AppProvider = ({ children }) => {
       }
     } catch (err) {
       console.warn('Backend analytics API failed:', err.message);
+    }
+    return null;
+  };
+
+  const fetchFinancialReconciliation = async (horizon = 'month', branchId = null, startDate = null, endDate = null) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (token) {
+        const params = new URLSearchParams({ horizon });
+        if (branchId) params.append('branchId', branchId);
+        if (startDate) params.append('startDate', startDate);
+        if (endDate) params.append('endDate', endDate);
+
+        const res = await fetch(`${API_URL}/analytics/financial-reconciliation?${params.toString()}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (data.success) {
+          return data.data;
+        }
+      }
+    } catch (err) {
+      console.warn('Financial reconciliation API failed:', err.message);
+    }
+    return null;
+  };
+
+  const fetchDashboardStats = async (branchId = null) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (token) {
+        const query = branchId ? `?branchId=${branchId}` : '';
+        const res = await fetch(`${API_URL}/dashboard/stats${query}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (data.success) {
+          return data.data;
+        }
+      }
+    } catch (err) {
+      console.warn('Dashboard stats API failed:', err.message);
+    }
+    return null;
+  };
+
+  const fetchFranchiseOverview = async (period = 'month', startDate = null, endDate = null) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (token) {
+        const params = new URLSearchParams({ period });
+        if (startDate) params.append('startDate', startDate);
+        if (endDate) params.append('endDate', endDate);
+
+        const res = await fetch(`${API_URL}/analytics/franchise-overview?${params.toString()}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (data.success) {
+          return data.data;
+        }
+      }
+    } catch (err) {
+      console.warn('Franchise overview API failed:', err.message);
+    }
+    return null;
+  };
+
+  const fetchExpensesWithFilters = async (paramsObj = {}) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (token) {
+        const params = new URLSearchParams();
+        Object.entries(paramsObj).forEach(([k, v]) => {
+          if (v !== undefined && v !== null && v !== '' && v !== 'ALL') {
+            params.append(k, v);
+          }
+        });
+
+        const res = await fetch(`${API_URL}/expenses?${params.toString()}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (data.success) {
+          return data;
+        }
+      }
+    } catch (err) {
+      console.warn('Expenses filter query failed:', err.message);
     }
     return null;
   };
@@ -2522,7 +2614,7 @@ export const AppProvider = ({ children }) => {
       // Services & packages
       addService, updateService, deleteService, addPackage,
       // Finance & Inventory
-      addExpense, updateExpense, deleteExpense, fetchFinancialAnalytics, addProduct, updateProduct, updateProductQuantity, deleteProduct, addSupplier, createInvoice,
+      addExpense, updateExpense, deleteExpense, fetchFinancialAnalytics, fetchFinancialReconciliation, fetchDashboardStats, fetchFranchiseOverview, fetchExpensesWithFilters, syncBackendData, addProduct, updateProduct, updateProductQuantity, deleteProduct, addSupplier, createInvoice,
       // HR & Performance
       addStaff, updateStaff, deleteStaff, clockInStaff, clockOutStaff,
       addReview, canViewStaffSalary, getStaffPerformanceMetrics,
