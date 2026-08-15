@@ -752,11 +752,15 @@ export const mockSuppliers = [
   { _id: "supp_2", salonId: "salon_luxe_123", name: "O3+ Skincare Lab Supplies", phone: "9988776655", email: "supplies@o3plus.com", address: "Delhi Industrial Hub", outstandingDues: 4000 }
 ];
 
+const _nowDate = new Date();
+const _curY = _nowDate.getFullYear();
+const _curM = String(_nowDate.getMonth() + 1).padStart(2, '0');
+
 export const mockExpenses = [
-  { _id: "exp_1", salonId: "salon_luxe_123", branchId: "branch_mumbai_1", category: "Rent", amount: 45000, description: "Monthly lease for Bandra center", date: "2026-06-01" },
-  { _id: "exp_2", salonId: "salon_luxe_123", branchId: "branch_mumbai_1", category: "Electricity", amount: 18500, description: "Power bill May-June", date: "2026-06-15" },
-  { _id: "exp_3", salonId: "salon_luxe_123", branchId: "branch_mumbai_1", category: "Marketing", amount: 12000, description: "Instagram & Facebook ads campaign", date: "2026-06-10" },
-  { _id: "exp_4", salonId: "salon_luxe_123", branchId: "branch_mumbai_1", category: "Product Purchases", amount: 18000, description: "Order for hair colors and mask stocks", date: "2026-06-20" }
+  { _id: "exp_1", salonId: "salon_luxe_123", branchId: "branch_mumbai_1", category: "Rent", amount: 45000, description: "Monthly lease for Bandra center", date: `${_curY}-${_curM}-01` },
+  { _id: "exp_2", salonId: "salon_luxe_123", branchId: "branch_mumbai_1", category: "Utilities", amount: 18500, description: "Power and water bill", date: `${_curY}-${_curM}-05` },
+  { _id: "exp_3", salonId: "salon_luxe_123", branchId: "branch_mumbai_1", category: "Marketing", amount: 12000, description: "Instagram & Facebook ads campaign", date: `${_curY}-${_curM}-10` },
+  { _id: "exp_4", salonId: "salon_luxe_123", branchId: "branch_mumbai_1", category: "Inventory", amount: 18000, description: "Order for hair colors and mask stocks", date: `${_curY}-${_curM}-12` }
 ];
 
 export const mockAppointments = [

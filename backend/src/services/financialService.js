@@ -225,7 +225,10 @@ const getFinancialSummary = async ({
   const standardCategories = ['Rent', 'Salary', 'Electricity', 'Water', 'Products', 'Equipment', 'Maintenance', 'Marketing', 'Internet', 'Transportation', 'Other'];
   standardCategories.forEach(c => { expenseBreakdown[c] = 0; });
   expenses.forEach(e => {
-    const cat = e.category || 'Other';
+    let cat = e.category || 'Other';
+    if (cat === 'Utilities') cat = 'Electricity';
+    if (cat === 'Inventory' || cat === 'Product Purchases') cat = 'Products';
+    if (cat === 'Salaries') cat = 'Salary';
     expenseBreakdown[cat] = (expenseBreakdown[cat] || 0) + (Number(e.amount) || 0);
   });
 

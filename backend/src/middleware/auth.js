@@ -67,7 +67,76 @@ const ensureDefaultSalonData = async (salonId, user) => {
       console.log(`Created default products for salon ${salonId}`);
     }
 
-    // 5. Ensure the user document itself has branchId assigned
+    // 5. Ensure default operating Expenses exist for salon (in development / production)
+    if (process.env.NODE_ENV !== 'test') {
+      const expenseCount = await models.Expense.countDocuments({ salonId });
+      if (expenseCount === 0) {
+        const now = new Date();
+        const currentYear = now.getFullYear();
+        const currentMonth = now.getMonth();
+
+        await models.Expense.create([
+          {
+            salonId,
+            branchId: branch._id,
+            category: 'Rent',
+            amount: 45000,
+            description: 'Monthly commercial floor lease',
+            date: new Date(currentYear, currentMonth, 1),
+            paymentMethod: 'Bank Transfer',
+            vendor: 'Signature Estates Ltd',
+            createdBy: 'System Seed'
+          },
+          {
+            salonId,
+            branchId: branch._id,
+            category: 'Electricity',
+            amount: 12500,
+            description: 'Commercial electricity & power utility',
+            date: new Date(currentYear, currentMonth, 5),
+            paymentMethod: 'UPI',
+            vendor: 'Tata Power / Municipal',
+            createdBy: 'System Seed'
+          },
+          {
+            salonId,
+            branchId: branch._id,
+            category: 'Products',
+            amount: 18000,
+            description: 'Salon backbar and styling product restock',
+            date: new Date(currentYear, currentMonth, 8),
+            paymentMethod: 'Card',
+            vendor: "L'Oreal Professional Ind.",
+            createdBy: 'System Seed'
+          },
+          {
+            salonId,
+            branchId: branch._id,
+            category: 'Marketing',
+            amount: 8000,
+            description: 'Meta and Instagram promotional campaign',
+            date: new Date(currentYear, currentMonth, 10),
+            paymentMethod: 'UPI',
+            vendor: 'Meta Ads Manager',
+            createdBy: 'System Seed'
+          },
+          {
+            salonId,
+            branchId: branch._id,
+            category: 'Maintenance',
+            amount: 3500,
+            description: 'AC servicing and salon sanitization',
+            date: new Date(currentYear, currentMonth, 12),
+            paymentMethod: 'Cash',
+            vendor: 'CoolCare Services',
+            createdBy: 'System Seed'
+          }
+        ]);
+        console.log(`Created default expenses for salon ${salonId}`);
+      }
+    }
+
+    // 6. Ensure the user document itself has branchId assigned
     if (user && !user.branchId) {
       user.branchId = branch._id;
       await user.save();
