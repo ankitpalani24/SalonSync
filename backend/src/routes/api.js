@@ -9,35 +9,12 @@ const models = require('../models');
 const financialService = require('../services/financialService');
 const { protect, authorize, restrictToTenant, requirePermission } = require('../middleware/auth');
 const { validateObjectId, sanitizeBody, safeHandler, parsePagination } = require('../middleware/sanitize');
+const { authLimiter, sensitiveActionLimiter, apiLimiter } = require('../middleware/rateLimiter');
+const { requireIdempotency } = require('../middleware/idempotency');
 
 // ── Security Constants ──────────────────────────────────────
 const BCRYPT_SALT_ROUNDS = 12;
 const JWT_EXPIRY = '1d';
-
-// ── Rate Limiters ───────────────────────────────────────────
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 30,                   // 30 attempts per window
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { success: false, message: 'Too many attempts. Please try again after 15 minutes.' }
-});
-
-const sensitiveActionLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 150,                  // 150 operations per window
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { success: false, message: 'Too many sensitive operations requested. Please slow down.' }
-});
-
-const apiLimiter = rateLimit({
-  windowMs: 1 * 60 * 1000,  // 1 minute
-  max: 300,                  // 300 requests per minute
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { success: false, message: 'Rate limit exceeded. Please slow down.' }
-});
 
 // ── Financial & Security Audit Logger Helper ─────────────────
 const logAuditTrail = async ({ req, action, entity, entityId, entityName, previousValue, newValue, branchId, branchName }) => {
@@ -80,8 +57,8 @@ router.use((req, res, next) => {
 });
 
 // JWT signer helper (no hardcoded fallback — validated at startup in server.js)
-const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, {
+const generateToken = (id, tokenVersion = 1) => {
+  return jwt.sign({ id, tokenVersion }, process.env.JWT_SECRET, {
     expiresIn: JWT_EXPIRY,
   });
 };
@@ -342,7 +319,7 @@ const signupHandler = safeHandler(async (req, res) => {
 
   res.status(201).json({
     success: true,
-    token: generateToken(user._id),
+    token: generateToken(user._id, user.tokenVersion || 1),
     user: {
       id: user._id,
       name: user.name,
@@ -382,9 +359,14 @@ router.post('/auth/login', authLimiter, loginValidation, safeHandler(async (req,
   // Staff accounts must be created explicitly through the admin staff-creation flow.
 
   if (user && (await bcrypt.compare(password, user.password))) {
+    // Check account status
+    if (user.status && user.status !== 'Active') {
+      return res.status(403).json({ success: false, message: 'Account is disabled or suspended' });
+    }
+
     res.json({
       success: true,
-      token: generateToken(user._id),
+      token: generateToken(user._id, user.tokenVersion || 1),
       user: {
         id: user._id,
         name: user.name,
@@ -714,7 +696,7 @@ router.get('/appointments', requirePermission('appointments.view'), safeHandler(
   res.json({ success: true, data: appointments });
 }, 'Failed to fetch appointments'));
 
-router.post('/appointments', requirePermission('appointments.create'), sanitizeBody([...APPOINTMENT_FIELDS]), safeHandler(async (req, res) => {
+router.post('/appointments', sensitiveActionLimiter, requireIdempotency, requirePermission('appointments.create'), sanitizeBody([...APPOINTMENT_FIELDS]), safeHandler(async (req, res) => {
   const targetSalonId = req.user.role === 'CLIENT' ? (req.body.salonId || req.user.salonId) : req.user.salonId;
   
   // 1. Gracefully resolve branchId for Salon Owner / Manager / Staff / Client
@@ -939,7 +921,7 @@ router.post('/appointments', requirePermission('appointments.create'), sanitizeB
   });
 }, 'Failed to create appointment'));
 
-router.put('/appointments/:id', requirePermission('appointments.edit'), validateObjectId, sanitizeBody([...APPOINTMENT_FIELDS]), safeHandler(async (req, res) => {
+router.put('/appointments/:id', sensitiveActionLimiter, requireIdempotency, requirePermission('appointments.edit'), validateObjectId, sanitizeBody([...APPOINTMENT_FIELDS]), safeHandler(async (req, res) => {
   const existingAppt = await models.Appointment.findOne({ _id: req.params.id, ...req.tenantFilter });
   if (!existingAppt) return res.status(404).json({ success: false, message: 'Appointment not found' });
 
@@ -1548,7 +1530,7 @@ router.put('/whatsapp/templates', sanitizeBody(['customTemplates']), safeHandler
   res.json({ success: true, data: config });
 }, 'Failed to update WhatsApp templates'));
 
-router.post('/whatsapp/dispatch', sanitizeBody(['customerId', 'phone', 'customerName', 'triggerType', 'message']), safeHandler(async (req, res) => {
+router.post('/whatsapp/dispatch', sensitiveActionLimiter, requireIdempotency, sanitizeBody(['customerId', 'phone', 'customerName', 'triggerType', 'message']), safeHandler(async (req, res) => {
   const { customerId, phone, customerName, triggerType, message } = req.body;
   const config = await models.WhatsAppConfig.findOne({ salonId: req.user.salonId });
 
@@ -1991,7 +1973,7 @@ router.get('/invoices', requirePermission('billing.view'), safeHandler(async (re
   res.json({ success: true, data: invoices });
 }, 'Failed to fetch invoices'));
 
-router.post('/invoices', sensitiveActionLimiter, requirePermission('billing.create'), safeHandler(async (req, res) => {
+router.post('/invoices', sensitiveActionLimiter, requireIdempotency, requirePermission('billing.create'), safeHandler(async (req, res) => {
   const { customerId, services, products, tax, discount, paymentMethod, staffId, redeemPoints } = req.body;
   
   // Auto-generate unique invoice number with concurrency collision resilience
@@ -2338,7 +2320,7 @@ router.post('/invoices', sensitiveActionLimiter, requirePermission('billing.crea
 }, 'Failed to create invoice'));
 
 // @route   POST /api/invoices/:id/refund
-router.post('/invoices/:id/refund', sensitiveActionLimiter, requirePermission('billing.create'), validateObjectId, safeHandler(async (req, res) => {
+router.post('/invoices/:id/refund', sensitiveActionLimiter, requireIdempotency, requirePermission('billing.create'), validateObjectId, safeHandler(async (req, res) => {
   // Atomically claim the refund state so stock is restored exactly once
   const invoice = await models.Invoice.findOneAndUpdate(
     { _id: req.params.id, ...req.tenantFilter, paymentStatus: { $ne: 'Refunded' } },
@@ -2403,7 +2385,7 @@ router.post('/invoices/:id/refund', sensitiveActionLimiter, requirePermission('b
 const PRODUCT_FIELDS = ['name', 'sku', 'category', 'quantity', 'purchasePrice', 'sellingPrice', 'supplierId', 'lowStockThreshold', 'unit', 'minStock', 'reorderLevel', 'expiryDate'];
 const SUPPLIER_FIELDS = ['name', 'phone', 'email', 'address', 'outstandingDues'];
 
-router.post('/products/:id/adjust-stock', sensitiveActionLimiter, requirePermission('inventory.edit'), validateObjectId, sanitizeBody(['delta', 'reason', 'type']), safeHandler(async (req, res) => {
+router.post('/products/:id/adjust-stock', sensitiveActionLimiter, requireIdempotency, requirePermission('inventory.edit'), validateObjectId, sanitizeBody(['delta', 'reason', 'type']), safeHandler(async (req, res) => {
   const delta = Number(req.body.delta);
   if (isNaN(delta) || !isFinite(delta) || delta === 0) {
     return res.status(400).json({ success: false, message: 'Delta must be a non-zero number' });
@@ -3224,7 +3206,7 @@ router.post('/reviews', requirePermission('appointments.view'), sanitizeBody(['s
 
 // @route   POST /api/auth/refresh-token
 router.post('/auth/refresh-token', safeHandler(async (req, res) => {
-  const token = generateToken(req.user._id);
+  const token = generateToken(req.user._id, req.user.tokenVersion || 1);
   res.json({
     success: true,
     token,
@@ -3240,10 +3222,46 @@ router.post('/auth/refresh-token', safeHandler(async (req, res) => {
   });
 }, 'Token refresh failed'));
 
+// @route   POST /api/auth/change-password
+router.post('/auth/change-password', sanitizeBody(['currentPassword', 'newPassword']), safeHandler(async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ success: false, message: 'Current and new passwords are required' });
+  }
+  if (newPassword.length < 8) {
+    return res.status(400).json({ success: false, message: 'New password must be at least 8 characters' });
+  }
+
+  const user = await models.User.findById(req.user._id);
+  if (!user || !(await bcrypt.compare(currentPassword, user.password))) {
+    return res.status(401).json({ success: false, message: 'Incorrect current password' });
+  }
+
+  const salt = await bcrypt.genSalt(BCRYPT_SALT_ROUNDS);
+  user.password = await bcrypt.hash(newPassword, salt);
+  user.tokenVersion = (user.tokenVersion || 1) + 1; // Invalidate all prior sessions
+  await user.save();
+
+  await logAuditTrail({
+    req,
+    action: 'STATUS_CHANGE',
+    entity: 'User',
+    entityId: user._id,
+    entityName: user.name,
+    newValue: { event: 'PASSWORD_CHANGED', tokenVersion: user.tokenVersion }
+  });
+
+  const newToken = generateToken(user._id, user.tokenVersion);
+  res.json({ success: true, message: 'Password updated successfully', token: newToken });
+}, 'Failed to change password'));
+
 // @route   POST /api/auth/logout
-router.post('/auth/logout', (req, res) => {
-  res.json({ success: true, message: 'Logged out successfully' });
-});
+router.post('/auth/logout', safeHandler(async (req, res) => {
+  if (req.user && req.user._id) {
+    await models.User.findByIdAndUpdate(req.user._id, { $inc: { tokenVersion: 1 } });
+  }
+  res.json({ success: true, message: 'Logged out successfully and session invalidated' });
+}));
 
 // @route   GET /api/mobile/client/dashboard
 router.get('/mobile/client/dashboard', safeHandler(async (req, res) => {

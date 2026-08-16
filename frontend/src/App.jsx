@@ -7,6 +7,7 @@ import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import ToastContainer from './components/ToastContainer';
 import CommandPalette from './components/CommandPalette';
+import ErrorBoundary from './components/ErrorBoundary';
 
 // Eagerly loaded core views for instantaneous first paint
 import LandingPage from './pages/LandingPage';
@@ -303,9 +304,11 @@ function App() {
         
         {/* Render page */}
         <div style={{ flex: 1 }}>
-          <Suspense fallback={<PageLoadingFallback />}>
-            {renderActivePage()}
-          </Suspense>
+          <ErrorBoundary onReset={() => setActivePage('dashboard')}>
+            <Suspense fallback={<PageLoadingFallback />}>
+              {renderActivePage()}
+            </Suspense>
+          </ErrorBoundary>
         </div>
 
         {/* Floating Notification Button & Dropdown Drawer */}

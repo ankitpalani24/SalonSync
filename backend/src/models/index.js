@@ -13,6 +13,8 @@ const UserSchema = new mongoose.Schema({
   },
   salonId: { type: mongoose.Schema.Types.ObjectId, ref: 'Salon' },
   branchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch' },
+  tokenVersion: { type: Number, default: 1 },
+  status: { type: String, enum: ['Active', 'Suspended', 'Disabled'], default: 'Active' }
 }, { timestamps: true });
 
 UserSchema.index({ phone: 1 });
@@ -587,6 +589,20 @@ AuditLogSchema.index({ salonId: 1, createdAt: -1 });
 AuditLogSchema.index({ salonId: 1, branchId: 1, createdAt: -1 });
 AuditLogSchema.index({ salonId: 1, entity: 1, action: 1 });
 
+// 22. IdempotencyKey Schema (Distributed Multi-Instance Mutation Deduplication)
+const IdempotencyKeySchema = new mongoose.Schema({
+  salonId: { type: mongoose.Schema.Types.ObjectId, ref: 'Salon', required: true },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  endpoint: { type: String, required: true },
+  key: { type: String, required: true },
+  requestHash: { type: String, required: true },
+  statusCode: { type: Number, required: true },
+  responseBody: { type: mongoose.Schema.Types.Mixed, required: true },
+  createdAt: { type: Date, default: Date.now, expires: 86400 } // Auto-expire after 24 hours
+}, { timestamps: true });
+
+IdempotencyKeySchema.index({ salonId: 1, userId: 1, endpoint: 1, key: 1 }, { unique: true });
+
 // Export all models
 module.exports = {
   User: mongoose.model('User', UserSchema),
@@ -616,5 +632,6 @@ module.exports = {
   InventoryConsumption: mongoose.model('InventoryConsumption', InventoryConsumptionSchema),
   InventoryMovement: mongoose.model('InventoryMovement', InventoryMovementSchema),
   AuditLog: mongoose.model('AuditLog', AuditLogSchema),
-  SlotReservation: mongoose.model('SlotReservation', SlotReservationSchema)
+  SlotReservation: mongoose.model('SlotReservation', SlotReservationSchema),
+  IdempotencyKey: mongoose.model('IdempotencyKey', IdempotencyKeySchema)
 };

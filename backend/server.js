@@ -9,8 +9,11 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const dotenv = require('dotenv');
+const mongoose = require('mongoose');
 const connectDB = require('./src/config/db');
 const apiRoutes = require('./src/routes/api');
+const correlationAndLogger = require('./src/middleware/observability');
+const { getRedisHealth } = require('./src/middleware/rateLimiter');
 
 // Load environment variables
 dotenv.config();
@@ -30,6 +33,9 @@ const app = express();
 
 // ── HTTP Security Headers (helmet) ──────────────────────────
 app.use(helmet());
+
+// ── Request Correlation ID & Observability Logging ──────────
+app.use(correlationAndLogger);
 
 // ── CORS Configuration ──────────────────────────────────────
 const allowedOrigins = [
@@ -61,6 +67,40 @@ app.use(cors({
 
 // ── Body Parser with Size Limit (DoS protection) ────────────
 app.use(express.json({ limit: '1mb' }));
+
+// ── Health Check Endpoints (Container / Load Balancer Probes) ──
+app.get(['/health', '/health/live'], (req, res) => {
+  res.json({
+    status: 'ok',
+    uptime: Math.round(process.uptime()),
+    timestamp: new Date().toISOString()
+  });
+});
+
+app.get('/health/ready', async (req, res) => {
+  const isDbReady = mongoose.connection.readyState === 1;
+  const redisHealth = await getRedisHealth();
+
+  if (!isDbReady) {
+    return res.status(503).json({
+      status: 'unhealthy',
+      ready: false,
+      checks: {
+        database: 'disconnected',
+        redis: redisHealth.status
+      }
+    });
+  }
+
+  res.json({
+    status: 'ready',
+    ready: true,
+    checks: {
+      database: 'connected',
+      redis: redisHealth.status
+    }
+  });
+});
 
 // API Routes
 app.use('/api', apiRoutes);

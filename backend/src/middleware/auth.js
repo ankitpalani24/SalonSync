@@ -161,6 +161,18 @@ const protect = async (req, res, next) => {
         return res.status(401).json({ success: false, message: 'Not authorized, user not found' });
       }
 
+      // Account status check (Disabled or Suspended accounts rejected)
+      if (req.user.status && req.user.status !== 'Active') {
+        return res.status(403).json({ success: false, message: 'Account is disabled or suspended' });
+      }
+
+      // Token version check (Session invalidation on password change or revocation)
+      if (decoded.tokenVersion !== undefined && req.user.tokenVersion !== undefined) {
+        if (decoded.tokenVersion !== req.user.tokenVersion) {
+          return res.status(401).json({ success: false, message: 'Session expired or password changed. Please log in again.' });
+        }
+      }
+
       // Auto-repair missing salon seed data for newly/manually registered salons
       if (req.user.salonId) {
         await ensureDefaultSalonData(req.user.salonId, req.user);
@@ -168,7 +180,7 @@ const protect = async (req, res, next) => {
 
       next();
     } catch (error) {
-      console.error(error);
+      console.error(`[AUTH_ERROR] ${error.message}`);
       return res.status(401).json({ success: false, message: 'Not authorized, token failed' });
     }
   }
