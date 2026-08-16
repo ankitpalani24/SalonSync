@@ -121,6 +121,7 @@ const AppointmentSchema = new mongoose.Schema({
 AppointmentSchema.index({ salonId: 1, staffId: 1, date: 1, time: 1 });
 AppointmentSchema.index({ salonId: 1, customerId: 1 });
 AppointmentSchema.index({ salonId: 1, date: 1 });
+AppointmentSchema.index({ salonId: 1, branchId: 1, date: 1 });
 
 // 5b. Slot Reservation Schema (Authoritative Distributed Multi-Instance Concurrency Protection)
 const SlotReservationSchema = new mongoose.Schema({
@@ -317,6 +318,7 @@ const InvoiceSchema = new mongoose.Schema({
 // Compound index to ensure invoice numbers are unique per salon tenant
 InvoiceSchema.index({ salonId: 1, invoiceNumber: 1 }, { unique: true });
 InvoiceSchema.index({ salonId: 1, createdAt: -1 });
+InvoiceSchema.index({ salonId: 1, branchId: 1, createdAt: -1 });
 InvoiceSchema.index({ salonId: 1, customerId: 1 });
 InvoiceSchema.index({ salonId: 1, staffId: 1 });
 
@@ -554,6 +556,7 @@ const InventoryMovementSchema = new mongoose.Schema({
 
 InventoryMovementSchema.index({ salonId: 1, productId: 1, createdAt: -1 });
 InventoryMovementSchema.index({ salonId: 1, type: 1, createdAt: -1 });
+InventoryMovementSchema.index({ salonId: 1, branchId: 1, createdAt: -1 });
 
 // 21. AuditLog Schema (Immutable Business & Security Event Logs)
 const AuditLogSchema = new mongoose.Schema({
@@ -581,6 +584,7 @@ const AuditLogSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 AuditLogSchema.index({ salonId: 1, createdAt: -1 });
+AuditLogSchema.index({ salonId: 1, branchId: 1, createdAt: -1 });
 AuditLogSchema.index({ salonId: 1, entity: 1, action: 1 });
 
 // Export all models

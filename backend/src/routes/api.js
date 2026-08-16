@@ -1148,8 +1148,14 @@ router.get('/services', requirePermission('inventory.view'), safeHandler(async (
 }, 'Failed to fetch services'));
 
 router.post('/services', requirePermission('inventory.edit'), sanitizeBody([...SERVICE_FIELDS]), safeHandler(async (req, res) => {
+  const price = Number(req.body.price);
+  if (isNaN(price) || !isFinite(price) || price < 0) {
+    return res.status(400).json({ success: false, message: 'Valid non-negative price is required' });
+  }
+
   const service = new models.Service({
     ...req.body,
+    price,
     salonId: req.user.salonId
   });
   await service.save(); // pre('save') calculates profitMargin
@@ -2187,10 +2193,11 @@ router.post('/invoices', sensitiveActionLimiter, requirePermission('billing.crea
     }
   }
 
-  const taxPct = Number(tax) || 0;
+  const taxPct = Math.max(0, Math.min(100, Number(tax) || 0));
   const calculatedTax = Math.round(subTotal * (taxPct / 100));
-  const discountAmt = Number(discount) || 0;
-  const finalAmount = Math.max(0, Math.round(subTotal + calculatedTax - discountAmt - loyaltyDiscount));
+  const discountAmt = Math.max(0, Number(discount) || 0);
+  const rawFinal = subTotal + calculatedTax - discountAmt - loyaltyDiscount;
+  const finalAmount = Math.max(0, Math.round(isFinite(rawFinal) ? rawFinal : 0));
 
   let invoice;
   try {
@@ -2535,8 +2542,23 @@ router.get('/products', requirePermission('inventory.view'), safeHandler(async (
 }, 'Failed to fetch products'));
 
 router.post('/products', requirePermission('inventory.edit'), sanitizeBody([...PRODUCT_FIELDS]), safeHandler(async (req, res) => {
+  const purchasePrice = Number(req.body.purchasePrice);
+  const sellingPrice = Number(req.body.sellingPrice);
+  const quantity = Number(req.body.quantity);
+
+  if (isNaN(purchasePrice) || !isFinite(purchasePrice) || purchasePrice < 0 ||
+      isNaN(sellingPrice) || !isFinite(sellingPrice) || sellingPrice < 0) {
+    return res.status(400).json({ success: false, message: 'Valid non-negative purchase and selling prices are required' });
+  }
+  if (!isNaN(quantity) && (!isFinite(quantity) || quantity < 0)) {
+    return res.status(400).json({ success: false, message: 'Product quantity cannot be negative' });
+  }
+
   const product = await models.Product.create({
     ...req.body,
+    purchasePrice,
+    sellingPrice,
+    quantity: isNaN(quantity) ? 0 : quantity,
     salonId: req.user.salonId
   });
   res.status(201).json({ success: true, data: product });

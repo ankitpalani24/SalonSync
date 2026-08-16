@@ -136,15 +136,15 @@ const getFinancialSummary = async ({
     appointments,
     customers
   ] = await Promise.all([
-    models.Invoice.find({ ...branchTenantFilter, ...invoiceDateFilter }),
-    models.Expense.find({ ...branchTenantFilter, ...expenseDateFilter }),
-    models.Commission.find({ ...branchTenantFilter, ...commissionDateFilter }),
-    models.Service.find(baseTenantFilter),
-    models.Product.find(baseTenantFilter),
-    models.Staff.find(baseTenantFilter),
-    models.Branch.find(baseTenantFilter),
-    models.Appointment.find({ ...branchTenantFilter, ...apptDateFilter }),
-    models.Customer.find(baseTenantFilter)
+    models.Invoice.find({ ...branchTenantFilter, ...invoiceDateFilter }).lean(),
+    models.Expense.find({ ...branchTenantFilter, ...expenseDateFilter }).lean(),
+    models.Commission.find({ ...branchTenantFilter, ...commissionDateFilter }).lean(),
+    models.Service.find(baseTenantFilter).lean(),
+    models.Product.find(baseTenantFilter).lean(),
+    models.Staff.find(baseTenantFilter).lean(),
+    models.Branch.find(baseTenantFilter).lean(),
+    models.Appointment.find({ ...branchTenantFilter, ...apptDateFilter }).lean(),
+    models.Customer.find(baseTenantFilter).lean()
   ]);
 
   // 1. REVENUE CALCULATIONS
@@ -405,7 +405,7 @@ const getHistoricalTrends = async ({ salonId, branchId = null }) => {
 
   const baseTenantFilter = salonId ? { salonId } : {};
 
-  // Parallel database retrieval bounded to tenant
+  // Parallel database retrieval bounded to date horizon and tenant
   const [
     invoices,
     expenses,
@@ -416,14 +416,14 @@ const getHistoricalTrends = async ({ salonId, branchId = null }) => {
     productsList,
     staffList
   ] = await Promise.all([
-    models.Invoice.find(baseFilter),
-    models.Expense.find(baseFilter),
-    models.Commission.find(baseFilter),
-    models.Appointment.find(baseFilter),
-    models.Customer.find(baseTenantFilter),
-    models.Service.find(baseTenantFilter),
-    models.Product.find(baseTenantFilter),
-    models.Staff.find(baseTenantFilter)
+    models.Invoice.find({ ...baseFilter, createdAt: { $gte: oldestStart, $lte: latestEnd } }).lean(),
+    models.Expense.find({ ...baseFilter, date: { $gte: oldestStart, $lte: latestEnd } }).lean(),
+    models.Commission.find({ ...baseFilter, date: { $gte: oldestStart, $lte: latestEnd } }).lean(),
+    models.Appointment.find({ ...baseFilter, date: { $gte: oldestStart, $lte: latestEnd } }).lean(),
+    models.Customer.find(baseTenantFilter).select('_id createdAt').lean(),
+    models.Service.find(baseTenantFilter).select('_id name price materialCost').lean(),
+    models.Product.find(baseTenantFilter).select('_id name purchasePrice sellingPrice').lean(),
+    models.Staff.find(baseTenantFilter).select('_id name commissionPercentage').lean()
   ]);
 
   const revenueData = [];
@@ -619,33 +619,29 @@ const getHistoricalTrends = async ({ salonId, branchId = null }) => {
  * Computes live dashboard stats for both Today and Current Month in a single call.
  */
 const getDashboardStats = async ({ salonId, branchId = null }) => {
-  const todaySummary = await getFinancialSummary({
-    salonId,
-    branchId,
-    horizon: 'today'
-  });
-
-  const monthSummary = await getFinancialSummary({
-    salonId,
-    branchId,
-    horizon: 'this_month'
-  });
-
-  const trends = await getHistoricalTrends({ salonId, branchId });
-
   const baseFilter = {};
   if (salonId) baseFilter.salonId = salonId;
   if (branchId && mongoose.Types.ObjectId.isValid(branchId)) {
     baseFilter.branchId = branchId;
   }
 
-  // Active Staff & Memberships & Low Stock items
-  const [activeStaffCount, activeMembershipsCount, lowStockProducts] = await Promise.all([
+  // Parallel retrieval of today summary, monthly summary, historical trends, and counts
+  const [
+    todaySummary,
+    monthSummary,
+    trends,
+    activeStaffCount,
+    activeMembershipsCount,
+    lowStockProducts
+  ] = await Promise.all([
+    getFinancialSummary({ salonId, branchId, horizon: 'today' }),
+    getFinancialSummary({ salonId, branchId, horizon: 'this_month' }),
+    getHistoricalTrends({ salonId, branchId }),
     models.Staff.countDocuments({ ...baseFilter, status: { $ne: 'Inactive' } }),
     models.Customer.countDocuments({ ...baseFilter, membershipLevel: { $ne: 'None' } }),
     models.Product.countDocuments({
       ...baseFilter,
-      $expr: { $lte: ['$quantity', '$lowStockThreshold'] }
+      $expr: { $lte: ['$quantity', { $ifNull: ['$lowStockThreshold', 5] }] }
     })
   ]);
 
