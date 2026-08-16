@@ -84,6 +84,7 @@ const Dashboard = ({ setActivePage }) => {
   // Live Backend Stats State
   const [backendStats, setBackendStats] = useState(null);
   const [loadingStats, setLoadingStats] = useState(false);
+  const [statsFetchTimestamp, setStatsFetchTimestamp] = useState(Date.now());
 
   // Booking Form States
   const [bookingBranchId, setBookingBranchId] = useState('');
@@ -102,6 +103,7 @@ const Dashboard = ({ setActivePage }) => {
         const data = await fetchDashboardStats(currentBranch?._id || null);
         if (isMounted && data) {
           setBackendStats(data);
+          setStatsFetchTimestamp(Date.now());
         }
         if (isMounted) setLoadingStats(false);
       }
@@ -1145,7 +1147,7 @@ const Dashboard = ({ setActivePage }) => {
       <div className="dash-kpi-grid">
         <KpiCard
           title="Today's Revenue"
-          value={<AnimatedNumber value={todayRevenue} type="currency" triggerKey={currentBranch?._id} />}
+          value={<AnimatedNumber value={todayRevenue} type="currency" triggerKey={`${currentBranch?._id || 'all'}-${statsFetchTimestamp}`} />}
           subtitle="Updated live from database"
           icon={TrendingUp}
           iconColor="var(--gold-primary)"
@@ -1157,7 +1159,7 @@ const Dashboard = ({ setActivePage }) => {
         />
         <KpiCard
           title="Today's Profit"
-          value={<AnimatedNumber value={todayProfit} type="currency" triggerKey={currentBranch?._id} />}
+          value={<AnimatedNumber value={todayProfit} type="currency" triggerKey={`${currentBranch?._id || 'all'}-${statsFetchTimestamp}`} />}
           subtitle={`Net after ${formatCurrency(todayExpenses)} expenses`}
           icon={DollarSign}
           iconColor="#2ecc71"
@@ -1169,7 +1171,7 @@ const Dashboard = ({ setActivePage }) => {
         />
         <KpiCard
           title="Today's Expenses"
-          value={<AnimatedNumber value={todayExpenses} type="currency" triggerKey={currentBranch?._id} />}
+          value={<AnimatedNumber value={todayExpenses} type="currency" triggerKey={`${currentBranch?._id || 'all'}-${statsFetchTimestamp}`} />}
           subtitle="Salary, Rent & Utilities"
           icon={Receipt}
           iconColor="var(--accent-red)"
@@ -1180,7 +1182,7 @@ const Dashboard = ({ setActivePage }) => {
         />
         <KpiCard
           title="Today's Appointments"
-          value={<AnimatedNumber value={todayAppointmentCount} type="number" triggerKey={currentBranch?._id} />}
+          value={<AnimatedNumber value={todayAppointmentCount} type="number" triggerKey={`${currentBranch?._id || 'all'}-${statsFetchTimestamp}`} />}
           subtitle={`${todayCompletedCount} completed`}
           icon={Calendar}
           iconColor="#3498db"
@@ -1192,7 +1194,7 @@ const Dashboard = ({ setActivePage }) => {
         />
         <KpiCard
           title="Total Customers"
-          value={<AnimatedNumber value={totalCustomers} type="number" triggerKey={currentBranch?._id} />}
+          value={<AnimatedNumber value={totalCustomers} type="number" triggerKey={`${currentBranch?._id || 'all'}-${statsFetchTimestamp}`} />}
           subtitle={`${activeMemberships.length} active members`}
           icon={Users}
           iconColor="#9b59b6"
@@ -1204,7 +1206,7 @@ const Dashboard = ({ setActivePage }) => {
         />
         <KpiCard
           title="New Customers"
-          value={<AnimatedNumber value={newCustomersThisMonth || totalCustomers} type="number" triggerKey={currentBranch?._id} />}
+          value={<AnimatedNumber value={newCustomersThisMonth || totalCustomers} type="number" triggerKey={`${currentBranch?._id || 'all'}-${statsFetchTimestamp}`} />}
           subtitle={`Acquired in ${currentMonthName}`}
           icon={UserPlus}
           iconColor="#2ecc71"
@@ -1216,7 +1218,7 @@ const Dashboard = ({ setActivePage }) => {
         />
         <KpiCard
           title="Active Staff"
-          value={<AnimatedNumber value={activeStaffCount} type="number" triggerKey={currentBranch?._id} />}
+          value={<AnimatedNumber value={activeStaffCount} type="number" triggerKey={`${currentBranch?._id || 'all'}-${statsFetchTimestamp}`} />}
           subtitle="Currently on roster"
           icon={UserCheck}
           iconColor="var(--gold-primary)"
@@ -1228,7 +1230,7 @@ const Dashboard = ({ setActivePage }) => {
         />
         <KpiCard
           title="Inventory Alerts"
-          value={<AnimatedNumber value={lowStockAlerts.length} type="number" triggerKey={currentBranch?._id} />}
+          value={<AnimatedNumber value={lowStockAlerts.length} type="number" triggerKey={`${currentBranch?._id || 'all'}-${statsFetchTimestamp}`} />}
           subtitle={lowStockAlerts.length > 0 ? 'Items need restocking' : 'All items fully stocked'}
           icon={Package}
           iconColor={lowStockAlerts.length > 0 ? 'var(--accent-red)' : 'var(--accent-green)'}

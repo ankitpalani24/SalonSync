@@ -83,8 +83,44 @@ const safeHandler = (fn, fallbackMessage = 'An unexpected error occurred') => {
   };
 };
 
+/**
+ * Safely parses and clamps pagination query parameters.
+ * - page >= 1 (clamped, defaults to 1)
+ * - limit clamped between 1 and maxLimit (defaults to defaultLimit or 20, max 100)
+ * 
+ * Safely handles and rejects/clamps ?limit=1000000, ?limit=0, ?limit=-1, ?page=0, ?page=abc
+ *
+ * @param {object} query - Express req.query object
+ * @param {number} defaultLimit - Default limit if unspecified (default: 20)
+ * @param {number} maxLimit - Hard maximum limit ceiling (default: 100)
+ * @returns {{ page: number, limit: number, skip: number, isRequested: boolean }}
+ */
+const parsePagination = (query = {}, defaultLimit = 20, maxLimit = 100) => {
+  let page = parseInt(query.page, 10);
+  if (isNaN(page) || page < 1) {
+    page = 1;
+  }
+
+  let limit = parseInt(query.limit, 10);
+  if (isNaN(limit) || limit < 1) {
+    limit = defaultLimit;
+  } else if (limit > maxLimit) {
+    limit = maxLimit;
+  }
+
+  const skip = (page - 1) * limit;
+
+  return {
+    page,
+    limit,
+    skip,
+    isRequested: query.page !== undefined || query.limit !== undefined
+  };
+};
+
 module.exports = {
   validateObjectId,
   sanitizeBody,
-  safeHandler
+  safeHandler,
+  parsePagination
 };

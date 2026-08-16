@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { useApp } from './context/AppContext';
 import { Bell, LogOut, MapPin, Plus, Sparkles, Calendar, Users, CreditCard, DollarSign } from 'lucide-react';
 
@@ -8,31 +8,40 @@ import Header from './components/Header';
 import ToastContainer from './components/ToastContainer';
 import CommandPalette from './components/CommandPalette';
 
-// Import Pages
+// Eagerly loaded core views for instantaneous first paint
 import LandingPage from './pages/LandingPage';
 import AuthPages from './pages/Auth/AuthPages';
 import Dashboard from './pages/Dashboard';
-import Customers from './pages/Customers';
-import Appointments from './pages/Appointments';
-import Services from './pages/Services';
-import Billing from './pages/Billing';
-import Inventory from './pages/Inventory';
-import Staff from './pages/Staff';
-import Analytics from './pages/Analytics';
-import Expenses from './pages/Expenses';
-import Marketing from './pages/Marketing';
-import Loyalty from './pages/Loyalty';
-import Memberships from './pages/Memberships';
-import PublicSalonProfile from './pages/PublicSalonProfile';
-import SalonDiscovery from './pages/SalonDiscovery';
-import SalonHealth from './pages/SalonHealth';
-import WhatsAppHub from './pages/WhatsAppHub';
-import NotificationCenter from './pages/NotificationCenter';
-import AuditLogs from './pages/AuditLogs';
-import RolePermissionMatrix from './pages/RolePermissionMatrix';
-import FranchiseOverview from './pages/FranchiseOverview';
-import SubscriptionBilling from './pages/SubscriptionBilling';
-import SuperAdmin from './pages/Admin/SuperAdmin';
+
+// Lazily loaded secondary feature views for optimal code-splitting and bundle size
+const Customers = lazy(() => import('./pages/Customers'));
+const Appointments = lazy(() => import('./pages/Appointments'));
+const Services = lazy(() => import('./pages/Services'));
+const Billing = lazy(() => import('./pages/Billing'));
+const Inventory = lazy(() => import('./pages/Inventory'));
+const Staff = lazy(() => import('./pages/Staff'));
+const Analytics = lazy(() => import('./pages/Analytics'));
+const Expenses = lazy(() => import('./pages/Expenses'));
+const Marketing = lazy(() => import('./pages/Marketing'));
+const Loyalty = lazy(() => import('./pages/Loyalty'));
+const Memberships = lazy(() => import('./pages/Memberships'));
+const PublicSalonProfile = lazy(() => import('./pages/PublicSalonProfile'));
+const SalonDiscovery = lazy(() => import('./pages/SalonDiscovery'));
+const SalonHealth = lazy(() => import('./pages/SalonHealth'));
+const WhatsAppHub = lazy(() => import('./pages/WhatsAppHub'));
+const NotificationCenter = lazy(() => import('./pages/NotificationCenter'));
+const AuditLogs = lazy(() => import('./pages/AuditLogs'));
+const RolePermissionMatrix = lazy(() => import('./pages/RolePermissionMatrix'));
+const FranchiseOverview = lazy(() => import('./pages/FranchiseOverview'));
+const SubscriptionBilling = lazy(() => import('./pages/SubscriptionBilling'));
+const SuperAdmin = lazy(() => import('./pages/Admin/SuperAdmin'));
+
+const PageLoadingFallback = () => (
+  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', flexDirection: 'column', gap: '1rem' }}>
+    <div style={{ width: '36px', height: '36px', border: '3px solid rgba(112, 130, 56, 0.2)', borderTopColor: 'var(--gold-primary)', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+    <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Loading module...</span>
+  </div>
+);
 
 function App() {
   const { currentUser, logout, db, currentBranch, currentSalon, hasPermission, PERMISSIONS } = useApp();
@@ -294,7 +303,9 @@ function App() {
         
         {/* Render page */}
         <div style={{ flex: 1 }}>
-          {renderActivePage()}
+          <Suspense fallback={<PageLoadingFallback />}>
+            {renderActivePage()}
+          </Suspense>
         </div>
 
         {/* Floating Notification Button & Dropdown Drawer */}

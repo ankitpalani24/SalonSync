@@ -8,7 +8,7 @@ const router = express.Router();
 const models = require('../models');
 const financialService = require('../services/financialService');
 const { protect, authorize, restrictToTenant, requirePermission } = require('../middleware/auth');
-const { validateObjectId, sanitizeBody, safeHandler } = require('../middleware/sanitize');
+const { validateObjectId, sanitizeBody, safeHandler, parsePagination } = require('../middleware/sanitize');
 
 // ── Security Constants ──────────────────────────────────────
 const BCRYPT_SALT_ROUNDS = 12;
@@ -17,19 +17,52 @@ const JWT_EXPIRY = '1d';
 // ── Rate Limiters ───────────────────────────────────────────
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 20,                   // 20 attempts per window
+  max: 30,                   // 30 attempts per window
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, message: 'Too many attempts. Please try again after 15 minutes.' }
 });
 
+const sensitiveActionLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 150,                  // 150 operations per window
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Too many sensitive operations requested. Please slow down.' }
+});
+
 const apiLimiter = rateLimit({
   windowMs: 1 * 60 * 1000,  // 1 minute
-  max: 100,                  // 100 requests per minute
+  max: 300,                  // 300 requests per minute
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, message: 'Rate limit exceeded. Please slow down.' }
 });
+
+// ── Financial & Security Audit Logger Helper ─────────────────
+const logAuditTrail = async ({ req, action, entity, entityId, entityName, previousValue, newValue, branchId, branchName }) => {
+  try {
+    if (!req || !req.user || !req.user.salonId) return;
+    await models.AuditLog.create({
+      salonId: req.user.salonId,
+      branchId: branchId || req.user.branchId || null,
+      branchName: branchName || '',
+      userId: req.user._id,
+      userName: req.user.name || 'System User',
+      userRole: req.user.role || 'Staff',
+      action,
+      entity,
+      entityId: String(entityId || ''),
+      entityName: entityName || '',
+      previousValue: previousValue ? JSON.parse(JSON.stringify(previousValue)) : undefined,
+      newValue: newValue ? JSON.parse(JSON.stringify(newValue)) : undefined,
+      timestamp: new Date()
+    });
+  } catch (err) {
+    // Non-blocking catch to ensure audit failure never blocks core transaction
+    console.error('[AUDIT_LOG_ERROR]', err.message);
+  }
+};
 
 // Apply general rate limiting to all API routes
 router.use(apiLimiter);
@@ -409,11 +442,8 @@ router.get('/customers', requirePermission('customers.view'), safeHandler(async 
     });
   }
 
-  const page = parseInt(req.query.page, 10);
-  const limit = parseInt(req.query.limit, 10);
-
-  if (!isNaN(page) && page > 0 && !isNaN(limit) && limit > 0) {
-    const skip = (page - 1) * limit;
+  if (req.query.page !== undefined || req.query.limit !== undefined) {
+    const { page, limit, skip } = parsePagination(req.query, 20, 100);
     const total = await models.Customer.countDocuments(filter);
     const customers = await models.Customer.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit);
     return res.json({
@@ -655,11 +685,8 @@ router.get('/appointments', requirePermission('appointments.view'), safeHandler(
     filter.date = { $gte: startOfDay, $lte: endOfDay };
   }
 
-  const page = parseInt(req.query.page, 10);
-  const limit = parseInt(req.query.limit, 10);
-
-  if (!isNaN(page) && page > 0 && !isNaN(limit) && limit > 0) {
-    const skip = (page - 1) * limit;
+  if (req.query.page !== undefined || req.query.limit !== undefined) {
+    const { page, limit, skip } = parsePagination(req.query, 20, 100);
     const total = await models.Appointment.countDocuments(filter);
     const appointments = await models.Appointment.find(filter)
       .populate('customerId')
@@ -1753,11 +1780,8 @@ router.get('/expenses', requirePermission('reports.view'), safeHandler(async (re
     ];
   }
 
-  const page = parseInt(req.query.page, 10);
-  const limit = parseInt(req.query.limit, 10);
-
-  if (!isNaN(page) && page > 0 && !isNaN(limit) && limit > 0) {
-    const skip = (page - 1) * limit;
+  if (req.query.page !== undefined || req.query.limit !== undefined) {
+    const { page, limit, skip } = parsePagination(req.query, 20, 100);
     const total = await models.Expense.countDocuments(filter);
     const expenses = await models.Expense.find(filter).sort({ date: -1 }).skip(skip).limit(limit);
     const allExpensesForTotal = await models.Expense.find(filter).select('amount category');
@@ -1854,10 +1878,23 @@ router.post('/expenses', requirePermission('reports.view'), sanitizeBody([...EXP
     branchId: targetBranchId
   });
 
+  await logAuditTrail({
+    req,
+    action: 'CREATE',
+    entity: 'Expense',
+    entityId: expense._id,
+    entityName: expense.category,
+    branchId: targetBranchId,
+    newValue: { amount: expense.amount, category: expense.category, date: expense.date }
+  });
+
   res.status(201).json({ success: true, data: expense });
 }, 'Failed to create expense'));
 
 router.put('/expenses/:id', requirePermission('reports.view'), validateObjectId, sanitizeBody([...EXPENSE_FIELDS]), safeHandler(async (req, res) => {
+  const existing = await models.Expense.findOne({ _id: req.params.id, ...req.tenantFilter });
+  if (!existing) return res.status(404).json({ success: false, message: 'Expense not found' });
+
   const updateData = { ...req.body };
   if (updateData.amount !== undefined) {
     updateData.amount = Math.max(0, Number(updateData.amount) || 0);
@@ -1871,13 +1908,35 @@ router.put('/expenses/:id', requirePermission('reports.view'), validateObjectId,
     updateData,
     { new: true, runValidators: true }
   );
-  if (!expense) return res.status(404).json({ success: false, message: 'Expense not found' });
+
+  await logAuditTrail({
+    req,
+    action: 'UPDATE',
+    entity: 'Expense',
+    entityId: expense._id,
+    entityName: expense.category,
+    branchId: expense.branchId,
+    previousValue: { amount: existing.amount, category: existing.category },
+    newValue: { amount: expense.amount, category: expense.category }
+  });
+
   res.json({ success: true, data: expense });
 }, 'Failed to update expense'));
 
 router.delete('/expenses/:id', requirePermission('reports.view'), validateObjectId, safeHandler(async (req, res) => {
   const expense = await models.Expense.findOneAndDelete({ _id: req.params.id, ...req.tenantFilter });
   if (!expense) return res.status(404).json({ success: false, message: 'Expense not found' });
+
+  await logAuditTrail({
+    req,
+    action: 'DELETE',
+    entity: 'Expense',
+    entityId: req.params.id,
+    entityName: expense.category,
+    branchId: expense.branchId,
+    previousValue: { amount: expense.amount, category: expense.category }
+  });
+
   res.json({ success: true, message: 'Expense deleted' });
 }, 'Failed to delete expense'));
 
@@ -1900,11 +1959,8 @@ router.get('/invoices', requirePermission('billing.view'), safeHandler(async (re
     filter.paymentMethod = req.query.paymentMethod;
   }
 
-  const page = parseInt(req.query.page, 10);
-  const limit = parseInt(req.query.limit, 10);
-
-  if (!isNaN(page) && page > 0 && !isNaN(limit) && limit > 0) {
-    const skip = (page - 1) * limit;
+  if (req.query.page !== undefined || req.query.limit !== undefined) {
+    const { page, limit, skip } = parsePagination(req.query, 20, 100);
     const total = await models.Invoice.countDocuments(filter);
     const invoices = await models.Invoice.find(filter)
       .populate('customerId')
@@ -1929,7 +1985,7 @@ router.get('/invoices', requirePermission('billing.view'), safeHandler(async (re
   res.json({ success: true, data: invoices });
 }, 'Failed to fetch invoices'));
 
-router.post('/invoices', requirePermission('billing.create'), safeHandler(async (req, res) => {
+router.post('/invoices', sensitiveActionLimiter, requirePermission('billing.create'), safeHandler(async (req, res) => {
   const { customerId, services, products, tax, discount, paymentMethod, staffId, redeemPoints } = req.body;
   
   // Auto-generate unique invoice number with concurrency collision resilience
@@ -2261,11 +2317,21 @@ router.post('/invoices', requirePermission('billing.create'), safeHandler(async 
     }
   }
 
+  await logAuditTrail({
+    req,
+    action: 'CREATE',
+    entity: 'Invoice',
+    entityId: invoice._id,
+    entityName: invoice.invoiceNumber,
+    branchId: targetBranchId,
+    newValue: { finalAmount, invoiceNumber, paymentMethod: invoice.paymentMethod }
+  });
+
   res.status(201).json({ success: true, data: invoice });
 }, 'Failed to create invoice'));
 
 // @route   POST /api/invoices/:id/refund
-router.post('/invoices/:id/refund', requirePermission('billing.create'), validateObjectId, safeHandler(async (req, res) => {
+router.post('/invoices/:id/refund', sensitiveActionLimiter, requirePermission('billing.create'), validateObjectId, safeHandler(async (req, res) => {
   // Atomically claim the refund state so stock is restored exactly once
   const invoice = await models.Invoice.findOneAndUpdate(
     { _id: req.params.id, ...req.tenantFilter, paymentStatus: { $ne: 'Refunded' } },
@@ -2310,6 +2376,17 @@ router.post('/invoices/:id/refund', requirePermission('billing.create'), validat
     }
   }
 
+  await logAuditTrail({
+    req,
+    action: 'STATUS_CHANGE',
+    entity: 'Invoice',
+    entityId: invoice._id,
+    entityName: invoice.invoiceNumber,
+    branchId: invoice.branchId,
+    previousValue: { paymentStatus: 'Paid' },
+    newValue: { paymentStatus: 'Refunded' }
+  });
+
   res.json({ success: true, message: 'Invoice refunded and inventory restored successfully', data: invoice });
 }, 'Failed to refund invoice'));
 
@@ -2319,7 +2396,7 @@ router.post('/invoices/:id/refund', requirePermission('billing.create'), validat
 const PRODUCT_FIELDS = ['name', 'sku', 'category', 'quantity', 'purchasePrice', 'sellingPrice', 'supplierId', 'lowStockThreshold', 'unit', 'minStock', 'reorderLevel', 'expiryDate'];
 const SUPPLIER_FIELDS = ['name', 'phone', 'email', 'address', 'outstandingDues'];
 
-router.post('/products/:id/adjust-stock', requirePermission('inventory.edit'), validateObjectId, sanitizeBody(['delta', 'reason', 'type']), safeHandler(async (req, res) => {
+router.post('/products/:id/adjust-stock', sensitiveActionLimiter, requirePermission('inventory.edit'), validateObjectId, sanitizeBody(['delta', 'reason', 'type']), safeHandler(async (req, res) => {
   const delta = Number(req.body.delta);
   if (isNaN(delta) || !isFinite(delta) || delta === 0) {
     return res.status(400).json({ success: false, message: 'Delta must be a non-zero number' });
@@ -2358,12 +2435,23 @@ router.post('/products/:id/adjust-stock', requirePermission('inventory.edit'), v
     userName: req.user.name || 'Manager'
   }).catch(err => console.error('Failed to create InventoryMovement for adjust-stock:', err));
 
+  await logAuditTrail({
+    req,
+    action: 'UPDATE',
+    entity: 'Product',
+    entityId: product._id,
+    entityName: product.name,
+    branchId: product.branchId || req.user.branchId,
+    previousValue: { quantity: product.quantity - delta },
+    newValue: { quantity: product.quantity, delta, reason: req.body.reason }
+  });
+
   res.json({ success: true, data: product });
 }, 'Failed to adjust stock'));
 
 // @route   GET /api/inventory/movements (Full Stock Movement Audit Trail)
 router.get('/inventory/movements', requirePermission('inventory.view'), safeHandler(async (req, res) => {
-  const { productId, type, startDate, endDate, page, limit } = req.query;
+  const { productId, type, startDate, endDate } = req.query;
   const filter = { ...req.tenantFilter };
 
   if (productId && mongoose.Types.ObjectId.isValid(productId)) {
@@ -2378,26 +2466,23 @@ router.get('/inventory/movements', requirePermission('inventory.view'), safeHand
     if (endDate) filter.timestamp.$lte = new Date(endDate);
   }
 
-  const pageNum = parseInt(page, 10);
-  const limitNum = parseInt(limit, 10);
-
-  if (!isNaN(pageNum) && pageNum > 0 && !isNaN(limitNum) && limitNum > 0) {
-    const skip = (pageNum - 1) * limitNum;
+  if (req.query.page !== undefined || req.query.limit !== undefined) {
+    const { page, limit, skip } = parsePagination(req.query, 20, 100);
     const total = await models.InventoryMovement.countDocuments(filter);
     const movements = await models.InventoryMovement.find(filter)
       .populate('productId', 'name sku unit')
       .sort({ timestamp: -1 })
       .skip(skip)
-      .limit(limitNum);
+      .limit(limit);
 
     return res.json({
       success: true,
       data: movements,
       pagination: {
-        page: pageNum,
-        limit: limitNum,
+        page,
+        limit,
         total,
-        totalPages: Math.ceil(total / limitNum)
+        totalPages: Math.ceil(total / limit)
       }
     });
   }
@@ -2424,11 +2509,8 @@ router.get('/products', requirePermission('inventory.view'), safeHandler(async (
     filter.$expr = { $lte: ['$quantity', { $ifNull: ['$lowStockThreshold', 5] }] };
   }
 
-  const page = parseInt(req.query.page, 10);
-  const limit = parseInt(req.query.limit, 10);
-
-  if (!isNaN(page) && page > 0 && !isNaN(limit) && limit > 0) {
-    const skip = (page - 1) * limit;
+  if (req.query.page !== undefined || req.query.limit !== undefined) {
+    const { page, limit, skip } = parsePagination(req.query, 20, 100);
     const total = await models.Product.countDocuments(filter);
     const products = await models.Product.find(filter)
       .populate('supplierId')
@@ -3296,5 +3378,39 @@ router.get('/analytics/financial-reconciliation', requirePermission('reports.vie
     }
   });
 }, 'Failed to perform financial reconciliation audit'));
+
+// @route   GET /api/audit-logs (Authoritative Business & Financial Audit Trail)
+router.get('/audit-logs', authorize('SUPER_ADMIN', 'SALON_OWNER', 'SALON_MANAGER', 'FRANCHISE_OWNER'), safeHandler(async (req, res) => {
+  const filter = { ...req.tenantFilter };
+  if (req.query.entity && req.query.entity !== 'ALL') {
+    filter.entity = req.query.entity;
+  }
+  if (req.query.action && req.query.action !== 'ALL') {
+    filter.action = req.query.action;
+  }
+
+  if (req.query.page !== undefined || req.query.limit !== undefined) {
+    const { page, limit, skip } = parsePagination(req.query, 20, 100);
+    const total = await models.AuditLog.countDocuments(filter);
+    const logs = await models.AuditLog.find(filter)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    return res.json({
+      success: true,
+      data: logs,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit)
+      }
+    });
+  }
+
+  const logs = await models.AuditLog.find(filter).sort({ createdAt: -1 }).limit(100);
+  res.json({ success: true, count: logs.length, data: logs });
+}, 'Failed to fetch audit logs'));
 
 module.exports = router;
