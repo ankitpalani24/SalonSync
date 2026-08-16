@@ -78,6 +78,27 @@ describe('Financial Calculation Service - Unit Tests', () => {
   });
 
   describe('Profit Margin and Net Profit Math Formulas', () => {
+    test('controlled scenario: Gross 100k, Disc 5k, Ref 5k, Mat 20k, Comm 10k, Exp 15k yields NetRev 90k, GrossProf 60k, NetProf 45k, Margin 50%', () => {
+      const grossRevenue = 100000;
+      const discounts = 5000;
+      const refunds = 5000;
+      const netRevenue = grossRevenue - discounts - refunds; // 90,000
+
+      const productCosts = 20000;
+      const staffCommissions = 10000;
+      const operatingExpenses = 15000;
+
+      const grossProfit = netRevenue - productCosts - staffCommissions; // 60,000
+      const netProfit = grossProfit - operatingExpenses; // 45,000
+
+      const profitMargin = netRevenue > 0 ? (netProfit / netRevenue) * 100 : 0; // 50%
+
+      expect(netRevenue).toBe(90000);
+      expect(grossProfit).toBe(60000);
+      expect(netProfit).toBe(45000);
+      expect(profitMargin).toBe(50);
+    });
+
     test('calculates net revenue, gross profit, net profit, and profit margin with mathematical integrity', () => {
       const grossRevenue = 100000;
       const discounts = 5000;

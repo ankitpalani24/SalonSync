@@ -403,12 +403,27 @@ const getHistoricalTrends = async ({ salonId, branchId = null }) => {
   const oldestStart = months[0].start;
   const latestEnd = months[months.length - 1].end;
 
-  const [invoices, expenses, appointments, customers, servicesList] = await Promise.all([
+  const baseTenantFilter = salonId ? { salonId } : {};
+
+  // Parallel database retrieval bounded to tenant
+  const [
+    invoices,
+    expenses,
+    commissions,
+    appointments,
+    customers,
+    servicesList,
+    productsList,
+    staffList
+  ] = await Promise.all([
     models.Invoice.find(baseFilter),
     models.Expense.find(baseFilter),
+    models.Commission.find(baseFilter),
     models.Appointment.find(baseFilter),
-    models.Customer.find(salonId ? { salonId } : {}),
-    models.Service.find(salonId ? { salonId } : {})
+    models.Customer.find(baseTenantFilter),
+    models.Service.find(baseTenantFilter),
+    models.Product.find(baseTenantFilter),
+    models.Staff.find(baseTenantFilter)
   ]);
 
   const revenueData = [];
@@ -421,11 +436,18 @@ const getHistoricalTrends = async ({ salonId, branchId = null }) => {
       const rawDate = inv.createdAt || inv.date;
       if (!rawDate) return false;
       const d = new Date(rawDate);
-      return !isNaN(d.getTime()) && d >= m.start && d <= m.end && inv.paymentStatus !== 'Refunded' && inv.status !== 'Cancelled';
+      return !isNaN(d.getTime()) && d >= m.start && d <= m.end;
     });
 
     const mExpenses = expenses.filter(exp => {
       const rawDate = exp.date || exp.createdAt;
+      if (!rawDate) return false;
+      const d = new Date(rawDate);
+      return !isNaN(d.getTime()) && d >= m.start && d <= m.end;
+    });
+
+    const mCommissions = commissions.filter(c => {
+      const rawDate = c.date || c.createdAt;
       if (!rawDate) return false;
       const d = new Date(rawDate);
       return !isNaN(d.getTime()) && d >= m.start && d <= m.end;
@@ -438,13 +460,75 @@ const getHistoricalTrends = async ({ salonId, branchId = null }) => {
       return isNaN(d.getTime()) || d <= m.end;
     });
 
-    const rev = mInvoices.reduce((sum, i) => sum + (Number(i.finalAmount) || 0), 0);
-    const exp = mExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
-    const prof = rev - exp;
+    // 1. REVENUE CALCULATIONS (Net Revenue = Gross - Discounts - Refunds)
+    let grossRev = 0;
+    let discounts = 0;
+    let refunds = 0;
 
-    revenueData.push(rev);
-    expenseData.push(exp);
-    profitData.push(prof);
+    mInvoices.forEach(inv => {
+      if (inv.paymentStatus === 'Refunded' || inv.status === 'Cancelled') {
+        refunds += Number(inv.finalAmount) || 0;
+        return;
+      }
+
+      let invItemGross = 0;
+      (inv.services || []).forEach(s => {
+        invItemGross += (Number(s.price) || 0) * (Number(s.quantity) || 1);
+      });
+      (inv.products || []).forEach(p => {
+        invItemGross += (Number(p.price) || 0) * (Number(p.quantity) || 1);
+      });
+
+      grossRev += (invItemGross || Number(inv.finalAmount) || 0);
+      discounts += (Number(inv.discount) || 0);
+    });
+
+    const netRevenue = Math.max(0, grossRev - discounts - refunds);
+
+    // 2. PRODUCT / MATERIAL COSTS
+    let productCosts = 0;
+    mInvoices.forEach(inv => {
+      if (inv.paymentStatus !== 'Refunded' && inv.status !== 'Cancelled') {
+        (inv.services || []).forEach(item => {
+          const srv = servicesList.find(s => String(s._id) === String(item.serviceId) || s.name === item.name);
+          if (srv) {
+            productCosts += (Number(srv.materialCost) || 0) * (Number(item.quantity) || 1);
+          }
+        });
+        (inv.products || []).forEach(item => {
+          const prod = productsList.find(p => String(p._id) === String(item.productId) || p.name === item.name);
+          if (prod) {
+            productCosts += (Number(prod.purchasePrice) || 0) * (Number(item.quantity) || 1);
+          }
+        });
+      }
+    });
+
+    // 3. STAFF COMMISSIONS
+    let staffCommissions = mCommissions.reduce((sum, c) => sum + (Number(c.commissionEarned) || 0), 0);
+    if (staffCommissions === 0 && mInvoices.length > 0) {
+      mInvoices.forEach(inv => {
+        if (inv.paymentStatus !== 'Refunded' && inv.status !== 'Cancelled' && inv.staffId) {
+          const sid = typeof inv.staffId === 'object' ? inv.staffId?._id : inv.staffId;
+          const stMember = staffList.find(s => String(s._id) === String(sid));
+          const commPct = stMember ? (Number(stMember.commissionPercentage) || 10) : 10;
+          const srvRev = (inv.services || []).reduce((s, i) => s + ((Number(i.price) || 0) * (Number(i.quantity) || 1)), 0);
+          staffCommissions += (srvRev * commPct) / 100;
+        }
+      });
+    }
+    staffCommissions = Math.round(staffCommissions);
+
+    // 4. OPERATING EXPENSES
+    const operatingExpenses = Math.round(mExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0));
+
+    // 5. AUTHORITATIVE GROSS PROFIT & NET PROFIT
+    const grossProfit = Math.round(netRevenue - productCosts - staffCommissions);
+    const netProfit = Math.round(grossProfit - operatingExpenses);
+
+    revenueData.push(Math.round(netRevenue));
+    expenseData.push(operatingExpenses);
+    profitData.push(netProfit);
     customerGrowthData.push(mCustomers.length);
   });
 

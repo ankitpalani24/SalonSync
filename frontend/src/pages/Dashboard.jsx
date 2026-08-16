@@ -17,6 +17,7 @@ import {
   PopularServicesDonut
 } from '../components/DashboardCharts';
 import StaffDashboard from '../components/StaffDashboard';
+import AnimatedNumber from '../components/AnimatedNumber';
 import { formatCurrency, formatPercent, formatNumber } from '../utils/formatters';
 
 // ─── KPI CARD COMPONENT ──────────────────────────────────────────────────────
@@ -545,7 +546,7 @@ const Dashboard = ({ setActivePage }) => {
               <div className="glass-card">
                 <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Loyalty Balance</span>
                 <h3 style={{ fontSize: '1.65rem', color: 'var(--gold-primary)', marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <Sparkles size={20} /> {customerProfile.loyaltyPoints} Points
+                  <Sparkles size={20} /> <AnimatedNumber value={customerProfile.loyaltyPoints} type="number" /> Points
                 </h3>
                 <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>1 point per ₹100 spent</p>
               </div>
@@ -561,7 +562,7 @@ const Dashboard = ({ setActivePage }) => {
               <div className="glass-card">
                 <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Total Spending</span>
                 <h3 style={{ fontSize: '1.65rem', color: 'var(--text-primary)', marginTop: '0.5rem' }}>
-                  ₹{myTotalSpending.toLocaleString()}
+                  <AnimatedNumber value={myTotalSpending} type="currency" />
                 </h3>
                 <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>Accumulated checkouts</p>
               </div>
@@ -1144,7 +1145,7 @@ const Dashboard = ({ setActivePage }) => {
       <div className="dash-kpi-grid">
         <KpiCard
           title="Today's Revenue"
-          value={formatCurrency(todayRevenue)}
+          value={<AnimatedNumber value={todayRevenue} type="currency" triggerKey={currentBranch?._id} />}
           subtitle="Updated live from database"
           icon={TrendingUp}
           iconColor="var(--gold-primary)"
@@ -1156,7 +1157,7 @@ const Dashboard = ({ setActivePage }) => {
         />
         <KpiCard
           title="Today's Profit"
-          value={formatCurrency(todayProfit)}
+          value={<AnimatedNumber value={todayProfit} type="currency" triggerKey={currentBranch?._id} />}
           subtitle={`Net after ${formatCurrency(todayExpenses)} expenses`}
           icon={DollarSign}
           iconColor="#2ecc71"
@@ -1168,7 +1169,7 @@ const Dashboard = ({ setActivePage }) => {
         />
         <KpiCard
           title="Today's Expenses"
-          value={formatCurrency(todayExpenses)}
+          value={<AnimatedNumber value={todayExpenses} type="currency" triggerKey={currentBranch?._id} />}
           subtitle="Salary, Rent & Utilities"
           icon={Receipt}
           iconColor="var(--accent-red)"
@@ -1179,7 +1180,7 @@ const Dashboard = ({ setActivePage }) => {
         />
         <KpiCard
           title="Today's Appointments"
-          value={formatNumber(todayAppointmentCount)}
+          value={<AnimatedNumber value={todayAppointmentCount} type="number" triggerKey={currentBranch?._id} />}
           subtitle={`${todayCompletedCount} completed`}
           icon={Calendar}
           iconColor="#3498db"
@@ -1191,7 +1192,7 @@ const Dashboard = ({ setActivePage }) => {
         />
         <KpiCard
           title="Total Customers"
-          value={formatNumber(totalCustomers)}
+          value={<AnimatedNumber value={totalCustomers} type="number" triggerKey={currentBranch?._id} />}
           subtitle={`${activeMemberships.length} active members`}
           icon={Users}
           iconColor="#9b59b6"
@@ -1203,7 +1204,7 @@ const Dashboard = ({ setActivePage }) => {
         />
         <KpiCard
           title="New Customers"
-          value={formatNumber(newCustomersThisMonth || totalCustomers)}
+          value={<AnimatedNumber value={newCustomersThisMonth || totalCustomers} type="number" triggerKey={currentBranch?._id} />}
           subtitle={`Acquired in ${currentMonthName}`}
           icon={UserPlus}
           iconColor="#2ecc71"
@@ -1215,7 +1216,7 @@ const Dashboard = ({ setActivePage }) => {
         />
         <KpiCard
           title="Active Staff"
-          value={formatNumber(activeStaffCount)}
+          value={<AnimatedNumber value={activeStaffCount} type="number" triggerKey={currentBranch?._id} />}
           subtitle="Currently on roster"
           icon={UserCheck}
           iconColor="var(--gold-primary)"
@@ -1227,7 +1228,7 @@ const Dashboard = ({ setActivePage }) => {
         />
         <KpiCard
           title="Inventory Alerts"
-          value={formatNumber(lowStockAlerts.length)}
+          value={<AnimatedNumber value={lowStockAlerts.length} type="number" triggerKey={currentBranch?._id} />}
           subtitle={lowStockAlerts.length > 0 ? 'Items need restocking' : 'All items fully stocked'}
           icon={Package}
           iconColor={lowStockAlerts.length > 0 ? 'var(--accent-red)' : 'var(--accent-green)'}

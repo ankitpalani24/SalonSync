@@ -506,4 +506,109 @@ describe('SalonSync Dashboard Analytics & Data Fetching Test Suite', () => {
     expect(dashRes.body.data.monthlyExpenses).toBe(repRes.body.data.metrics.operatingExpenses);
     expect(dashRes.body.data.netProfit).toBe(repRes.body.data.metrics.netProfit);
   });
+
+  // TEST 11: Controlled Scenario: Gross 100k, Disc 5k, Ref 5k, Mat 20k, Comm 10k, Exp 15k
+  test('11. Authoritative P&L: Net Rev 90k, Gross Profit 60k, Net Profit 45k, Margin 50% across Dashboard, Chart, and Reports', async () => {
+    const now = new Date();
+
+    // 1. Service with Material Cost ₹10,000 (2 qty used = ₹20,000 material cost)
+    const service = await models.Service.create({
+      salonId: salonAId,
+      name: 'Luxury Spa Package',
+      category: 'Spa',
+      price: 50000,
+      materialCost: 10000
+    });
+
+    // 2. Staff with 10% Commission
+    const staff = await models.Staff.create({
+      salonId: salonAId,
+      branchId: branchA1Id,
+      name: 'Senior Stylist Leo',
+      phone: '9888800095',
+      role: 'Master Stylist',
+      commissionPercentage: 10
+    });
+
+    // 3. Paid Invoice: Gross ₹100,000 (2 × ₹50,000), Discount ₹5,000 -> finalAmount = ₹95,000
+    await models.Invoice.create({
+      salonId: salonAId,
+      branchId: branchA1Id,
+      staffId: staff._id,
+      invoiceNumber: 'INV-AUTH-1',
+      services: [
+        { serviceId: service._id, name: service.name, price: 50000, quantity: 2 }
+      ],
+      discount: 5000,
+      finalAmount: 95000,
+      paymentStatus: 'Paid',
+      createdAt: now
+    });
+
+    // 4. Refunded Invoice: ₹5,000
+    await models.Invoice.create({
+      salonId: salonAId,
+      branchId: branchA1Id,
+      invoiceNumber: 'INV-AUTH-REF',
+      finalAmount: 5000,
+      paymentStatus: 'Refunded',
+      createdAt: now
+    });
+
+    // 5. Operating Expenses: ₹15,000
+    await models.Expense.create({
+      salonId: salonAId,
+      branchId: branchA1Id,
+      category: 'Rent',
+      amount: 15000,
+      date: now
+    });
+
+    // Fetch Dashboard Stats
+    const dashRes = await request(app)
+      .get('/api/dashboard/stats')
+      .set('Authorization', `Bearer ${salonAOwnerToken}`);
+
+    // Fetch Financial Summary Report
+    const repRes = await request(app)
+      .get('/api/analytics/financial-summary?horizon=this_month')
+      .set('Authorization', `Bearer ${salonAOwnerToken}`);
+
+    expect(dashRes.status).toBe(200);
+    expect(repRes.status).toBe(200);
+
+    // Net Revenue: Gross 100k - Discount 5k - Refund 5k = 90k
+    expect(repRes.body.data.metrics.grossRevenue).toBe(100000);
+    expect(repRes.body.data.metrics.discounts).toBe(5000);
+    expect(repRes.body.data.metrics.refunds).toBe(5000);
+    expect(repRes.body.data.metrics.netRevenue).toBe(90000);
+
+    // Product Costs: 2 × 10k = 20k
+    expect(repRes.body.data.metrics.productCosts).toBe(20000);
+
+    // Staff Commissions: 10% of 100k service gross = 10k
+    expect(repRes.body.data.metrics.staffCommissions).toBe(10000);
+
+    // Gross Profit: 90k - 20k - 10k = 60k
+    expect(repRes.body.data.metrics.grossProfit).toBe(60000);
+
+    // Operating Expenses: 15k
+    expect(repRes.body.data.metrics.operatingExpenses).toBe(15000);
+
+    // Net Profit: 60k - 15k = 45k
+    expect(repRes.body.data.metrics.netProfit).toBe(45000);
+
+    // Profit Margin: 45k / 90k * 100 = 50%
+    expect(repRes.body.data.metrics.profitMargin).toBe(50);
+
+    // Dashboard values reconciliation
+    expect(dashRes.body.data.monthlyRevenue).toBe(90000);
+    expect(dashRes.body.data.monthlyExpenses).toBe(15000);
+    expect(dashRes.body.data.netProfit).toBe(45000);
+    expect(dashRes.body.data.profitMargin).toBe(50);
+
+    // Monthly Profit Chart must show ₹45,000 (authoritative Net Profit)
+    const profits = dashRes.body.data.trends.monthlyProfitChartData.profits;
+    expect(profits[profits.length - 1]).toBe(45000);
+  });
 });
