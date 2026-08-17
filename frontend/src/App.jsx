@@ -111,7 +111,7 @@ function App() {
   useEffect(() => {
     if (currentUser) {
       if (currentUser.role === 'SUPER_ADMIN') {
-        if (activePage !== 'super-admin') {
+        if (activePage === 'landing' || activePage === 'login' || activePage === 'signup') {
           setActivePage('super-admin');
         }
       } else {
@@ -139,7 +139,9 @@ function App() {
           'marketing': null
         };
         const reqPerm = pagePermissionMap[activePage];
-        if (activePage === 'super-admin' || (reqPerm && !hasPermission(reqPerm))) {
+        if (activePage === 'landing' || activePage === 'login' || activePage === 'signup') {
+          setActivePage('dashboard');
+        } else if (activePage === 'super-admin' || (reqPerm && !hasPermission(reqPerm))) {
           setActivePage('dashboard');
         }
       }

@@ -1042,9 +1042,9 @@ router.put('/appointments/:id', sensitiveActionLimiter, requireIdempotency, requ
             for (const reqProd of srv.requiredProducts) {
               if (reqProd.productId && reqProd.quantity > 0) {
                 const product = await models.Product.findOneAndUpdate(
-                  { _id: reqProd.productId, salonId: claimedAppt.salonId },
+                  { _id: reqProd.productId, salonId: claimedAppt.salonId, quantity: { $gte: reqProd.quantity } },
                   { $inc: { quantity: -reqProd.quantity } },
-                  { new: true }
+                  { new: true, returnDocument: 'after' }
                 );
 
                 if (product) {
@@ -1634,45 +1634,7 @@ router.put('/notifications/preferences', sanitizeBody(['customerChannels', 'staf
 // IMMUTABLE AUDIT LOGGING SYSTEM
 // ----------------------------------------------------
 
-router.get('/audit-logs', authorize('SALON_OWNER', 'FRANCHISE_OWNER', 'SUPER_ADMIN'), safeHandler(async (req, res) => {
-  const { entity, action, search, page, limit } = req.query;
-  const filter = { salonId: req.user.salonId };
 
-  if (entity && entity !== 'ALL') filter.entity = entity;
-  if (action && action !== 'ALL') filter.action = action;
-
-  if (search && search.trim()) {
-    const q = search.trim();
-    filter.$or = [
-      { userName: { $regex: q, $options: 'i' } },
-      { entityName: { $regex: q, $options: 'i' } },
-      { entityId: { $regex: q, $options: 'i' } }
-    ];
-  }
-
-  const pageNum = parseInt(page, 10);
-  const limitNum = parseInt(limit, 10);
-
-  if (!isNaN(pageNum) && pageNum > 0 && !isNaN(limitNum) && limitNum > 0) {
-    const skip = (pageNum - 1) * limitNum;
-    const total = await models.AuditLog.countDocuments(filter);
-    const logs = await models.AuditLog.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limitNum);
-
-    return res.json({
-      success: true,
-      data: logs,
-      pagination: {
-        page: pageNum,
-        limit: limitNum,
-        total,
-        totalPages: Math.ceil(total / limitNum)
-      }
-    });
-  }
-
-  const logs = await models.AuditLog.find(filter).sort({ createdAt: -1 }).limit(200);
-  res.json({ success: true, data: logs });
-}, 'Failed to fetch audit logs'));
 
 router.post('/audit-logs', sanitizeBody(['action', 'entity', 'entityId', 'entityName', 'previousValue', 'newValue', 'branchName']), safeHandler(async (req, res) => {
   const log = await models.AuditLog.create({
@@ -2320,12 +2282,12 @@ router.post('/invoices', sensitiveActionLimiter, requireIdempotency, requirePerm
 }, 'Failed to create invoice'));
 
 // @route   POST /api/invoices/:id/refund
-router.post('/invoices/:id/refund', sensitiveActionLimiter, requireIdempotency, requirePermission('billing.create'), validateObjectId, safeHandler(async (req, res) => {
+router.post('/invoices/:id/refund', sensitiveActionLimiter, requireIdempotency, requirePermission('billing.refund'), validateObjectId, safeHandler(async (req, res) => {
   // Atomically claim the refund state so stock is restored exactly once
   const invoice = await models.Invoice.findOneAndUpdate(
     { _id: req.params.id, ...req.tenantFilter, paymentStatus: { $ne: 'Refunded' } },
     { paymentStatus: 'Refunded' },
-    { new: true }
+    { new: true, returnDocument: 'after' }
   );
 
   if (!invoice) {
@@ -2690,7 +2652,7 @@ router.delete('/staff/:id', requirePermission('staff.manage'), validateObjectId,
 // ----------------------------------------------------
 // ATTENDANCE MANAGEMENT
 // ----------------------------------------------------
-const ATTENDANCE_FIELDS = ['staffId', 'branchId', 'date', 'checkIn', 'checkOut', 'workingHours', 'overtime', 'status', 'notes'];
+const ATTENDANCE_FIELDS = ['staffId', 'branchId', 'date', 'checkIn', 'checkOut', 'workingHours', 'overtime', 'status', 'notes', 'action'];
 
 router.get('/attendance', requirePermission('staff.view'), safeHandler(async (req, res) => {
   const { date, staffId, branchId } = req.query;
@@ -2699,11 +2661,77 @@ router.get('/attendance', requirePermission('staff.view'), safeHandler(async (re
   if (staffId && mongoose.Types.ObjectId.isValid(staffId)) filter.staffId = staffId;
   if (branchId && mongoose.Types.ObjectId.isValid(branchId)) filter.branchId = branchId;
 
+  // If requesting user is staff, restrict view to their own attendance
+  if (req.user.role === 'STAFF') {
+    const staffDoc = await models.Staff.findOne({
+      salonId: req.user.salonId,
+      $or: [{ userId: req.user._id }, { email: req.user.email }, { phone: req.user.phone }]
+    });
+    if (staffDoc) {
+      filter.staffId = staffDoc._id;
+    }
+  }
+
   const attendance = await models.Attendance.find(filter).populate('staffId').sort({ date: -1 });
   res.json({ success: true, count: attendance.length, data: attendance });
 }, 'Failed to fetch attendance logs'));
 
-router.post('/attendance', requirePermission('staff.manage'), sanitizeBody([...ATTENDANCE_FIELDS]), safeHandler(async (req, res) => {
+router.post('/attendance', requirePermission('staff.view'), sanitizeBody([...ATTENDANCE_FIELDS]), safeHandler(async (req, res) => {
+  const { staffId, action } = req.body;
+
+  // Handle employee clock-in / clock-out actions
+  if (action === 'clockin' || action === 'clockout') {
+    let targetStaffId = staffId;
+    if (!targetStaffId || !mongoose.Types.ObjectId.isValid(targetStaffId)) {
+      const staffDoc = await models.Staff.findOne({
+        salonId: req.user.salonId,
+        $or: [{ userId: req.user._id }, { email: req.user.email }, { phone: req.user.phone }]
+      });
+      if (staffDoc) targetStaffId = staffDoc._id;
+    }
+
+    const today = new Date().setHours(0, 0, 0, 0);
+    let record = await models.Attendance.findOne({
+      staffId: targetStaffId,
+      date: { $gte: today },
+      salonId: req.user.salonId
+    });
+
+    const nowTime = new Date().toTimeString().split(' ')[0].substring(0, 5); // "HH:MM"
+
+    if (action === 'clockin') {
+      if (record) {
+        return res.status(400).json({ success: false, message: 'Already clocked in today' });
+      }
+      record = await models.Attendance.create({
+        salonId: req.user.salonId,
+        branchId: req.body.branchId || req.user.branchId,
+        staffId: targetStaffId,
+        date: new Date(),
+        checkIn: nowTime
+      });
+    } else {
+      if (!record) {
+        return res.status(400).json({ success: false, message: 'Must clock in before clocking out' });
+      }
+      record.checkOut = nowTime;
+      
+      const [inH, inM] = record.checkIn.split(':').map(Number);
+      const [outH, outM] = nowTime.split(':').map(Number);
+      const diffHrs = (outH + outM / 60) - (inH + inM / 60);
+      record.workingHours = Math.round(diffHrs * 10) / 10;
+      record.overtime = Math.max(0, record.workingHours - 8);
+      
+      await record.save();
+    }
+    return res.json({ success: true, data: record });
+  }
+
+  // Full attendance creation requires staff management role
+  if (!['SUPER_ADMIN', 'SALON_OWNER', 'SALON_MANAGER', 'FRANCHISE_OWNER'].includes(req.user.role)) {
+    return res.status(403).json({ success: false, message: 'Forbidden: Requires staff management permissions' });
+  }
+
   let targetBranchId = req.body.branchId || req.user.branchId;
   if (!targetBranchId || !mongoose.Types.ObjectId.isValid(targetBranchId)) {
     const branch = await models.Branch.findOne({ salonId: req.user.salonId });
@@ -2717,41 +2745,7 @@ router.post('/attendance', requirePermission('staff.manage'), sanitizeBody([...A
     date: req.body.date || new Date().toISOString().split('T')[0]
   });
   res.status(201).json({ success: true, data: attendance });
-}, 'Failed to create attendance log'));
-
-// ----------------------------------------------------
-// REVIEWS & FEEDBACK
-// ----------------------------------------------------
-router.get('/reviews', safeHandler(async (req, res) => {
-  const filter = { ...req.tenantFilter };
-  if (req.query.staffId) filter.staffId = req.query.staffId;
-  const reviews = await models.Review.find(filter).sort({ date: -1 });
-  res.json({ success: true, data: reviews });
-}, 'Failed to fetch reviews'));
-
-router.post('/reviews', safeHandler(async (req, res) => {
-  const { staffId, customerId, customerName, serviceName, rating, comment } = req.body;
-  const review = await models.Review.create({
-    salonId: req.user ? req.user.salonId : req.body.salonId,
-    staffId,
-    customerId,
-    customerName: customerName || 'Valued Client',
-    serviceName: serviceName || 'Salon Service',
-    rating: Number(rating) || 5,
-    comment: comment || ''
-  });
-
-  // Re-calculate staff average rating
-  if (staffId) {
-    const allStaffReviews = await models.Review.find({ staffId });
-    if (allStaffReviews.length > 0) {
-      const avg = allStaffReviews.reduce((sum, r) => sum + r.rating, 0) / allStaffReviews.length;
-      await models.Staff.findByIdAndUpdate(staffId, { rating: Math.round(avg * 10) / 10 });
-    }
-  }
-
-  res.status(201).json({ success: true, data: review });
-}, 'Failed to submit review'));
+}, 'Failed to process attendance'));
 
 // ----------------------------------------------------
 // LOYALTY REWARDS & RULES ENGINE
@@ -2888,51 +2882,7 @@ router.post('/loyalty/redeem', safeHandler(async (req, res) => {
   });
 }, 'Failed to process point redemption'));
 
-router.get('/attendance', requirePermission('staff.view'), safeHandler(async (req, res) => {
-  const attendance = await models.Attendance.find(req.tenantFilter).populate('staffId');
-  res.json({ success: true, data: attendance });
-}, 'Failed to fetch attendance'));
 
-router.post('/attendance', requirePermission('staff.view'), safeHandler(async (req, res) => {
-  const { staffId, action } = req.body; // action: 'clockin' or 'clockout'
-  const today = new Date().setHours(0,0,0,0);
-  
-  let record = await models.Attendance.findOne({
-    staffId,
-    date: { $gte: today },
-    salonId: req.user.salonId
-  });
-
-  const nowTime = new Date().toTimeString().split(' ')[0].substring(0,5); // "HH:MM"
-
-  if (action === 'clockin') {
-    if (record) {
-      return res.status(400).json({ success: false, message: 'Already clocked in today' });
-    }
-    record = await models.Attendance.create({
-      salonId: req.user.salonId,
-      branchId: req.user.branchId,
-      staffId,
-      date: new Date(),
-      checkIn: nowTime
-    });
-  } else {
-    if (!record) {
-      return res.status(400).json({ success: false, message: 'Must clock in before clocking out' });
-    }
-    record.checkOut = nowTime;
-    
-    // Calculate work hours
-    const [inH, inM] = record.checkIn.split(':').map(Number);
-    const [outH, outM] = nowTime.split(':').map(Number);
-    const diffHrs = (outH + outM/60) - (inH + inM/60);
-    record.workingHours = Math.round(diffHrs * 10) / 10;
-    record.overtime = Math.max(0, record.workingHours - 8);
-    
-    await record.save();
-  }
-  res.json({ success: true, data: record });
-}, 'Failed to process attendance'));
 
 router.get('/commissions', requirePermission('staff.view'), safeHandler(async (req, res) => {
   let filter = { ...req.tenantFilter };
@@ -3149,14 +3099,34 @@ router.post('/auth/create-user', authorize('SUPER_ADMIN', 'SALON_OWNER', 'SALON_
   const salt = await bcrypt.genSalt(BCRYPT_SALT_ROUNDS);
   const hashedPassword = await bcrypt.hash(actualPassword, salt);
 
+  // Assign and validate tenant boundary
+  let targetSalonId = req.user.salonId;
+  let targetBranchId = req.user.branchId;
+
+  if (req.user.role === 'SUPER_ADMIN') {
+    targetSalonId = req.body.salonId || req.user.salonId;
+    targetBranchId = req.body.branchId || null;
+  } else {
+    targetSalonId = req.user.salonId;
+    if (req.body.branchId && mongoose.Types.ObjectId.isValid(req.body.branchId)) {
+      const validBranch = await models.Branch.findOne({ _id: req.body.branchId, salonId: req.user.salonId });
+      if (!validBranch) {
+        return res.status(400).json({ success: false, message: 'Branch does not belong to this salon' });
+      }
+      targetBranchId = validBranch._id;
+    } else {
+      targetBranchId = req.user.branchId;
+    }
+  }
+
   const user = await models.User.create({
     name,
     email: email.toLowerCase(),
     phone,
     password: hashedPassword,
     role: targetRole,
-    salonId: req.user.salonId,
-    branchId: req.user.branchId
+    salonId: targetSalonId,
+    branchId: targetBranchId
   });
 
   res.status(201).json({

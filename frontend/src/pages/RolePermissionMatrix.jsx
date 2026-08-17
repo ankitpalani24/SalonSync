@@ -184,6 +184,7 @@ const RolePermissionMatrix = () => {
               <tr>
                 <th style={{ minWidth: '220px' }}>Granular Permission</th>
                 <th style={{ textAlign: 'center' }}>SUPER ADMIN</th>
+                <th style={{ textAlign: 'center' }}>FRANCHISE OWNER</th>
                 <th style={{ textAlign: 'center' }}>SALON OWNER</th>
                 <th style={{ textAlign: 'center' }}>MANAGER</th>
                 <th style={{ textAlign: 'center' }}>STAFF</th>
@@ -194,7 +195,7 @@ const RolePermissionMatrix = () => {
               {permissionGroups.map(group => (
                 <React.Fragment key={group.title}>
                   <tr style={{ background: 'rgba(255,255,255,0.03)' }}>
-                    <td colSpan="6" style={{ fontWeight: '800', color: 'var(--gold-primary)', textTransform: 'uppercase', fontSize: '0.72rem', letterSpacing: '0.5px' }}>
+                    <td colSpan="7" style={{ fontWeight: '800', color: 'var(--gold-primary)', textTransform: 'uppercase', fontSize: '0.72rem', letterSpacing: '0.5px' }}>
                       {group.title}
                     </td>
                   </tr>
@@ -205,7 +206,7 @@ const RolePermissionMatrix = () => {
                         <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{perm.desc}</span>
                       </td>
 
-                      {['SUPER_ADMIN', 'SALON_OWNER', 'SALON_MANAGER', 'STAFF', 'CLIENT'].map(roleKey => {
+                      {['SUPER_ADMIN', 'FRANCHISE_OWNER', 'SALON_OWNER', 'SALON_MANAGER', 'STAFF', 'CLIENT'].map(roleKey => {
                         const isGranted = checkRolePermission(roleKey, perm.key);
 
                         return (

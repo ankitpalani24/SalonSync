@@ -102,6 +102,14 @@ app.get('/health/ready', async (req, res) => {
   });
 });
 
+// ── Dynamic API Cache Control (Never cache sensitive tenant/financial API data) ──
+app.use('/api', (req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  next();
+});
+
 // API Routes
 app.use('/api', apiRoutes);
 
@@ -133,6 +141,39 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`SalonSync Server running on port ${PORT}`);
 });
+
+// ── Graceful Process Shutdown (Zero-downtime Render/Container deployment) ──
+const gracefulShutdown = async (signal) => {
+  console.log(`[SHUTDOWN] Received ${signal}. Initiating graceful termination...`);
+  server.close(async () => {
+    console.log('[SHUTDOWN] HTTP listener terminated.');
+    try {
+      if (mongoose.connection.readyState === 1) {
+        await mongoose.connection.close(false);
+        console.log('[SHUTDOWN] MongoDB connection closed.');
+      }
+      const { getRedisClient } = require('./src/middleware/rateLimiter');
+      const redis = getRedisClient();
+      if (redis && redis.status === 'ready') {
+        await redis.quit();
+        console.log('[SHUTDOWN] Redis connection closed.');
+      }
+      process.exit(0);
+    } catch (err) {
+      console.error('[SHUTDOWN_ERROR]', err.message);
+      process.exit(1);
+    }
+  });
+
+  // Forced exit fallback after 10 seconds
+  setTimeout(() => {
+    console.error('[SHUTDOWN] Forceful termination due to timeout.');
+    process.exit(1);
+  }, 10000);
+};
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));

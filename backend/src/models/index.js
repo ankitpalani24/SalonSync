@@ -81,10 +81,10 @@ const CustomerSchema = new mongoose.Schema({
   address: { type: String },
   notes: { type: String },
   photo: { type: String },
-  loyaltyPoints: { type: Number, default: 0 },
-  totalPointsEarned: { type: Number, default: 0 },
-  totalPointsRedeemed: { type: Number, default: 0 },
-  totalPointsExpired: { type: Number, default: 0 },
+  loyaltyPoints: { type: Number, default: 0, min: 0 },
+  totalPointsEarned: { type: Number, default: 0, min: 0 },
+  totalPointsRedeemed: { type: Number, default: 0, min: 0 },
+  totalPointsExpired: { type: Number, default: 0, min: 0 },
   membershipLevel: { 
     type: String, 
     enum: ['None', 'Silver', 'Gold', 'Platinum'], 
@@ -148,9 +148,9 @@ const ServiceSchema = new mongoose.Schema({
     enum: ['Haircut', 'Hair Color', 'Facial', 'Makeup', 'Waxing', 'Spa', 'Bridal Services', 'Other'], 
     required: true 
   },
-  duration: { type: Number, default: 30 }, // in minutes
-  price: { type: Number, required: true },
-  materialCost: { type: Number, default: 0 },
+  duration: { type: Number, default: 30, min: 1 }, // in minutes
+  price: { type: Number, required: true, min: 0 },
+  materialCost: { type: Number, default: 0, min: 0 },
   profitMargin: { type: Number }, // Price - MaterialCost
   description: { type: String },
   requiredProducts: [{
@@ -305,9 +305,9 @@ const InvoiceSchema = new mongoose.Schema({
     price: Number,
     quantity: { type: Number, default: 1 }
   }],
-  tax: { type: Number, default: 0 },
-  discount: { type: Number, default: 0 },
-  finalAmount: { type: Number, required: true },
+  tax: { type: Number, default: 0, min: 0 },
+  discount: { type: Number, default: 0, min: 0 },
+  finalAmount: { type: Number, required: true, min: 0 },
   paymentMethod: { 
     type: String, 
     enum: ['Cash', 'UPI', 'Card', 'Bank Transfer'], 
@@ -352,19 +352,21 @@ const ProductSchema = new mongoose.Schema({
   name: { type: String, required: true },
   sku: { type: String, required: true },
   category: { type: String },
-  quantity: { type: Number, default: 0 },
+  quantity: { type: Number, default: 0, min: 0 },
   unit: { type: String, default: 'units' },
-  minStock: { type: Number, default: 5 },
-  reorderLevel: { type: Number, default: 10 },
-  purchasePrice: { type: Number, required: true },
-  sellingPrice: { type: Number, required: true },
+  minStock: { type: Number, default: 5, min: 0 },
+  reorderLevel: { type: Number, default: 10, min: 0 },
+  purchasePrice: { type: Number, required: true, min: 0 },
+  sellingPrice: { type: Number, required: true, min: 0 },
   supplierId: { type: mongoose.Schema.Types.ObjectId, ref: 'Supplier' },
   expiryDate: { type: Date },
-  lowStockThreshold: { type: Number, default: 5 }
+  lowStockThreshold: { type: Number, default: 5, min: 0 }
 }, { timestamps: true });
 
 ProductSchema.index({ salonId: 1, sku: 1 });
 ProductSchema.index({ salonId: 1, quantity: 1 });
+ProductSchema.index({ salonId: 1, branchId: 1 });
+ProductSchema.index({ salonId: 1, category: 1 });
 
 // 13. Supplier Schema
 const SupplierSchema = new mongoose.Schema({
@@ -416,6 +418,7 @@ const AttendanceSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 AttendanceSchema.index({ salonId: 1, staffId: 1, date: -1 });
+AttendanceSchema.index({ salonId: 1, branchId: 1, date: -1 });
 
 // 16. Commission Schema
 const CommissionSchema = new mongoose.Schema({
@@ -430,6 +433,7 @@ const CommissionSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 CommissionSchema.index({ salonId: 1, staffId: 1, date: -1 });
+CommissionSchema.index({ salonId: 1, branchId: 1, date: -1 });
 
 // 17. Subscription Schema (For Salon platforms/Super Admin)
 const SubscriptionSchema = new mongoose.Schema({
@@ -517,6 +521,7 @@ const ReviewSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 ReviewSchema.index({ salonId: 1, staffId: 1 });
+ReviewSchema.index({ salonId: 1, customerId: 1 });
 
 // 20. InventoryConsumption Schema (Audit Trail for Automated Deductions)
 const InventoryConsumptionSchema = new mongoose.Schema({
@@ -559,6 +564,7 @@ const InventoryMovementSchema = new mongoose.Schema({
 InventoryMovementSchema.index({ salonId: 1, productId: 1, createdAt: -1 });
 InventoryMovementSchema.index({ salonId: 1, type: 1, createdAt: -1 });
 InventoryMovementSchema.index({ salonId: 1, branchId: 1, createdAt: -1 });
+InventoryMovementSchema.index({ salonId: 1, timestamp: -1 });
 
 // 21. AuditLog Schema (Immutable Business & Security Event Logs)
 const AuditLogSchema = new mongoose.Schema({

@@ -345,6 +345,17 @@ export const AppProvider = ({ children }) => {
   };
 
   const logout = () => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      fetch(`${API_URL}/auth/logout`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      }).catch(() => {});
+    }
+
     setCurrentUser(null);
     setCurrentSalon(null);
     setCurrentBranch(null);
@@ -356,8 +367,41 @@ export const AppProvider = ({ children }) => {
       'sf_salons', 'sf_branches', 'sf_users', 'sf_customers', 
       'sf_services', 'sf_packages', 'sf_memberships', 'sf_staff', 
       'sf_products', 'sf_suppliers', 'sf_expenses', 'sf_appointments', 
-      'sf_invoices', 'sf_attendance', 'sf_commissions', 'sf_notifications'
+      'sf_invoices', 'sf_attendance', 'sf_commissions', 'sf_notifications',
+      'sf_reviews', 'sf_loyalty_rewards', 'sf_loyalty_rules',
+      'sf_loyalty_transactions', 'sf_customer_memberships', 'sf_whatsapp_config',
+      'sf_whatsapp_templates', 'sf_notification_prefs', 'sf_audit_logs', 'sf_subscription'
     ].forEach(k => localStorage.removeItem(k));
+
+    // Reset in-memory db collections to prevent cross-session data leakage
+    setDb({
+      salons: [],
+      branches: [],
+      users: [],
+      customers: [],
+      services: [],
+      packages: [],
+      memberships: [],
+      staff: [],
+      products: [],
+      suppliers: [],
+      expenses: [],
+      appointments: [],
+      invoices: [],
+      attendance: [],
+      commissions: [],
+      notifications: [],
+      reviews: [],
+      loyaltyRewards: [],
+      loyaltyRules: [],
+      loyaltyTransactions: [],
+      customerMemberships: [],
+      whatsAppConfig: {},
+      whatsAppTemplates: {},
+      notificationPrefs: {},
+      auditLogs: [],
+      subscription: {}
+    });
   };
 
   // Helper filter by tenant (salonId)
