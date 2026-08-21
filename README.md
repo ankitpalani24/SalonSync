@@ -41,6 +41,7 @@
 - [Project Structure](#-project-structure)
 - [Getting Started](#-getting-started)
 - [Environment Variables](#-environment-variables)
+- [Security & Secrets](#-security--secrets)
 - [Testing Suite (172+ Automated Tests)](#-testing-suite-172-automated-tests)
 - [Deployment](#-deployment)
 - [Demo Accounts](#-demo-accounts)
@@ -264,9 +265,9 @@ SalonSync utilizes 29 structured MongoDB models with compound indexes for optimi
 │                                   CLIENT TIER (Browser)                                │
 │  ┌──────────────────────────────────────────────────────────────────────────────────┐  │
 │  │  React 19 + Vite 8 Single Page Application                                       │  │
-│  │  ├─ AppContext (Global State, Auth Hydration, Offline Sync Layer)               │  │
+│  │  ├─ AppContext (Global State, Auth Hydration, Offline Sync Layer)                │  │
 │  │  ├─ Public Landing Page & Public Salon Discovery Portal                          │  │
-│  │  ├─ Auth Flow (Login, Signup, Forgot Password, Role Redirects)                  │  │
+│  │  ├─ Auth Flow (Login, Signup, Forgot Password, Role Redirects)                   │  │
 │  │  ├─ Global Command Palette (Ctrl+K) & AI Assistant Modal                         │  │
 │  │  └─ Workspace Shell (Protected Layout + React.lazy Route Splitting)              │  │
 │  │     ├─ Executive Dashboard (P&L BI Engine + 60fps AnimatedNumber KPIs)           │  │
@@ -290,7 +291,7 @@ SalonSync utilizes 29 structured MongoDB models with compound indexes for optimi
 │  │  ├─ Helmet Security Headers & CORS Enforcement                                   │  │
 │  │  ├─ Distributed Rate Limiting (Redis / In-Memory Store)                          │  │
 │  │  ├─ Request Observability & Correlation ID Injection                             │  │
-│  │  ├─ Idempotency Middleware (`Idempotency-Key` deduplication)                    │  │
+│  │  ├─ Idempotency Middleware (`Idempotency-Key` deduplication)                     │  │
 │  │  ├─ JWT Verification & `tokenVersion` Active Session Check                       │  │
 │  │  ├─ RBAC Role Whitelisting (`authorize`)                                         │  │
 │  │  ├─ Multi-Tenant Isolation Middleware (`restrictToTenant`)                       │  │
@@ -422,7 +423,7 @@ SalonSync/
 ├── 📂 backend/                        # Express 5 REST API Backend
 │   ├── 📄 server.js                   # Application entry point, middleware, routes mount
 │   ├── 📄 package.json                # Backend dependencies & Jest test runner scripts
-│   ├── 📄 .env                        # Local environment variables (gitignored)
+│   ├── 📄 .env                        # Local secrets/config (gitignored; never commit)
 │   ├── 📂 src/
 │   │   ├── 📂 config/
 │   │   │   └── 📄 db.js               # MongoDB Atlas connection & auto-seeding routine
@@ -556,6 +557,8 @@ The application will be accessible at:
 
 ### Backend Configuration (`backend/.env`)
 
+Create `backend/.env` locally. **Never commit this file or place real credentials in this README.**
+
 ```env
 # Server Port
 PORT=5000
@@ -563,15 +566,20 @@ PORT=5000
 # Node Environment
 NODE_ENV=development
 
-# Database Connection String (Atlas or Local)
-MONGODB_URI=mongodb+srv://<username>:<password>@<cluster>.mongodb.net/Salonsync?appName=Cluster0
+# MongoDB Atlas or local MongoDB connection
+MONGODB_URI=mongodb+srv://YOUR_USERNAME:YOUR_PASSWORD@YOUR_CLUSTER.mongodb.net/Salonsync
 
-# JWT Signing Secret Key
-JWT_SECRET=your_super_secret_production_jwt_key_here
+# Generate a long, random secret for production
+JWT_SECRET=YOUR_LONG_RANDOM_JWT_SECRET
 
-# Optional: Redis URL for Distributed Rate Limiting & Caching (Falls back to in-memory)
-REDIS_URL=redis://default:<password>@<host>:<port>
+# Optional: Redis URL for distributed rate limiting
+REDIS_URL=redis://default:YOUR_PASSWORD@YOUR_HOST:YOUR_PORT
 ```
+
+> ⚠️ **Security:** Never commit `backend/.env`, production credentials, MongoDB passwords,
+> JWT secrets, Redis credentials, API keys, or other secrets to GitHub.
+> Use Vercel/Render/Railway environment variables for production secrets.
+> If a secret is ever exposed publicly, rotate it immediately.
 
 ### Frontend Configuration (`frontend/.env.production`)
 
@@ -579,6 +587,49 @@ REDIS_URL=redis://default:<password>@<host>:<port>
 # Production API Base URL
 VITE_API_URL=https://salonsync-api.onrender.com/api
 ```
+
+---
+
+## 🔐 Security & Secrets
+
+SalonSync keeps application secrets outside source control.
+
+### Never commit
+
+- `backend/.env`
+- `.env`
+- `.env.*` files containing real credentials
+- MongoDB connection strings with real passwords
+- `JWT_SECRET`
+- Redis credentials
+- WhatsApp/Twilio/API credentials
+- Production tokens or private keys
+
+### Local development
+
+Create your own `backend/.env` using the variable names shown in the Environment Variables section.
+
+### Production
+
+Configure secrets through the hosting provider's environment-variable settings:
+
+- **Vercel** — Project Settings → Environment Variables
+- **Render** — Service → Environment Variables
+- **Railway** — Variables
+
+Never paste production secrets into README files, source code, screenshots, issue trackers, or public GitHub discussions.
+
+### Secret exposure response
+
+If a credential is accidentally committed or exposed:
+
+1. Revoke/rotate the credential immediately.
+2. Remove the secret from the current source.
+3. Check Git history and repository access.
+4. Replace the production environment variable.
+5. Redeploy affected services.
+
+> **Important:** Removing a secret from the latest commit does not make an already-exposed secret safe. Rotate it.
 
 ---
 
@@ -594,11 +645,11 @@ npm test --prefix backend
 npm test --prefix frontend
 ```
 
-### Backend Test Coverage Breakdown (26 Suites, 164 Tests)
+### Backend Test Coverage Breakdown (26 Suites, 172+ Tests)
 
 ```
 Test Suites: 26 passed, 26 total
-Tests:       164 passed, 164 total
+Tests:       172+ passed, 172+ total
 Snapshots:   0 total
 Time:        ~99s (with in-memory MongoDB)
 
