@@ -1671,7 +1671,9 @@ router.get('/analytics/franchise-overview', authorize('FRANCHISE_OWNER', 'SALON_
       summary: {
         totalBranches: summary.counts.branchCount,
         totalRevenue: summary.metrics.netRevenue,
-        totalExpenses: summary.metrics.operatingExpenses,
+        totalExpenses: summary.metrics.totalExpenses,
+        operatingExpenses: summary.metrics.operatingExpenses,
+        productCosts: summary.metrics.productCosts,
         totalProfit: summary.metrics.netProfit,
         profitMargin: summary.metrics.profitMargin,
         totalCustomers: summary.counts.customerCount,
@@ -1793,7 +1795,9 @@ router.get('/expenses/summary', requirePermission('reports.view'), safeHandler(a
   res.json({
     success: true,
     data: {
-      totalExpenses: summary.metrics.operatingExpenses,
+      totalExpenses: summary.metrics.totalExpenses,
+      operatingExpenses: summary.metrics.operatingExpenses,
+      productCosts: summary.metrics.productCosts,
       expenseCount: summary.counts.expenseCount,
       breakdown: summary.expenseBreakdown,
       dateRange: summary.dateRange
@@ -2956,13 +2960,18 @@ router.get('/dashboard/stats', requirePermission('reports.view'), safeHandler(as
     data: {
       todayRevenue: stats.today.revenue,
       todayExpenses: stats.today.expenses,
+      todayOperatingExpenses: stats.today.operatingExpenses,
+      todayMaterialCost: stats.today.productCosts,
+      todayProductCosts: stats.today.productCosts,
       todayProfit: stats.today.profit,
       todayAppointments: stats.today.appointments,
       todayCompletedAppointments: stats.today.completedAppointments,
       todayInvoices: stats.today.invoices,
       monthlyRevenue: stats.monthly.revenue,
       monthlyExpenses: stats.monthly.expenses,
+      monthlyOperatingExpenses: stats.monthly.operatingExpenses,
       monthlyMaterialCost: stats.monthly.productCosts,
+      monthlyProductCosts: stats.monthly.productCosts,
       monthlyCommissions: stats.monthly.commissions,
       netProfit: stats.monthly.netProfit,
       profitMargin: stats.monthly.profitMargin,

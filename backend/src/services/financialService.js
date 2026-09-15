@@ -177,20 +177,33 @@ const getFinancialSummary = async ({
   // Net Revenue: Gross items minus discounts and refunds
   const netRevenue = Math.max(0, grossRevenue - discounts - refunds);
 
-  // 2. PRODUCT / MATERIAL COSTS
+  // 2. PRODUCT / MATERIAL COSTS (Service Material/Utility Costs + Product Purchase Costs)
+  let serviceMaterialCosts = 0;
+  let productSaleCosts = 0;
   let productCosts = 0;
   invoices.forEach(inv => {
     if (inv.paymentStatus !== 'Refunded' && inv.status !== 'Cancelled') {
       (inv.services || []).forEach(item => {
         const srv = services.find(s => String(s._id) === String(item.serviceId) || s.name === item.name);
         if (srv) {
-          productCosts += (Number(srv.materialCost) || 0) * (Number(item.quantity) || 1);
+          let srvCost = Number(srv.materialCost) || 0;
+          if (srvCost === 0 && Array.isArray(srv.requiredProducts) && srv.requiredProducts.length > 0) {
+            srv.requiredProducts.forEach(rp => {
+              const p = products.find(prod => String(prod._id) === String(rp.productId) || prod.name === rp.productName);
+              if (p) srvCost += (Number(p.purchasePrice) || 0) * (Number(rp.quantity) || 1);
+            });
+          }
+          const itemCost = srvCost * (Number(item.quantity) || 1);
+          serviceMaterialCosts += itemCost;
+          productCosts += itemCost;
         }
       });
       (inv.products || []).forEach(item => {
         const prod = products.find(p => String(p._id) === String(item.productId) || p.name === item.name);
         if (prod) {
-          productCosts += (Number(prod.purchasePrice) || 0) * (Number(item.quantity) || 1);
+          const itemCost = (Number(prod.purchasePrice) || 0) * (Number(item.quantity) || 1);
+          productSaleCosts += itemCost;
+          productCosts += itemCost;
         }
       });
     }
@@ -212,8 +225,9 @@ const getFinancialSummary = async ({
   }
   staffCommissions = Math.round(staffCommissions);
 
-  // 4. OPERATING EXPENSES
+  // 4. OPERATING EXPENSES & TOTAL EXPENSES
   const operatingExpenses = Math.round(expenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0));
+  const totalExpenses = Math.round(operatingExpenses + productCosts);
 
   // 5. PROFIT & MARGIN CALCULATIONS
   const grossProfit = Math.round(netRevenue - productCosts - staffCommissions);
@@ -231,6 +245,9 @@ const getFinancialSummary = async ({
     if (cat === 'Salaries') cat = 'Salary';
     expenseBreakdown[cat] = (expenseBreakdown[cat] || 0) + (Number(e.amount) || 0);
   });
+  if (productCosts > 0) {
+    expenseBreakdown['Products'] = (expenseBreakdown['Products'] || 0) + Math.round(productCosts);
+  }
 
   // 7. SERVICE PROFITABILITY BREAKDOWN
   const serviceStatsMap = {};
@@ -260,7 +277,14 @@ const getFinancialSummary = async ({
           const qty = Number(item.quantity) || 1;
           const rev = (Number(item.price) || 0) * qty;
           const srvObj = services.find(s => String(s._id) === String(rec.id));
-          const matCost = (Number(srvObj?.materialCost) || 0) * qty;
+          let matCostPerUnit = Number(srvObj?.materialCost) || 0;
+          if (matCostPerUnit === 0 && Array.isArray(srvObj?.requiredProducts) && srvObj.requiredProducts.length > 0) {
+            srvObj.requiredProducts.forEach(rp => {
+              const p = products.find(prod => String(prod._id) === String(rp.productId) || prod.name === rp.productName);
+              if (p) matCostPerUnit += (Number(p.purchasePrice) || 0) * (Number(rp.quantity) || 1);
+            });
+          }
+          const matCost = matCostPerUnit * qty;
           const comm = (rev * 10) / 100;
 
           rec.volume += qty;
@@ -311,8 +335,34 @@ const getFinancialSummary = async ({
     const bAppts = appointments.filter(a => String(typeof a.branchId === 'object' ? a.branchId?._id : a.branchId) === bIdStr);
     const bStaff = staff.filter(s => String(typeof s.branchId === 'object' ? s.branchId?._id : s.branchId) === bIdStr);
 
+    let bProductCosts = 0;
+    bInvoices.forEach(inv => {
+      if (inv.paymentStatus !== 'Refunded' && inv.status !== 'Cancelled') {
+        (inv.services || []).forEach(item => {
+          const srv = services.find(s => String(s._id) === String(item.serviceId) || s.name === item.name);
+          if (srv) {
+            let srvCost = Number(srv.materialCost) || 0;
+            if (srvCost === 0 && Array.isArray(srv.requiredProducts) && srv.requiredProducts.length > 0) {
+              srv.requiredProducts.forEach(rp => {
+                const p = products.find(prod => String(prod._id) === String(rp.productId) || prod.name === rp.productName);
+                if (p) srvCost += (Number(p.purchasePrice) || 0) * (Number(rp.quantity) || 1);
+              });
+            }
+            bProductCosts += srvCost * (Number(item.quantity) || 1);
+          }
+        });
+        (inv.products || []).forEach(item => {
+          const prod = products.find(p => String(p._id) === String(item.productId) || p.name === item.name);
+          if (prod) {
+            bProductCosts += (Number(prod.purchasePrice) || 0) * (Number(item.quantity) || 1);
+          }
+        });
+      }
+    });
+
     const bRev = bInvoices.reduce((sum, i) => sum + (Number(i.finalAmount) || 0), 0);
-    const bExp = bExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+    const bOpExp = bExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+    const bExp = Math.round(bOpExp + bProductCosts);
     const bProfit = bRev - bExp;
     const bMargin = bRev > 0 ? Number(((bProfit / bRev) * 100).toFixed(1)) : 0;
     const bAov = bInvoices.length > 0 ? Math.round(bRev / bInvoices.length) : 0;
@@ -324,6 +374,8 @@ const getFinancialSummary = async ({
       city: br.city || 'Main',
       revenue: bRev,
       expenses: bExp,
+      operatingExpenses: bOpExp,
+      productCosts: Math.round(bProductCosts),
       profit: bProfit,
       profitMargin: bMargin,
       checkoutCount: bInvoices.length,
@@ -361,9 +413,12 @@ const getFinancialSummary = async ({
       refunds: Math.round(refunds),
       netRevenue: Math.round(netRevenue),
       productCosts: Math.round(productCosts),
+      serviceMaterialCosts: Math.round(serviceMaterialCosts),
+      productSaleCosts: Math.round(productSaleCosts),
       staffCommissions,
       grossProfit,
       operatingExpenses,
+      totalExpenses,
       netProfit,
       profitMargin
     },
@@ -492,7 +547,14 @@ const getHistoricalTrends = async ({ salonId, branchId = null }) => {
         (inv.services || []).forEach(item => {
           const srv = servicesList.find(s => String(s._id) === String(item.serviceId) || s.name === item.name);
           if (srv) {
-            productCosts += (Number(srv.materialCost) || 0) * (Number(item.quantity) || 1);
+            let srvCost = Number(srv.materialCost) || 0;
+            if (srvCost === 0 && Array.isArray(srv.requiredProducts) && srv.requiredProducts.length > 0) {
+              srv.requiredProducts.forEach(rp => {
+                const p = productsList.find(prod => String(prod._id) === String(rp.productId) || prod.name === rp.productName);
+                if (p) srvCost += (Number(p.purchasePrice) || 0) * (Number(rp.quantity) || 1);
+              });
+            }
+            productCosts += srvCost * (Number(item.quantity) || 1);
           }
         });
         (inv.products || []).forEach(item => {
@@ -519,15 +581,16 @@ const getHistoricalTrends = async ({ salonId, branchId = null }) => {
     }
     staffCommissions = Math.round(staffCommissions);
 
-    // 4. OPERATING EXPENSES
+    // 4. OPERATING EXPENSES & TOTAL EXPENSES
     const operatingExpenses = Math.round(mExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0));
+    const totalMonthExpenses = Math.round(operatingExpenses + productCosts);
 
     // 5. AUTHORITATIVE GROSS PROFIT & NET PROFIT
     const grossProfit = Math.round(netRevenue - productCosts - staffCommissions);
     const netProfit = Math.round(grossProfit - operatingExpenses);
 
     revenueData.push(Math.round(netRevenue));
-    expenseData.push(operatingExpenses);
+    expenseData.push(totalMonthExpenses);
     profitData.push(netProfit);
     customerGrowthData.push(mCustomers.length);
   });
@@ -648,7 +711,11 @@ const getDashboardStats = async ({ salonId, branchId = null }) => {
   return {
     today: {
       revenue: todaySummary.metrics.netRevenue,
-      expenses: todaySummary.metrics.operatingExpenses,
+      expenses: todaySummary.metrics.totalExpenses,
+      operatingExpenses: todaySummary.metrics.operatingExpenses,
+      productCosts: todaySummary.metrics.productCosts,
+      serviceMaterialCosts: todaySummary.metrics.serviceMaterialCosts,
+      productSaleCosts: todaySummary.metrics.productSaleCosts,
       profit: todaySummary.metrics.netProfit,
       appointments: todaySummary.counts.appointmentCount,
       completedAppointments: todaySummary.counts.completedAppointmentCount,
@@ -656,8 +723,11 @@ const getDashboardStats = async ({ salonId, branchId = null }) => {
     },
     monthly: {
       revenue: monthSummary.metrics.netRevenue,
-      expenses: monthSummary.metrics.operatingExpenses,
+      expenses: monthSummary.metrics.totalExpenses,
+      operatingExpenses: monthSummary.metrics.operatingExpenses,
       productCosts: monthSummary.metrics.productCosts,
+      serviceMaterialCosts: monthSummary.metrics.serviceMaterialCosts,
+      productSaleCosts: monthSummary.metrics.productSaleCosts,
       commissions: monthSummary.metrics.staffCommissions,
       netProfit: monthSummary.metrics.netProfit,
       profitMargin: monthSummary.metrics.profitMargin,

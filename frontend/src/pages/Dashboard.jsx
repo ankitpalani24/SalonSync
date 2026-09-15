@@ -150,6 +150,35 @@ const Dashboard = ({ setActivePage }) => {
   // ────────────────────────────────────────────────────────────────────────────
   // CALCULATIONS (AUTHORITATIVE P&L WITH LIVE BACKEND PARITY)
   // ────────────────────────────────────────────────────────────────────────────
+  // Helper to compute utility & material expenses used in services and retail products
+  const getInvoiceMaterialAndProductCosts = (invList) => {
+    let cost = 0;
+    (invList || []).forEach(inv => {
+      if (inv.paymentStatus !== 'Refunded' && inv.status !== 'Cancelled') {
+        (inv.services || []).forEach(item => {
+          const srv = (db.services || []).find(s => String(s._id) === String(item.serviceId) || s.name === item.name);
+          if (srv) {
+            let srvCost = Number(srv.materialCost) || 0;
+            if (srvCost === 0 && Array.isArray(srv.requiredProducts) && srv.requiredProducts.length > 0) {
+              srv.requiredProducts.forEach(rp => {
+                const p = (db.products || []).find(prod => String(prod._id) === String(rp.productId) || prod.name === rp.productName);
+                if (p) srvCost += (Number(p.purchasePrice) || 0) * (Number(rp.quantity) || 1);
+              });
+            }
+            cost += srvCost * (Number(item.quantity) || 1);
+          }
+        });
+        (inv.products || []).forEach(item => {
+          const prod = (db.products || []).find(p => String(p._id) === String(item.productId) || p.name === item.name);
+          if (prod) {
+            cost += (Number(prod.purchasePrice) || 0) * (Number(item.quantity) || 1);
+          }
+        });
+      }
+    });
+    return cost;
+  };
+
   const todayRevenue = backendStats?.todayRevenue !== undefined
     ? backendStats.todayRevenue
     : branchInvoices.filter(i => isToday(i.createdAt || i.date) && i.paymentStatus !== 'Refunded').reduce((sum, i) => sum + (Number(i.finalAmount) || 0), 0);
@@ -158,13 +187,27 @@ const Dashboard = ({ setActivePage }) => {
     ? backendStats.monthlyRevenue
     : branchInvoices.filter(i => isThisMonth(i.createdAt || i.date) && i.paymentStatus !== 'Refunded').reduce((sum, i) => sum + (Number(i.finalAmount) || 0), 0);
 
+  const todayInvoices = branchInvoices.filter(i => isToday(i.createdAt || i.date) && i.paymentStatus !== 'Refunded' && i.status !== 'Cancelled');
+  const todayMaterialCost = backendStats?.todayMaterialCost !== undefined
+    ? backendStats.todayMaterialCost
+    : getInvoiceMaterialAndProductCosts(todayInvoices);
+
+  const todayOperatingExpenses = branchExpenses.filter(e => isToday(e.date || e.createdAt)).reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+
   const todayExpenses = backendStats?.todayExpenses !== undefined
     ? backendStats.todayExpenses
-    : branchExpenses.filter(e => isToday(e.date || e.createdAt)).reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+    : (todayOperatingExpenses + todayMaterialCost);
+
+  const monthlyInvoices = branchInvoices.filter(i => isThisMonth(i.createdAt || i.date) && i.paymentStatus !== 'Refunded' && i.status !== 'Cancelled');
+  const monthlyMaterialCost = backendStats?.monthlyMaterialCost !== undefined
+    ? backendStats.monthlyMaterialCost
+    : getInvoiceMaterialAndProductCosts(monthlyInvoices);
+
+  const monthlyOperatingExpenses = branchExpenses.filter(e => isThisMonth(e.date || e.createdAt)).reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
 
   const monthlyExpenses = backendStats?.monthlyExpenses !== undefined
     ? backendStats.monthlyExpenses
-    : branchExpenses.filter(e => isThisMonth(e.date || e.createdAt)).reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+    : (monthlyOperatingExpenses + monthlyMaterialCost);
 
   const todayProfit = backendStats?.todayProfit !== undefined
     ? backendStats.todayProfit
@@ -233,7 +276,9 @@ const Dashboard = ({ setActivePage }) => {
       });
 
       const rev = mInvs.reduce((sum, inv) => sum + (Number(inv.finalAmount) || 0), 0);
-      const exp = mExps.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+      const mProductCosts = getInvoiceMaterialAndProductCosts(mInvs);
+      const opExp = mExps.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+      const exp = opExp + mProductCosts;
       const prof = rev - exp;
 
       mRevenues.push(rev);
@@ -293,7 +338,7 @@ const Dashboard = ({ setActivePage }) => {
       customerGrowthChartData: { months: mLabels, customers: mCustGrowth },
       popularServicesData: { labels: pLabels, values: pValues }
     };
-  }, [backendStats, branchInvoices, branchExpenses, branchAppointments, salonCustomers, db.services]);
+  }, [backendStats, branchInvoices, branchExpenses, branchAppointments, salonCustomers, db.services, db.products]);
 
   // Widget Lists
   const upcomingAppointments = branchAppointments
@@ -1160,7 +1205,7 @@ const Dashboard = ({ setActivePage }) => {
         <KpiCard
           title="Today's Profit"
           value={<AnimatedNumber value={todayProfit} type="currency" triggerKey={`${currentBranch?._id || 'all'}-${statsFetchTimestamp}`} />}
-          subtitle={`Net after ${formatCurrency(todayExpenses)} expenses`}
+          subtitle={`Net after ${formatCurrency(todayExpenses)} total expenses`}
           icon={DollarSign}
           iconColor="#2ecc71"
           glowColor="rgba(46,204,113,0.15)"
@@ -1172,7 +1217,11 @@ const Dashboard = ({ setActivePage }) => {
         <KpiCard
           title="Today's Expenses"
           value={<AnimatedNumber value={todayExpenses} type="currency" triggerKey={`${currentBranch?._id || 'all'}-${statsFetchTimestamp}`} />}
-          subtitle="Salary, Rent & Utilities"
+          subtitle={
+            todayMaterialCost > 0
+              ? `Incl. ${formatCurrency(todayMaterialCost)} utilities & materials`
+              : "Salary, Rent & Utilities"
+          }
           icon={Receipt}
           iconColor="var(--accent-red)"
           trend={3.2}

@@ -77,7 +77,8 @@ describe('Expenses & Profit/Loss Analytics Integration Tests', () => {
       description: 'Daily bill'
     });
 
-    // Net Profit = Revenue (2000) - Material Cost (300) - Expense (500) = 1200
+    // Net Profit = Revenue (2000) - Material Cost (300) - Operating Expense (500) = 1200
+    // Total Expenses = Operating Expense (500) + Service Utility/Material Cost (300) = 800
     const res = await request(app)
       .get('/api/dashboard/stats')
       .set('Authorization', `Bearer ${token}`);
@@ -85,7 +86,9 @@ describe('Expenses & Profit/Loss Analytics Integration Tests', () => {
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
     expect(res.body.data.todayRevenue).toBe(2000);
-    expect(res.body.data.todayExpenses).toBe(500);
+    expect(res.body.data.todayExpenses).toBe(800);
+    expect(res.body.data.todayOperatingExpenses).toBe(500);
+    expect(res.body.data.todayMaterialCost).toBe(300);
     expect(res.body.data.netProfit).toBe(1200);
   });
 

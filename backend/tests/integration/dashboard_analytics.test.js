@@ -503,7 +503,7 @@ describe('SalonSync Dashboard Analytics & Data Fetching Test Suite', () => {
     expect(repRes.status).toBe(200);
 
     expect(dashRes.body.data.monthlyRevenue).toBe(repRes.body.data.metrics.netRevenue);
-    expect(dashRes.body.data.monthlyExpenses).toBe(repRes.body.data.metrics.operatingExpenses);
+    expect(dashRes.body.data.monthlyExpenses).toBe(repRes.body.data.metrics.totalExpenses);
     expect(dashRes.body.data.netProfit).toBe(repRes.body.data.metrics.netProfit);
   });
 
@@ -595,6 +595,9 @@ describe('SalonSync Dashboard Analytics & Data Fetching Test Suite', () => {
     // Operating Expenses: 15k
     expect(repRes.body.data.metrics.operatingExpenses).toBe(15000);
 
+    // Total Expenses: 15k + 20k = 35k
+    expect(repRes.body.data.metrics.totalExpenses).toBe(35000);
+
     // Net Profit: 60k - 15k = 45k
     expect(repRes.body.data.metrics.netProfit).toBe(45000);
 
@@ -603,9 +606,15 @@ describe('SalonSync Dashboard Analytics & Data Fetching Test Suite', () => {
 
     // Dashboard values reconciliation
     expect(dashRes.body.data.monthlyRevenue).toBe(90000);
-    expect(dashRes.body.data.monthlyExpenses).toBe(15000);
+    expect(dashRes.body.data.monthlyExpenses).toBe(35000);
+    expect(dashRes.body.data.monthlyOperatingExpenses).toBe(15000);
+    expect(dashRes.body.data.monthlyMaterialCost).toBe(20000);
     expect(dashRes.body.data.netProfit).toBe(45000);
     expect(dashRes.body.data.profitMargin).toBe(50);
+
+    // 6-Month Trend Chart Revenue vs Expenses must include service & product material utilities (35k)
+    const exps = dashRes.body.data.trends.revenueExpenseChartData.expenses;
+    expect(exps[exps.length - 1]).toBe(35000);
 
     // Monthly Profit Chart must show ₹45,000 (authoritative Net Profit)
     const profits = dashRes.body.data.trends.monthlyProfitChartData.profits;
