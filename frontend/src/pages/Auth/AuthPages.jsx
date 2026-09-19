@@ -234,11 +234,14 @@ const AuthPages = ({ defaultView = 'login', onAuthSuccess, onBackToLanding }) =>
               </div>
             </div>
 
-            <div style={{ textAlign: 'right', marginBottom: '1.5rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', marginTop: '0.5rem' }}>
+              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                Demo Password: <code style={{ color: 'var(--gold-primary)', background: 'rgba(212,175,55,0.1)', padding: '2px 6px', borderRadius: '4px' }}>password123</code>
+              </span>
               <button 
                 type="button" 
                 onClick={() => { setView('forgot'); setErrorMsg(''); setSuccessMsg(''); }}
-                style={{ background: 'transparent', border: 'none', color: 'var(--gold-primary)', fontSize: '0.75rem' }}
+                style={{ background: 'transparent', border: 'none', color: 'var(--gold-primary)', fontSize: '0.75rem', cursor: 'pointer' }}
               >
                 Forgot Password?
               </button>
@@ -254,12 +257,112 @@ const AuthPages = ({ defaultView = 'login', onAuthSuccess, onBackToLanding }) =>
               )}
             </button>
 
-            <div style={{ textAlign: 'center', marginTop: '1.5rem', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+            {/* Quick Demo 1-Click Login Selectors */}
+            <div style={{ marginTop: '1.5rem', padding: '1rem', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px dashed rgba(212,175,55,0.25)' }}>
+              <div style={{ fontSize: '0.75rem', fontWeight: '600', color: 'var(--gold-primary)', marginBottom: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'center' }}>
+                ⚡ 1-Click Demo Accounts
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '0.4rem' }}>
+                <button
+                  type="button"
+                  onClick={() => { setEmail('alex@luxegold.com'); setPassword('password123'); setErrorMsg(''); }}
+                  style={{
+                    background: email === 'alex@luxegold.com' ? 'var(--gold-primary)' : 'rgba(212,175,55,0.08)',
+                    color: email === 'alex@luxegold.com' ? '#000' : 'var(--text-primary)',
+                    border: '1px solid rgba(212,175,55,0.3)',
+                    borderRadius: '6px',
+                    padding: '0.45rem 0.25rem',
+                    fontSize: '0.72rem',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s'
+                  }}
+                  title="Franchise & Salon Owner: alex@luxegold.com"
+                >
+                  👑 Owner
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setEmail('victoria@luxegold.com'); setPassword('password123'); setErrorMsg(''); }}
+                  style={{
+                    background: email === 'victoria@luxegold.com' ? 'var(--gold-primary)' : 'rgba(212,175,55,0.08)',
+                    color: email === 'victoria@luxegold.com' ? '#000' : 'var(--text-primary)',
+                    border: '1px solid rgba(212,175,55,0.3)',
+                    borderRadius: '6px',
+                    padding: '0.45rem 0.25rem',
+                    fontSize: '0.72rem',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s'
+                  }}
+                  title="Salon Manager: victoria@luxegold.com"
+                >
+                  💼 Manager
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setEmail('9876500001'); setPassword('password123'); setErrorMsg(''); }}
+                  style={{
+                    background: email === '9876500001' ? 'var(--gold-primary)' : 'rgba(212,175,55,0.08)',
+                    color: email === '9876500001' ? '#000' : 'var(--text-primary)',
+                    border: '1px solid rgba(212,175,55,0.3)',
+                    borderRadius: '6px',
+                    padding: '0.45rem 0.25rem',
+                    fontSize: '0.72rem',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s'
+                  }}
+                  title="Staff Stylist (Emma): 9876500001"
+                >
+                  ✂️ Staff
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setEmail('priyanka@chopra.com'); setPassword('password123'); setErrorMsg(''); }}
+                  style={{
+                    background: email === 'priyanka@chopra.com' ? 'var(--gold-primary)' : 'rgba(212,175,55,0.08)',
+                    color: email === 'priyanka@chopra.com' ? '#000' : 'var(--text-primary)',
+                    border: '1px solid rgba(212,175,55,0.3)',
+                    borderRadius: '6px',
+                    padding: '0.45rem 0.25rem',
+                    fontSize: '0.72rem',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s'
+                  }}
+                  title="Client Portal (Priyanka): priyanka@chopra.com"
+                >
+                  👤 Client
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setEmail('admin@salonsync.com'); setPassword('password123'); setErrorMsg(''); }}
+                  style={{
+                    background: email === 'admin@salonsync.com' ? 'var(--gold-primary)' : 'rgba(212,175,55,0.08)',
+                    color: email === 'admin@salonsync.com' ? '#000' : 'var(--text-primary)',
+                    border: '1px solid rgba(212,175,55,0.3)',
+                    borderRadius: '6px',
+                    padding: '0.45rem 0.25rem',
+                    fontSize: '0.72rem',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    gridColumn: 'span 2'
+                  }}
+                  title="Super Admin: admin@salonsync.com"
+                >
+                  ⚡ Super Admin
+                </button>
+              </div>
+            </div>
+
+            <div style={{ textAlign: 'center', marginTop: '1.25rem', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
               Don't have an account?{' '}
               <button 
                 type="button" 
                 onClick={() => { setView('signup'); setErrorMsg(''); setSuccessMsg(''); }}
-                style={{ background: 'transparent', border: 'none', color: 'var(--gold-primary)', fontWeight: 'bold' }}
+                style={{ background: 'transparent', border: 'none', color: 'var(--gold-primary)', fontWeight: 'bold', cursor: 'pointer' }}
               >
                 Sign Up
               </button>

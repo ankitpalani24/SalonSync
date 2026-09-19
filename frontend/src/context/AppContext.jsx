@@ -340,7 +340,64 @@ export const AppProvider = ({ children }) => {
       }
       return { success: false, message: data.message };
     } catch (err) {
-      return { success: false, message: 'Signup failed. API is offline.' };
+      console.warn('Backend API connection failed during signup, activating local registration fallback:', err.message);
+      const newUserId = 'usr_' + Date.now();
+      const newSalonId = 'salon_' + Date.now();
+      const newBranchId = 'branch_' + Date.now();
+
+      const newUser = {
+        id: newUserId,
+        name: payload.ownerName || payload.name || 'Salon User',
+        email: payload.email,
+        phone: payload.phone,
+        role: payload.role || 'SALON_OWNER',
+        salonId: payload.role === 'CLIENT' ? null : newSalonId,
+        branchId: payload.role === 'CLIENT' ? null : newBranchId
+      };
+
+      const mockToken = 'mock_jwt_token_' + Date.now();
+      localStorage.setItem('token', mockToken);
+      localStorage.setItem('user', JSON.stringify(newUser));
+
+      if (payload.role !== 'CLIENT') {
+        const newSalon = {
+          _id: newSalonId,
+          name: payload.salonName || `${newUser.name}'s Salon`,
+          ownerName: newUser.name,
+          email: payload.email,
+          phone: payload.phone,
+          address: payload.salonAddress || 'Main Salon Floor',
+          city: payload.city || 'Mumbai',
+          state: payload.state || 'Maharashtra',
+          gstNumber: payload.gstNumber || '',
+          businessType: payload.businessType || 'Premium Unisex Salon',
+          subscriptionPlan: 'Starter Salon',
+          subscriptionStatus: 'Trial'
+        };
+        const newBranch = {
+          _id: newBranchId,
+          salonId: newSalonId,
+          name: 'Main Branch',
+          address: payload.salonAddress || 'Main Salon Floor',
+          city: payload.city || 'Mumbai',
+          state: payload.state || 'Maharashtra',
+          phone: payload.phone,
+          status: 'Active'
+        };
+        setCurrentSalon(newSalon);
+        setCurrentBranch(newBranch);
+        localStorage.setItem('salon', JSON.stringify(newSalon));
+        localStorage.setItem('branch', JSON.stringify(newBranch));
+        setDb(prev => ({
+          ...prev,
+          salons: [newSalon, ...(prev.salons || [])],
+          branches: [newBranch, ...(prev.branches || [])],
+          users: [newUser, ...(prev.users || [])]
+        }));
+      }
+
+      setCurrentUser(newUser);
+      return { success: true };
     }
   };
 
