@@ -51,35 +51,20 @@ const Header = ({ toggleMobileSidebar, onOpenProfile, onOpenCommandPalette, setA
         >
           <Menu size={22} />
         </button>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0 }}>
-          <img
-            src={currentSalon?.logoUrl || "/logo.png"}
-            alt="Salon Logo"
-            style={{
-              width: '32px',
-              height: '32px',
-              borderRadius: '8px',
-              objectFit: 'cover',
-              border: '1px solid var(--gold-border)',
-              boxShadow: '0 2px 6px rgba(112, 130, 56, 0.25)',
-              flexShrink: 0
-            }}
-          />
-          <div style={{ minWidth: 0 }}>
-            <h2 style={{ fontSize: '1.15rem', color: 'var(--text-primary)', margin: 0 }} className="header-brand-title">
-              {(() => {
-                if (currentUser?.role === 'SUPER_ADMIN') return 'SalonSync SuperAdmin';
-                if (currentUser?.role === 'CLIENT') return currentUser?.name || 'Client Workspace';
-                return currentSalon?.name || 'SalonSync Platform';
-              })()}
-            </h2>
-            {currentUser?.role !== 'SUPER_ADMIN' && currentUser?.role !== 'CLIENT' && currentBranch && (
-              <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.25rem', margin: 0 }} className="header-brand-location">
-                <MapPin size={12} style={{ color: 'var(--gold-primary)', flexShrink: 0 }} />
-                <span>{`${currentBranch.name} (${currentBranch.city})`}</span>
-              </p>
-            )}
-          </div>
+        <div style={{ minWidth: 0 }}>
+          <h2 style={{ fontSize: '1.15rem', color: 'var(--text-primary)', margin: 0 }} className="header-brand-title">
+            {(() => {
+              if (currentUser?.role === 'SUPER_ADMIN') return 'SalonSync SuperAdmin';
+              if (currentUser?.role === 'CLIENT') return currentUser?.name || 'Client Workspace';
+              return currentSalon?.name || 'SalonSync Platform';
+            })()}
+          </h2>
+          {currentUser?.role !== 'SUPER_ADMIN' && currentUser?.role !== 'CLIENT' && currentBranch && (
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.25rem', margin: 0 }} className="header-brand-location">
+              <MapPin size={12} style={{ color: 'var(--gold-primary)', flexShrink: 0 }} />
+              <span>{`${currentBranch.name} (${currentBranch.city})`}</span>
+            </p>
+          )}
         </div>
 
         {/* Global Search Bar Trigger */}

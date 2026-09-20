@@ -63,19 +63,13 @@ const LandingPage = ({ onStartTrial, onLogin }) => {
         display: 'flex', alignItems: 'center', justifyContent: 'space-between'
       }}>
         {/* Brand */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer' }} onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
-          <img
-            src="/logo.png"
-            alt="SalonSync Logo"
-            style={{
-              width: '40px',
-              height: '40px',
-              borderRadius: '10px',
-              objectFit: 'cover',
-              border: '1px solid var(--gold-border)',
-              boxShadow: '0 2px 10px rgba(112, 130, 56, 0.35)'
-            }}
-          />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', cursor: 'pointer' }} onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+          <div style={{
+            width: '38px', height: '38px', borderRadius: '10px',
+            background: 'linear-gradient(135deg, var(--gold-primary) 0%, #b38f20 100%)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: '1.1rem', fontWeight: '800', color: '#000', letterSpacing: '0.5px'
+          }}>SS</div>
           <span style={{ fontSize: '1.35rem', fontWeight: '800', letterSpacing: '1px', color: '#ffffff' }}>
             Salon<span style={{ color: 'var(--gold-primary)' }}>Sync</span>
           </span>
@@ -608,19 +602,8 @@ const LandingPage = ({ onStartTrial, onLogin }) => {
       }}>
         <div className="landing-footer-grid" style={{ maxWidth: '1200px', margin: '0 auto', display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: '3rem', marginBottom: '3rem' }}>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '1rem' }}>
-              <img
-                src="/logo.png"
-                alt="SalonSync Logo"
-                style={{
-                  width: '34px',
-                  height: '34px',
-                  borderRadius: '8px',
-                  objectFit: 'cover',
-                  border: '1px solid var(--gold-border)',
-                  boxShadow: '0 2px 8px rgba(112, 130, 56, 0.25)'
-                }}
-              />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+              <div style={{ width: '30px', height: '30px', borderRadius: '8px', background: 'var(--gold-primary)', color: '#000', fontWeight: '800', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>SS</div>
               <span style={{ fontSize: '1.2rem', fontWeight: '800', color: '#fff' }}>Salon<span style={{ color: 'var(--gold-primary)' }}>Sync</span></span>
             </div>
             <p style={{ color: '#777777', lineHeight: '1.6', maxWidth: '320px' }}>

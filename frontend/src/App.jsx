@@ -8,6 +8,7 @@ import Header from './components/Header';
 import ToastContainer from './components/ToastContainer';
 import CommandPalette from './components/CommandPalette';
 import ErrorBoundary from './components/ErrorBoundary';
+import SplashScreen from './components/SplashScreen';
 
 // Eagerly loaded core views for instantaneous first paint
 import LandingPage from './pages/LandingPage';
@@ -52,6 +53,7 @@ function App() {
   const [showAlerts, setShowAlerts] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
+  const [showSplash, setShowSplash] = useState(true);
 
   // Global Ctrl + K Keyboard Shortcut Listener
   useEffect(() => {
@@ -219,6 +221,7 @@ function App() {
     if (activePage === 'login') {
       return (
         <>
+          {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
           <ToastContainer />
           <AuthPages 
             defaultView="login" 
@@ -231,6 +234,7 @@ function App() {
     if (activePage === 'signup') {
       return (
         <>
+          {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
           <ToastContainer />
           <AuthPages 
             defaultView="signup" 
@@ -242,6 +246,7 @@ function App() {
     }
     return (
       <>
+        {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
         <ToastContainer />
         <LandingPage 
           onStartTrial={() => setActivePage('signup')} 
@@ -266,6 +271,7 @@ function App() {
   // 2. INNER WORKSPACE WORKFLOW LAYOUT
   return (
     <div className="app-container">
+      {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
       <ToastContainer />
       {/* Backdrop for mobile drawer */}
       {mobileSidebarOpen && (

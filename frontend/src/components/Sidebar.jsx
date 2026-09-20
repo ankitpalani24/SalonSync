@@ -111,19 +111,22 @@ const Sidebar = ({ activePage, setActivePage, collapsed, setCollapsed, user, log
           onClick={() => setActivePage('dashboard')}
           title="SalonSync Dashboard"
         >
-          <img
-            src="/logo.png"
-            alt="SalonSync Logo"
-            style={{
-              width: '34px',
-              height: '34px',
-              borderRadius: '8px',
-              objectFit: 'cover',
-              border: '1px solid var(--gold-border)',
-              boxShadow: '0 2px 8px rgba(112, 130, 56, 0.3)',
-              flexShrink: 0
-            }}
-          />
+          <div style={{
+            width: '34px',
+            height: '34px',
+            borderRadius: '8px',
+            background: 'linear-gradient(135deg, var(--gold-primary) 0%, #b38f20 100%)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#000',
+            fontWeight: '800',
+            fontSize: '1.1rem',
+            flexShrink: 0,
+            boxShadow: '0 2px 8px rgba(112, 130, 56, 0.3)'
+          }}>
+            SS
+          </div>
           {!collapsed && (
             <span style={{
               fontSize: '1.15rem',
