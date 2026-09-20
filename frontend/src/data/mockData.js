@@ -755,6 +755,20 @@ export const mockSuppliers = [
 const _nowDate = new Date();
 const _curY = _nowDate.getFullYear();
 const _curM = String(_nowDate.getMonth() + 1).padStart(2, '0');
+const _curD = String(_nowDate.getDate()).padStart(2, '0');
+const _todayDateStr = `${_curY}-${_curM}-${_curD}`;
+
+const _d1 = new Date(_nowDate);
+_d1.setDate(_nowDate.getDate() - 1);
+const _yesterdayDateStr = _d1.toISOString().split('T')[0];
+
+const _d2 = new Date(_nowDate);
+_d2.setDate(_nowDate.getDate() + 1);
+const _tomorrowDateStr = _d2.toISOString().split('T')[0];
+
+const _d3 = new Date(_nowDate);
+_d3.setDate(_nowDate.getDate() - 2);
+const _twoDaysAgoDateStr = _d3.toISOString().split('T')[0];
 
 export const mockExpenses = [
   { _id: "exp_1", salonId: "salon_luxe_123", branchId: "branch_mumbai_1", category: "Rent", amount: 45000, description: "Monthly lease for Bandra center", date: `${_curY}-${_curM}-01` },
@@ -771,7 +785,7 @@ export const mockAppointments = [
     customerId: "cust_1", // Priyanka
     services: [{ serviceId: "serv_1", name: "Signature Haircut & Styling", price: 1500 }],
     staffId: "staff_1", // Emma
-    date: "2026-06-24", // Today
+    date: _todayDateStr, // Today
     time: "10:30",
     status: "Completed"
   },
@@ -782,7 +796,7 @@ export const mockAppointments = [
     customerId: "cust_2", // Ranveer
     services: [{ serviceId: "serv_2", name: "Global Balayage & Highlights", price: 6500 }],
     staffId: "staff_1", // Emma
-    date: "2026-06-24", // Today
+    date: _todayDateStr, // Today
     time: "12:00",
     status: "In Progress"
   },
@@ -793,7 +807,7 @@ export const mockAppointments = [
     customerId: "cust_3", // Deepika
     services: [{ serviceId: "serv_3", name: "24K Gold Luxury Facial", price: 4500 }],
     staffId: "staff_2", // Brad
-    date: "2026-06-24", // Today
+    date: _todayDateStr, // Today
     time: "15:00",
     status: "Confirmed"
   },
@@ -804,7 +818,7 @@ export const mockAppointments = [
     customerId: "cust_4", // Virat
     services: [{ serviceId: "serv_1", name: "Signature Haircut & Styling", price: 1500 }],
     staffId: "staff_3", // Angelina
-    date: "2026-06-25", // Tomorrow
+    date: _tomorrowDateStr, // Tomorrow
     time: "11:00",
     status: "Scheduled"
   }
@@ -825,7 +839,7 @@ export const mockInvoices = [
     paymentMethod: "UPI",
     paymentStatus: "Paid",
     staffId: "staff_1",
-    createdAt: "2026-06-23T14:30:00Z"
+    createdAt: `${_yesterdayDateStr}T14:30:00Z`
   },
   {
     _id: "inv_2",
@@ -841,19 +855,35 @@ export const mockInvoices = [
     paymentMethod: "Card",
     paymentStatus: "Paid",
     staffId: "staff_2",
-    createdAt: "2026-06-24T10:15:00Z"
+    createdAt: `${_todayDateStr}T10:15:00Z`
+  },
+  {
+    _id: "inv_3",
+    invoiceNumber: "INV-2026-0003",
+    salonId: "salon_luxe_123",
+    branchId: "branch_mumbai_1",
+    customerId: "cust_2",
+    services: [{ serviceId: "serv_2", name: "Global Balayage & Highlights", price: 6500, quantity: 1 }],
+    products: [{ productId: "prod_3", name: "Keratin Deep Repair Conditioner", price: 900, quantity: 1 }],
+    tax: 18,
+    discount: 400,
+    finalAmount: 8332,
+    paymentMethod: "UPI",
+    paymentStatus: "Paid",
+    staffId: "staff_1",
+    createdAt: `${_todayDateStr}T12:45:00Z`
   }
 ];
 
 export const mockAttendance = [
-  { _id: "att_1", salonId: "salon_luxe_123", branchId: "branch_mumbai_1", staffId: "staff_1", date: "2026-06-24", checkIn: "09:15", checkOut: "18:00", workingHours: 8.75, overtime: 0.75 },
-  { _id: "att_2", salonId: "salon_luxe_123", branchId: "branch_mumbai_1", staffId: "staff_2", date: "2026-06-24", checkIn: "09:30", checkOut: "18:00", workingHours: 8.5, overtime: 0.5 },
-  { _id: "att_3", salonId: "salon_luxe_123", branchId: "branch_mumbai_1", staffId: "staff_3", date: "2026-06-24", checkIn: "09:00", checkOut: "18:30", workingHours: 9.5, overtime: 1.5 }
+  { _id: "att_1", salonId: "salon_luxe_123", branchId: "branch_mumbai_1", staffId: "staff_1", date: _todayDateStr, checkIn: "09:15", checkOut: "18:00", workingHours: 8.75, overtime: 0.75 },
+  { _id: "att_2", salonId: "salon_luxe_123", branchId: "branch_mumbai_1", staffId: "staff_2", date: _todayDateStr, checkIn: "09:30", checkOut: "18:00", workingHours: 8.5, overtime: 0.5 },
+  { _id: "att_3", salonId: "salon_luxe_123", branchId: "branch_mumbai_1", staffId: "staff_3", date: _todayDateStr, checkIn: "09:00", checkOut: "18:30", workingHours: 9.5, overtime: 1.5 }
 ];
 
 export const mockCommissions = [
-  { _id: "comm_1", salonId: "salon_luxe_123", branchId: "branch_mumbai_1", staffId: "staff_1", invoiceId: "inv_1", revenueGenerated: 1500, commissionRate: 15, commissionEarned: 225, date: "2026-06-23" },
-  { _id: "comm_2", salonId: "salon_luxe_123", branchId: "branch_mumbai_1", staffId: "staff_2", invoiceId: "inv_2", revenueGenerated: 3500, commissionRate: 12, commissionEarned: 420, date: "2026-06-24" }
+  { _id: "comm_1", salonId: "salon_luxe_123", branchId: "branch_mumbai_1", staffId: "staff_1", invoiceId: "inv_1", revenueGenerated: 1500, commissionRate: 15, commissionEarned: 225, date: _yesterdayDateStr },
+  { _id: "comm_2", salonId: "salon_luxe_123", branchId: "branch_mumbai_1", staffId: "staff_2", invoiceId: "inv_2", revenueGenerated: 3500, commissionRate: 12, commissionEarned: 420, date: _todayDateStr }
 ];
 
 export const mockNotifications = [
@@ -871,7 +901,7 @@ export const mockNotifications = [
     read: false,
     status: "Sent",
     providerUsed: "MetaCloudAPI",
-    createdAt: "2026-06-24T09:30:00Z"
+    createdAt: `${_todayDateStr}T09:30:00Z`
   },
   {
     _id: "nt_cust_2",
@@ -886,7 +916,7 @@ export const mockNotifications = [
     read: true,
     status: "Sent",
     providerUsed: "Internal",
-    createdAt: "2026-06-24T10:15:00Z"
+    createdAt: `${_todayDateStr}T10:15:00Z`
   },
   {
     _id: "nt_cust_3",
@@ -901,7 +931,7 @@ export const mockNotifications = [
     read: false,
     status: "Sent",
     providerUsed: "MetaCloudAPI",
-    createdAt: "2026-06-24T11:00:00Z"
+    createdAt: `${_todayDateStr}T11:00:00Z`
   },
   // Staff Notifications
   {
@@ -917,7 +947,7 @@ export const mockNotifications = [
     read: false,
     status: "Sent",
     providerUsed: "Internal",
-    createdAt: "2026-06-24T09:00:00Z"
+    createdAt: `${_todayDateStr}T09:00:00Z`
   },
   {
     _id: "nt_staff_2",
@@ -932,7 +962,7 @@ export const mockNotifications = [
     read: true,
     status: "Sent",
     providerUsed: "Internal",
-    createdAt: "2026-06-23T18:45:00Z"
+    createdAt: `${_yesterdayDateStr}T18:45:00Z`
   },
   // Owner / Manager Notifications
   {
@@ -946,7 +976,7 @@ export const mockNotifications = [
     read: false,
     status: "Sent",
     providerUsed: "Internal",
-    createdAt: "2026-06-24T08:30:00Z"
+    createdAt: `${_todayDateStr}T08:30:00Z`
   },
   {
     _id: "nt_owner_2",
@@ -959,7 +989,7 @@ export const mockNotifications = [
     read: false,
     status: "Sent",
     providerUsed: "Internal",
-    createdAt: "2026-06-24T07:15:00Z"
+    createdAt: `${_todayDateStr}T07:15:00Z`
   },
   {
     _id: "nt_owner_3",
@@ -972,7 +1002,7 @@ export const mockNotifications = [
     read: true,
     status: "Sent",
     providerUsed: "Internal",
-    createdAt: "2026-06-24T06:00:00Z"
+    createdAt: `${_yesterdayDateStr}T06:00:00Z`
   }
 ];
 
@@ -1066,7 +1096,7 @@ export const mockLoyaltyTransactions = [
     transactionAmount: 2986,
     invoiceId: "inv_1",
     description: "Earned 298 pts on Invoice INV-2026-0001 (₹2,986)",
-    date: "2026-06-23T14:30:00Z"
+    date: `${_yesterdayDateStr}T14:30:00Z`
   },
   {
     _id: "tx_2",
@@ -1079,7 +1109,7 @@ export const mockLoyaltyTransactions = [
     transactionAmount: 3630,
     invoiceId: "inv_2",
     description: "Earned 363 pts on Invoice INV-2026-0002 (₹3,630)",
-    date: "2026-06-24T10:15:00Z"
+    date: `${_todayDateStr}T10:15:00Z`
   },
   {
     _id: "tx_3",
@@ -1091,7 +1121,7 @@ export const mockLoyaltyTransactions = [
     balanceAfter: 120,
     rewardId: "rwd_1",
     description: "Redeemed reward '₹200 Instant Bill Voucher' (-200 pts)",
-    date: "2026-06-22T11:00:00Z"
+    date: `${_twoDaysAgoDateStr}T11:00:00Z`
   }
 ];
 

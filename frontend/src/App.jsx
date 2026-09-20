@@ -46,14 +46,48 @@ const PageLoadingFallback = () => (
 );
 
 function App() {
-  const { currentUser, logout, db, currentBranch, currentSalon, hasPermission, PERMISSIONS } = useApp();
-  const [activePage, setActivePage] = useState('landing');
+  const [activePage, setActivePage] = useState(() => {
+    try {
+      const saved = localStorage.getItem('salonsync_active_page');
+      if (saved && saved !== 'landing') return saved;
+      const user = localStorage.getItem('user');
+      return user ? 'dashboard' : 'landing';
+    } catch {
+      return 'landing';
+    }
+  });
+
+  const handleNavigate = (page) => {
+    setActivePage(page);
+    try {
+      localStorage.setItem('salonsync_active_page', page);
+    } catch {}
+  };
+
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [showAlerts, setShowAlerts] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
-  const [showSplash, setShowSplash] = useState(true);
+
+  // Splash Screen shown strictly once per day (not on every refresh)
+  const [showSplash, setShowSplash] = useState(() => {
+    try {
+      const todayStr = new Date().toISOString().split('T')[0];
+      const lastShown = localStorage.getItem('salonsync_splash_shown_date');
+      return lastShown !== todayStr;
+    } catch {
+      return false;
+    }
+  });
+
+  const handleSplashFinish = () => {
+    try {
+      const todayStr = new Date().toISOString().split('T')[0];
+      localStorage.setItem('salonsync_splash_shown_date', todayStr);
+    } catch {}
+    setShowSplash(false);
+  };
 
   // Global Ctrl + K Keyboard Shortcut Listener
   useEffect(() => {
@@ -142,14 +176,14 @@ function App() {
         };
         const reqPerm = pagePermissionMap[activePage];
         if (activePage === 'landing' || activePage === 'login' || activePage === 'signup') {
-          setActivePage('dashboard');
+          handleNavigate('dashboard');
         } else if (activePage === 'super-admin' || (reqPerm && !hasPermission(reqPerm))) {
-          setActivePage('dashboard');
+          handleNavigate('dashboard');
         }
       }
     } else {
       if (activePage !== 'login' && activePage !== 'signup') {
-        setActivePage('landing');
+        handleNavigate('landing');
       }
     }
   }, [currentUser, activePage]);
@@ -158,13 +192,13 @@ function App() {
   const renderActivePage = () => {
     switch (activePage) {
       case 'dashboard':
-        return <Dashboard setActivePage={setActivePage} />;
+        return <Dashboard setActivePage={handleNavigate} />;
       case 'customers':
         return <Customers />;
       case 'appointments':
         return (
           <Appointments 
-            setActivePage={setActivePage} 
+            setActivePage={handleNavigate} 
             setSelectedApptForCheckout={setSelectedApptForCheckout} 
           />
         );
@@ -186,7 +220,7 @@ function App() {
       case 'analytics':
         return <Analytics />;
       case 'health':
-        return <SalonHealth setActivePage={setActivePage} />;
+        return <SalonHealth setActivePage={handleNavigate} />;
       case 'whatsapp':
         return <WhatsAppHub />;
       case 'notifications':
@@ -198,21 +232,21 @@ function App() {
       case 'memberships':
         return <Memberships />;
       case 'public-profile':
-        return <PublicSalonProfile setActivePage={setActivePage} />;
+        return <PublicSalonProfile setActivePage={handleNavigate} />;
       case 'discovery':
-        return <SalonDiscovery setActivePage={setActivePage} />;
+        return <SalonDiscovery setActivePage={handleNavigate} />;
       case 'audit-logs':
         return <AuditLogs />;
       case 'permissions':
         return <RolePermissionMatrix />;
       case 'franchise':
-        return <FranchiseOverview setActivePage={setActivePage} />;
+        return <FranchiseOverview setActivePage={handleNavigate} />;
       case 'subscription':
         return <SubscriptionBilling />;
       case 'super-admin':
         return <SuperAdmin />;
       default:
-        return <Dashboard setActivePage={setActivePage} />;
+        return <Dashboard setActivePage={handleNavigate} />;
     }
   };
 
@@ -221,12 +255,12 @@ function App() {
     if (activePage === 'login') {
       return (
         <>
-          {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
+          {showSplash && <SplashScreen onFinish={handleSplashFinish} />}
           <ToastContainer />
           <AuthPages 
             defaultView="login" 
-            onAuthSuccess={() => setActivePage('dashboard')} 
-            onBackToLanding={() => setActivePage('landing')} 
+            onAuthSuccess={() => handleNavigate('dashboard')} 
+            onBackToLanding={() => handleNavigate('landing')} 
           />
         </>
       );
@@ -234,23 +268,23 @@ function App() {
     if (activePage === 'signup') {
       return (
         <>
-          {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
+          {showSplash && <SplashScreen onFinish={handleSplashFinish} />}
           <ToastContainer />
           <AuthPages 
             defaultView="signup" 
-            onAuthSuccess={() => setActivePage('dashboard')} 
-            onBackToLanding={() => setActivePage('landing')} 
+            onAuthSuccess={() => handleNavigate('dashboard')} 
+            onBackToLanding={() => handleNavigate('landing')} 
           />
         </>
       );
     }
     return (
       <>
-        {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
+        {showSplash && <SplashScreen onFinish={handleSplashFinish} />}
         <ToastContainer />
         <LandingPage 
-          onStartTrial={() => setActivePage('signup')} 
-          onLogin={() => setActivePage('login')} 
+          onStartTrial={() => handleNavigate('signup')} 
+          onLogin={() => handleNavigate('login')} 
         />
       </>
     );
@@ -271,7 +305,7 @@ function App() {
   // 2. INNER WORKSPACE WORKFLOW LAYOUT
   return (
     <div className="app-container">
-      {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
+      {showSplash && <SplashScreen onFinish={handleSplashFinish} />}
       <ToastContainer />
       {/* Backdrop for mobile drawer */}
       {mobileSidebarOpen && (
@@ -283,13 +317,19 @@ function App() {
         <Sidebar 
           activePage={activePage} 
           setActivePage={(page) => {
-            setActivePage(page);
+            handleNavigate(page);
             setMobileSidebarOpen(false); // Close drawer on menu click
           }} 
           collapsed={sidebarCollapsed} 
           setCollapsed={setSidebarCollapsed} 
           user={currentUser}
-          logout={logout}
+          logout={() => {
+            try {
+              localStorage.removeItem('salonsync_active_page');
+            } catch {}
+            logout();
+            handleNavigate('landing');
+          }}
           closeMobileSidebar={() => setMobileSidebarOpen(false)}
         />
       </div>
@@ -298,7 +338,7 @@ function App() {
       <CommandPalette
         isOpen={showCommandPalette}
         onClose={() => setShowCommandPalette(false)}
-        setActivePage={setActivePage}
+        setActivePage={handleNavigate}
       />
 
       {/* Main workplace pane */}
@@ -307,12 +347,12 @@ function App() {
           toggleMobileSidebar={() => setMobileSidebarOpen(!mobileSidebarOpen)} 
           onOpenProfile={() => setShowProfileModal(true)} 
           onOpenCommandPalette={() => setShowCommandPalette(true)}
-          setActivePage={setActivePage}
+          setActivePage={handleNavigate}
         />
         
         {/* Render page */}
         <div style={{ flex: 1 }}>
-          <ErrorBoundary onReset={() => setActivePage('dashboard')}>
+          <ErrorBoundary onReset={() => handleNavigate('dashboard')}>
             <Suspense fallback={<PageLoadingFallback />}>
               {renderActivePage()}
             </Suspense>
