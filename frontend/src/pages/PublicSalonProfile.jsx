@@ -535,7 +535,7 @@ const PublicSalonProfile = ({ setActivePage }) => {
         {/* 6. LOCATION & HOURS */}
         {/* ───────────────────────────────────────────────────────────── */}
         {activeSection === 'location' && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+          <div className="grid-2-cols" style={{ gap: '1.5rem' }}>
             <div className="glass-card">
               <h3 style={{ fontSize: '1.05rem', color: 'var(--text-primary)', fontWeight: '600', marginBottom: '1rem' }}>Location & Contact Details</h3>
 

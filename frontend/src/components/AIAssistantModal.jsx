@@ -121,14 +121,15 @@ const AIAssistantModal = ({ isOpen, onClose }) => {
     >
       <div
         onClick={e => e.stopPropagation()}
+        className="ai-assistant-modal-box"
         style={{
           position: 'fixed',
-          bottom: '24px',
-          right: '24px',
+          bottom: '20px',
+          right: '20px',
           width: '420px',
-          maxWidth: '92vw',
+          maxWidth: 'calc(100vw - 32px)',
           height: '560px',
-          maxHeight: '85vh',
+          maxHeight: '85dvh',
           background: 'linear-gradient(135deg, rgba(20,20,20,0.95) 0%, rgba(10,10,10,0.98) 100%)',
           border: '1px solid var(--gold-border)',
           borderRadius: '16px',

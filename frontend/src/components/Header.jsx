@@ -34,22 +34,25 @@ const Header = ({ toggleMobileSidebar, onOpenProfile, onOpenCommandPalette, setA
         {/* Hamburger Menu Toggle for Mobile */}
         <button
           onClick={toggleMobileSidebar}
+          aria-label="Toggle navigation menu"
+          className="hamburger-btn"
           style={{
             background: 'transparent',
             border: 'none',
             color: 'var(--text-primary)',
             cursor: 'pointer',
-            marginRight: '0.5rem',
-            display: 'none',
+            padding: '0.4rem',
+            borderRadius: '6px',
+            minWidth: '40px',
+            minHeight: '40px',
             alignItems: 'center',
             justifyContent: 'center'
           }}
-          className="hamburger-btn"
         >
           <Menu size={22} />
         </button>
-        <div>
-          <h2 style={{ fontSize: '1.2rem', color: 'var(--text-primary)' }} className="header-brand-title">
+        <div style={{ minWidth: 0 }}>
+          <h2 style={{ fontSize: '1.15rem', color: 'var(--text-primary)', margin: 0 }} className="header-brand-title">
             {(() => {
               if (currentUser?.role === 'SUPER_ADMIN') return 'SalonSync SuperAdmin';
               if (currentUser?.role === 'CLIENT') return currentUser?.name || 'Client Workspace';
@@ -57,9 +60,9 @@ const Header = ({ toggleMobileSidebar, onOpenProfile, onOpenCommandPalette, setA
             })()}
           </h2>
           {currentUser?.role !== 'SUPER_ADMIN' && currentUser?.role !== 'CLIENT' && currentBranch && (
-            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.25rem' }} className="header-brand-location">
-              <MapPin size={12} style={{ color: 'var(--gold-primary)' }} />
-              {`${currentBranch.name} (${currentBranch.city})`}
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.25rem', margin: 0 }} className="header-brand-location">
+              <MapPin size={12} style={{ color: 'var(--gold-primary)', flexShrink: 0 }} />
+              <span>{`${currentBranch.name} (${currentBranch.city})`}</span>
             </p>
           )}
         </div>

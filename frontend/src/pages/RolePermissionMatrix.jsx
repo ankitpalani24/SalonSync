@@ -116,7 +116,7 @@ const RolePermissionMatrix = () => {
           <h3 style={{ fontSize: '1.05rem', color: 'var(--text-primary)', fontWeight: '700' }}>Permission Access Simulator</h3>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.5fr', gap: '1rem', alignItems: 'center' }}>
+        <div className="grid-3-cols" style={{ gap: '1rem', alignItems: 'center' }}>
           <div>
             <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: '0.3rem' }}>Select Role to Test</label>
             <select 

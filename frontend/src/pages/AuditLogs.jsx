@@ -150,7 +150,7 @@ const AuditLogs = () => {
         </div>
 
         {/* Entity Filter */}
-        <div style={{ width: '180px' }}>
+        <div style={{ flex: '1 1 140px', minWidth: '130px' }}>
           <select 
             value={selectedEntity} 
             onChange={(e) => setSelectedEntity(e.target.value)}
@@ -170,7 +170,7 @@ const AuditLogs = () => {
         </div>
 
         {/* Action Filter */}
-        <div style={{ width: '180px' }}>
+        <div style={{ flex: '1 1 140px', minWidth: '130px' }}>
           <select 
             value={selectedAction} 
             onChange={(e) => setSelectedAction(e.target.value)}

@@ -215,7 +215,7 @@ const Loyalty = () => {
                 value={selectedCustomerId} 
                 onChange={(e) => setSelectedCustomerId(e.target.value)}
                 className="form-control"
-                style={{ padding: '0.45rem 1rem', fontSize: '0.85rem', background: 'var(--bg-card)', minWidth: '240px' }}
+                style={{ padding: '0.45rem 1rem', fontSize: '0.85rem', background: 'var(--bg-card)', flex: '1 1 180px', width: '100%' }}
               >
                 {customersList.map(c => (
                   <option key={c._id} value={c._id}>

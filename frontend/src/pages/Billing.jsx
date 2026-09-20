@@ -602,25 +602,25 @@ const Billing = ({ apptForCheckout, clearApptCheckout }) => {
             </h3>
 
             {/* Add Service */}
-            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
-              <select className="form-control" style={{ flex: 1 }} value={tempSrvId} onChange={(e) => setTempSrvId(e.target.value)}>
+            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+              <select className="form-control" style={{ flex: '1 1 200px', minWidth: '180px' }} value={tempSrvId} onChange={(e) => setTempSrvId(e.target.value)}>
                 <option value="">-- Add Treatment Service --</option>
                 {services.map(s => <option key={s._id} value={s._id}>{s.category ? `[${s.category}] ` : ''}{s.name} (₹{s.price})</option>)}
               </select>
-              <button type="button" onClick={handleAddService} className="outline-btn" style={{ padding: '0.5rem 1rem', whiteSpace: 'nowrap' }}><Plus size={14} /> Add</button>
+              <button type="button" onClick={handleAddService} className="outline-btn" style={{ padding: '0.5rem 1rem', whiteSpace: 'nowrap', minHeight: '40px' }}><Plus size={14} /> Add</button>
             </div>
 
             {/* Add Product */}
-            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem' }}>
-              <select className="form-control" style={{ flex: 1 }} value={tempProdId} onChange={(e) => setTempProdId(e.target.value)}>
+            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
+              <select className="form-control" style={{ flex: '1 1 200px', minWidth: '180px' }} value={tempProdId} onChange={(e) => setTempProdId(e.target.value)}>
                 <option value="">-- Add Retail Product --</option>
                 {products.map(p => <option key={p._id} value={p._id}>{p.name} (₹{p.sellingPrice} • Stock: {p.quantity})</option>)}
               </select>
-              <button type="button" onClick={handleAddProduct} className="outline-btn" style={{ padding: '0.5rem 1rem', whiteSpace: 'nowrap' }}><Plus size={14} /> Add</button>
+              <button type="button" onClick={handleAddProduct} className="outline-btn" style={{ padding: '0.5rem 1rem', whiteSpace: 'nowrap', minHeight: '40px' }}><Plus size={14} /> Add</button>
             </div>
 
             {/* Items Table */}
-            <div style={{ border: '1px solid var(--border-light)', borderRadius: '8px', overflow: 'hidden' }}>
+            <div className="table-responsive" style={{ border: '1px solid var(--border-light)', borderRadius: '8px', overflow: 'hidden' }}>
               <table className="premium-table" style={{ marginBottom: 0 }}>
                 <thead>
                   <tr style={{ background: 'rgba(255,255,255,0.02)' }}>

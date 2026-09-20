@@ -117,7 +117,7 @@ const SalonDiscovery = ({ setActivePage }) => {
               />
             </div>
 
-            <div style={{ position: 'relative', width: '160px' }}>
+            <div style={{ position: 'relative', flex: '1 1 160px', minWidth: '140px' }}>
               <MapPin size={16} style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--gold-primary)' }} />
               <select 
                 value={selectedCity} 

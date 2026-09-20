@@ -307,7 +307,7 @@ const NotificationCenter = () => {
               {/* Customer Channel Matrix */}
               <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-light)', padding: '1rem', borderRadius: '8px', marginBottom: '1rem' }}>
                 <h4 style={{ fontSize: '0.85rem', color: 'var(--gold-primary)', fontWeight: '700', marginBottom: '0.5rem' }}>Customer Notifications Channels</h4>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: '0.78rem' }}>
+                <div className="grid-2-cols" style={{ gap: '0.5rem', fontSize: '0.78rem' }}>
                   <label><input type="checkbox" checked={customerChannels.InApp} onChange={(e) => setCustomerChannels(prev => ({ ...prev, InApp: e.target.checked }))} /> In-App Feed</label>
                   <label><input type="checkbox" checked={customerChannels.WhatsApp} onChange={(e) => setCustomerChannels(prev => ({ ...prev, WhatsApp: e.target.checked }))} /> WhatsApp Direct</label>
                   <label><input type="checkbox" checked={customerChannels.SMS} onChange={(e) => setCustomerChannels(prev => ({ ...prev, SMS: e.target.checked }))} /> Mobile SMS</label>
@@ -318,7 +318,7 @@ const NotificationCenter = () => {
               {/* Staff Channel Matrix */}
               <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-light)', padding: '1rem', borderRadius: '8px', marginBottom: '1rem' }}>
                 <h4 style={{ fontSize: '0.85rem', color: '#3498db', fontWeight: '700', marginBottom: '0.5rem' }}>Staff Member Notifications Channels</h4>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: '0.78rem' }}>
+                <div className="grid-2-cols" style={{ gap: '0.5rem', fontSize: '0.78rem' }}>
                   <label><input type="checkbox" checked={staffChannels.InApp} onChange={(e) => setStaffChannels(prev => ({ ...prev, InApp: e.target.checked }))} /> In-App Feed</label>
                   <label><input type="checkbox" checked={staffChannels.WhatsApp} onChange={(e) => setStaffChannels(prev => ({ ...prev, WhatsApp: e.target.checked }))} /> WhatsApp Direct</label>
                   <label><input type="checkbox" checked={staffChannels.SMS} onChange={(e) => setStaffChannels(prev => ({ ...prev, SMS: e.target.checked }))} /> Mobile SMS</label>
@@ -329,7 +329,7 @@ const NotificationCenter = () => {
               {/* Owner Channel Matrix */}
               <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-light)', padding: '1rem', borderRadius: '8px', marginBottom: '1.25rem' }}>
                 <h4 style={{ fontSize: '0.85rem', color: 'var(--accent-red)', fontWeight: '700', marginBottom: '0.5rem' }}>Owner / Manager Executive Alerts</h4>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: '0.78rem' }}>
+                <div className="grid-2-cols" style={{ gap: '0.5rem', fontSize: '0.78rem' }}>
                   <label><input type="checkbox" checked={ownerChannels.InApp} onChange={(e) => setOwnerChannels(prev => ({ ...prev, InApp: e.target.checked }))} /> In-App Feed</label>
                   <label><input type="checkbox" checked={ownerChannels.WhatsApp} onChange={(e) => setOwnerChannels(prev => ({ ...prev, WhatsApp: e.target.checked }))} /> WhatsApp Direct</label>
                   <label><input type="checkbox" checked={ownerChannels.SMS} onChange={(e) => setOwnerChannels(prev => ({ ...prev, SMS: e.target.checked }))} /> Mobile SMS</label>

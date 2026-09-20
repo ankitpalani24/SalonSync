@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Users, Calendar, Scissors, CreditCard, 
   Package, UserCheck, BarChart3, MessageSquare, Bot, 
   Settings, LogOut, ChevronLeft, ChevronRight, Crown,
-  DollarSign, Gift, Globe, Search, Activity, Bell, ShieldCheck, Key, Building2, Zap
+  DollarSign, Gift, Globe, Search, Activity, Bell, ShieldCheck, Key, Building2, Zap, X
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
@@ -80,6 +80,7 @@ const Sidebar = ({ activePage, setActivePage, collapsed, setCollapsed, user, log
 
   return (
     <div 
+      className="sidebar-wrapper"
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       style={{
@@ -97,42 +98,65 @@ const Sidebar = ({ activePage, setActivePage, collapsed, setCollapsed, user, log
     }}>
       {/* Brand Logo */}
       <div style={{
-        padding: '1.5rem',
+        padding: '1.25rem 1rem',
         display: 'flex',
         alignItems: 'center',
-        gap: '0.75rem',
+        justifyContent: 'space-between',
         borderBottom: '1px solid var(--border-light)',
-        height: '75px',
+        height: '70px',
         overflow: 'hidden'
       }}>
-        <div style={{
-          width: '32px',
-          height: '32px',
-          borderRadius: '6px',
-          background: 'linear-gradient(135deg, var(--gold-primary) 0%, #b38f20 100%)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: '#000',
-          fontWeight: 'bold',
-          fontSize: '1.1rem',
-          flexShrink: 0
-        }}>
-          SS
-        </div>
-        {!collapsed && (
-          <span style={{
-            fontSize: '1.15rem',
-            fontWeight: '700',
-            background: 'linear-gradient(135deg, var(--text-primary) 0%, var(--gold-primary) 100%)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            letterSpacing: '1px',
-            whiteSpace: 'nowrap'
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <div style={{
+            width: '32px',
+            height: '32px',
+            borderRadius: '6px',
+            background: 'linear-gradient(135deg, var(--gold-primary) 0%, #b38f20 100%)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#000',
+            fontWeight: 'bold',
+            fontSize: '1.1rem',
+            flexShrink: 0
           }}>
-            SalonSync
-          </span>
-        )}
+            SS
+          </div>
+          {!collapsed && (
+            <span style={{
+              fontSize: '1.15rem',
+              fontWeight: '700',
+              background: 'linear-gradient(135deg, var(--text-primary) 0%, var(--gold-primary) 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              letterSpacing: '1px',
+              whiteSpace: 'nowrap'
+            }}>
+              SalonSync
+            </span>
+          )}
+        </div>
+
+        {/* Mobile close button inside drawer */}
+        <button
+          onClick={closeMobileSidebar}
+          aria-label="Close navigation drawer"
+          className="sidebar-mobile-close-btn"
+          style={{
+            background: 'rgba(255,255,255,0.06)',
+            border: '1px solid var(--border-light)',
+            color: 'var(--text-secondary)',
+            borderRadius: '50%',
+            width: '32px',
+            height: '32px',
+            display: 'none',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer'
+          }}
+        >
+          <X size={16} />
+        </button>
       </div>
 
       {/* Nav List */}

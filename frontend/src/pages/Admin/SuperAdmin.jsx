@@ -175,11 +175,11 @@ const SuperAdmin = () => {
 
       {/* Subscription edit Modal */}
       {showSubModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200 }}>
-          <div className="glass-card gold-border" style={{ width: '380px', padding: '2rem' }}>
+        <div className="modal-backdrop-overlay" onClick={(e) => { if (e.target === e.currentTarget) setShowSubModal(false); }}>
+          <div className="modal-scrollable-content" style={{ maxWidth: '420px', width: '100%', padding: 'clamp(1.25rem, 4vw, 2rem)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
-              <h3 style={{ color: 'var(--text-primary)' }}>Edit Licensing Settings</h3>
-              <button onClick={() => setShowSubModal(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)' }}><X size={18} /></button>
+              <h3 style={{ color: 'var(--text-primary)', fontSize: '1.15rem' }}>Edit Licensing Settings</h3>
+              <button onClick={() => setShowSubModal(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', cursor: 'pointer' }}><X size={18} /></button>
             </div>
             <form onSubmit={handleSubscriptionSubmit}>
               <div className="form-group">

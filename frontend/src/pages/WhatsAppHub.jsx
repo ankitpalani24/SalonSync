@@ -305,7 +305,7 @@ const WhatsAppHub = () => {
       {/* 2. TEMPLATE EDITOR (11 CUSTOMIZABLE TEMPLATES) */}
       {/* ───────────────────────────────────────────────────────────── */}
       {activeTab === 'templates' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: '1.5rem' }}>
+        <div className="grid-split-1-5-1" style={{ alignItems: 'start' }}>
           
           {/* Template Selector List */}
           <div className="glass-card" style={{ padding: '1rem' }}>
@@ -346,11 +346,11 @@ const WhatsAppHub = () => {
           </div>
 
           {/* Editor & Live Preview Column */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '1.5rem' }}>
+          <div className="grid-2-cols-split" style={{ alignItems: 'start' }}>
             
             {/* Editor Textarea */}
             <div className="glass-card">
-              <div style={{ borderBottom: '1px solid var(--border-light)', paddingBottom: '0.75rem', marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ borderBottom: '1px solid var(--border-light)', paddingBottom: '0.75rem', marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
                 <div>
                   <h3 style={{ fontSize: '1rem', color: 'var(--text-primary)', fontWeight: '600' }}>Editing: {activeTemplateKey} Template</h3>
                   <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Customize message text and insert dynamic variable placeholders.</p>
@@ -475,7 +475,7 @@ const WhatsAppHub = () => {
       {/* 4. PROVIDER API GATEWAY SETTINGS */}
       {/* ───────────────────────────────────────────────────────────── */}
       {activeTab === 'provider' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+        <div className="grid-2-cols" style={{ alignItems: 'start' }}>
           
           {/* Provider Config Form */}
           <div className="glass-card">

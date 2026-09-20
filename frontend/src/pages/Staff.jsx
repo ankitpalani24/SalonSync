@@ -1122,7 +1122,7 @@ const Staff = () => {
                   {selectedStaffMember.bio || 'No bio profile added yet.'}
                 </p>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.25rem' }}>
+                <div className="grid-2-cols" style={{ gap: '1rem', marginBottom: '1.25rem' }}>
                   <div style={{ background: 'rgba(0,0,0,0.2)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border-light)' }}>
                     <h5 style={{ color: 'var(--gold-primary)', fontSize: '0.85rem', marginBottom: '0.5rem' }}>Specializations</h5>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
