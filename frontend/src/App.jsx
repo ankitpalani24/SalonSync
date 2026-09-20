@@ -1,4 +1,4 @@
-import React, { useState, useEffect, Suspense, lazy } from 'react';
+import React, { useState, useEffect, useCallback, Suspense, lazy } from 'react';
 import { useApp } from './context/AppContext';
 import { Bell, LogOut, MapPin, Plus, Sparkles, Calendar, Users, CreditCard, DollarSign } from 'lucide-react';
 
@@ -46,23 +46,27 @@ const PageLoadingFallback = () => (
 );
 
 function App() {
+  const { currentUser, logout, db, currentBranch, currentSalon, hasPermission, PERMISSIONS } = useApp();
+
   const [activePage, setActivePage] = useState(() => {
     try {
-      const saved = localStorage.getItem('salonsync_active_page');
-      if (saved && saved !== 'landing') return saved;
       const user = localStorage.getItem('user');
-      return user ? 'dashboard' : 'landing';
+      const saved = localStorage.getItem('salonsync_active_page');
+      if (user && user !== 'null' && user !== 'undefined') {
+        return saved || 'dashboard';
+      }
+      return 'landing';
     } catch {
       return 'landing';
     }
   });
 
-  const handleNavigate = (page) => {
+  const handleNavigate = useCallback((page) => {
     setActivePage(page);
     try {
       localStorage.setItem('salonsync_active_page', page);
     } catch {}
-  };
+  }, []);
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -81,13 +85,13 @@ function App() {
     }
   });
 
-  const handleSplashFinish = () => {
+  const handleSplashFinish = useCallback(() => {
     try {
       const todayStr = new Date().toISOString().split('T')[0];
       localStorage.setItem('salonsync_splash_shown_date', todayStr);
     } catch {}
     setShowSplash(false);
-  };
+  }, []);
 
   // Global Ctrl + K Keyboard Shortcut Listener
   useEffect(() => {

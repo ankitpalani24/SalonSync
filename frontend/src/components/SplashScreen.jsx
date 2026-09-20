@@ -1,34 +1,36 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 /**
  * SalonSync Luxury Startup Splash Screen
  * Displays the transparent brand logo on a pure black background with smooth ambient glow and progress animation.
  */
 const SplashScreen = ({ onFinish }) => {
-  const [fadeState, setFadeState] = useState('in'); // 'in', 'visible', 'out'
+  const [fadeState, setFadeState] = useState('in'); // 'in', 'out'
+  const onFinishRef = useRef(onFinish);
+  onFinishRef.current = onFinish;
 
   useEffect(() => {
-    // Phase 1: Fade-in and hold
+    // Phase 1: Hold presentation for 1.1s
     const holdTimer = setTimeout(() => {
       setFadeState('out');
-    }, 1800);
+    }, 1100);
 
-    // Phase 2: Fade out and complete
+    // Phase 2: Fade out and unmount at 1.45s
     const finishTimer = setTimeout(() => {
-      if (onFinish) onFinish();
-    }, 2300);
+      if (onFinishRef.current) onFinishRef.current();
+    }, 1450);
 
     return () => {
       clearTimeout(holdTimer);
       clearTimeout(finishTimer);
     };
-  }, [onFinish]);
+  }, []); // Run ONLY once on mount
 
   const handleDismiss = () => {
     setFadeState('out');
     setTimeout(() => {
-      if (onFinish) onFinish();
-    }, 400);
+      if (onFinishRef.current) onFinishRef.current();
+    }, 200);
   };
 
   return (
