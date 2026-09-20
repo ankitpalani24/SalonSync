@@ -106,22 +106,24 @@ const Sidebar = ({ activePage, setActivePage, collapsed, setCollapsed, user, log
         height: '70px',
         overflow: 'hidden'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <div style={{
-            width: '32px',
-            height: '32px',
-            borderRadius: '6px',
-            background: 'linear-gradient(135deg, var(--gold-primary) 0%, #b38f20 100%)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#000',
-            fontWeight: 'bold',
-            fontSize: '1.1rem',
-            flexShrink: 0
-          }}>
-            SS
-          </div>
+        <div 
+          style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer' }}
+          onClick={() => setActivePage('dashboard')}
+          title="SalonSync Dashboard"
+        >
+          <img
+            src="/logo.png"
+            alt="SalonSync Logo"
+            style={{
+              width: '34px',
+              height: '34px',
+              borderRadius: '8px',
+              objectFit: 'cover',
+              border: '1px solid var(--gold-border)',
+              boxShadow: '0 2px 8px rgba(112, 130, 56, 0.3)',
+              flexShrink: 0
+            }}
+          />
           {!collapsed && (
             <span style={{
               fontSize: '1.15rem',

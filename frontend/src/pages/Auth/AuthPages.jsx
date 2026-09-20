@@ -142,22 +142,24 @@ const AuthPages = ({ defaultView = 'login', onAuthSuccess, onBackToLanding }) =>
 
         {/* Header */}
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-          <div 
+          <img 
+            src="/logo.png" 
+            alt="SalonSync Logo"
             onClick={onBackToLanding}
+            title="Back to SalonSync"
             style={{
-              width: '40px',
-              height: '40px',
-              borderRadius: '8px',
-              background: 'linear-gradient(135deg, var(--gold-primary) 0%, #b38f20 100%)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#000',
-              fontWeight: 'bold',
-              margin: '0 auto 1rem auto',
-              cursor: 'pointer'
+              width: '76px',
+              height: '76px',
+              borderRadius: '16px',
+              objectFit: 'cover',
+              border: '2px solid var(--gold-border)',
+              margin: '0 auto 1.25rem auto',
+              cursor: 'pointer',
+              boxShadow: '0 6px 20px rgba(112, 130, 56, 0.3)',
+              display: 'block',
+              transition: 'transform 0.2s ease'
             }}
-          >SS</div>
+          />
           <h2 style={{ fontSize: '1.75rem', color: 'var(--text-primary)' }}>SalonSync</h2>
           <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
             {view === 'login' && 'Sign in to access your salon desk'}
