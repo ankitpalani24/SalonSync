@@ -141,27 +141,30 @@ const AuthPages = ({ defaultView = 'login', onAuthSuccess, onBackToLanding }) =>
         </button>
 
         {/* Header */}
-        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+        <div style={{ textAlign: 'center', marginBottom: '1.75rem' }}>
           <div 
             onClick={onBackToLanding}
             style={{
-              width: '44px',
-              height: '44px',
-              borderRadius: '10px',
-              background: 'linear-gradient(135deg, var(--gold-primary) 0%, #b38f20 100%)',
               display: 'flex',
-              alignItems: 'center',
               justifyContent: 'center',
-              color: '#000',
-              fontWeight: '800',
-              fontSize: '1.2rem',
-              margin: '0 auto 1rem auto',
               cursor: 'pointer',
-              boxShadow: '0 4px 14px rgba(112, 130, 56, 0.35)'
+              marginBottom: '0.85rem'
             }}
-          >SS</div>
-          <h2 style={{ fontSize: '1.75rem', color: 'var(--text-primary)' }}>SalonSync</h2>
-          <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
+            title="Return to Home"
+          >
+            <img
+              src="/SalonSync_Full_Transparent.png"
+              alt="SalonSync - Beauty Meets Business"
+              style={{
+                width: '100%',
+                maxWidth: '250px',
+                height: 'auto',
+                objectFit: 'contain',
+                display: 'block'
+              }}
+            />
+          </div>
+          <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
             {view === 'login' && 'Sign in to access your salon desk'}
             {view === 'signup' && 'Register your beauty enterprise'}
             {view === 'forgot' && 'Reset your password account credentials'}

@@ -18,7 +18,7 @@ export const mockSalons = [
     subscriptionPlan: "Franchise",
     subscriptionStatus: "Active",
     tagline: "Bandra's Premier Luxury Hair, Skincare & Wellness Sanctuary",
-    logoUrl: "/logo.png",
+    logoUrl: "/SalonSync_Full_Transparent.png",
     coverImageUrl: "https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=1600&q=80",
     description: "Luxe & Gold Salon & Spa is Mumbai's premier luxury beauty sanctuary. Offering bespoke haircutting, balayage, organic skincare facials, deep-tissue body spas, and bridal makeover packages in a tranquil 5-star ambiance.",
     openingHours: "Mon - Sun: 09:00 AM - 09:00 PM",

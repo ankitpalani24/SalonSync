@@ -82,7 +82,7 @@ const SplashScreen = ({ onFinish }) => {
         }}
       >
         <img
-          src="/splash-logo.png"
+          src="/SalonSync_Full_Transparent.png"
           alt="SalonSync - Beauty Meets Business"
           className="splash-logo-img"
           style={{

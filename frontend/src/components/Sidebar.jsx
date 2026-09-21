@@ -107,38 +107,35 @@ const Sidebar = ({ activePage, setActivePage, collapsed, setCollapsed, user, log
         overflow: 'hidden'
       }}>
         <div 
-          style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer' }}
+          style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', flex: 1, minWidth: 0, overflow: 'hidden' }}
           onClick={() => setActivePage('dashboard')}
           title="SalonSync Dashboard"
         >
-          <div style={{
-            width: '34px',
-            height: '34px',
-            borderRadius: '8px',
-            background: 'linear-gradient(135deg, var(--gold-primary) 0%, #b38f20 100%)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#000',
-            fontWeight: '800',
-            fontSize: '1.1rem',
-            flexShrink: 0,
-            boxShadow: '0 2px 8px rgba(112, 130, 56, 0.3)'
-          }}>
-            SS
-          </div>
-          {!collapsed && (
-            <span style={{
-              fontSize: '1.15rem',
-              fontWeight: '700',
-              background: 'linear-gradient(135deg, var(--text-primary) 0%, var(--gold-primary) 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              letterSpacing: '1px',
-              whiteSpace: 'nowrap'
-            }}>
-              SalonSync
-            </span>
+          {collapsed ? (
+            <img 
+              src="/salonsync-icon.png" 
+              alt="SalonSync" 
+              style={{
+                width: '34px',
+                height: '34px',
+                objectFit: 'contain',
+                display: 'block',
+                margin: '0 auto'
+              }}
+            />
+          ) : (
+            <img 
+              src="/SalonSync_Full_Transparent.png" 
+              alt="SalonSync - Beauty Meets Business" 
+              style={{
+                maxWidth: '165px',
+                width: '100%',
+                height: 'auto',
+                maxHeight: '48px',
+                objectFit: 'contain',
+                display: 'block'
+              }}
+            />
           )}
         </div>
 

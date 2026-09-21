@@ -3,7 +3,12 @@
   "name": "SalonSync Enterprise Management",
   "icons": [
     {
-      "src": "/logo.png",
+      "src": "/salonsync-icon.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "/SalonSync_Full_Transparent.png",
       "type": "image/png",
       "sizes": "512x512"
     }

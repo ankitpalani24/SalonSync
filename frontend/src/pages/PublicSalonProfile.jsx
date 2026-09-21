@@ -56,7 +56,7 @@ const PublicSalonProfile = ({ setActivePage }) => {
   ];
 
   const PRESET_LOGOS = [
-    '/logo.png',
+    '/SalonSync_Full_Transparent.png',
     'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?auto=format&fit=crop&w=300&q=80',
     'https://images.unsplash.com/photo-1562322140-8baeececf3df?auto=format&fit=crop&w=300&q=80',
     'https://images.unsplash.com/photo-1527799820374-dcf8d9d4a388?auto=format&fit=crop&w=300&q=80',
