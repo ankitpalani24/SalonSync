@@ -317,22 +317,30 @@ const Sidebar = ({ activePage, setActivePage, collapsed, setCollapsed, user, log
 
 
         <button
+          type="button"
           onClick={() => setCollapsed(!collapsed)}
           className="sidebar-collapse-btn"
+          aria-label={collapsed ? "Expand sidebar navigation" : "Collapse sidebar navigation"}
+          title={collapsed ? "Expand Sidebar" : "Collapse Sidebar"}
           style={{
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center',
-            padding: '0.5rem',
+            justifyContent: collapsed ? 'center' : 'flex-start',
+            gap: '0.6rem',
+            padding: '0.55rem 0.75rem',
             width: '100%',
-            background: 'rgba(255,255,255,0.02)',
+            background: 'rgba(255, 255, 255, 0.02)',
             color: 'var(--text-secondary)',
             border: '1px solid var(--border-light)',
-            borderRadius: '4px',
-            fontSize: '0.8rem'
+            borderRadius: 'var(--radius-md)',
+            fontSize: 'var(--text-xs)',
+            fontWeight: '500',
+            cursor: 'pointer',
+            transition: 'var(--transition-smooth)'
           }}
         >
-          {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+          {collapsed ? <ChevronRight size={16} aria-hidden="true" /> : <ChevronLeft size={16} aria-hidden="true" />}
+          {!collapsed && <span>Collapse Sidebar</span>}
         </button>
       </div>
     </div>
