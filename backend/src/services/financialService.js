@@ -388,13 +388,17 @@ const getFinancialSummary = async ({
   branchProfitability.forEach((b, idx) => { b.rank = idx + 1; });
 
   // 10. COUNTS & SUMMARY METRICS
+  const activeAppointments = appointments.filter(a => ['Scheduled', 'Confirmed', 'In Progress'].includes(a.status));
   const completedAppointments = appointments.filter(a => a.status === 'Completed');
+  const cancelledAppointments = appointments.filter(a => a.status === 'Cancelled');
   const counts = {
     invoiceCount: invoices.length,
     paidInvoiceCount,
     expenseCount: expenses.length,
-    appointmentCount: appointments.length,
+    appointmentCount: activeAppointments.length,
     completedAppointmentCount: completedAppointments.length,
+    cancelledAppointmentCount: cancelledAppointments.length,
+    totalAppointmentCount: appointments.length,
     refundCount,
     customerCount: customers.length,
     staffCount: staff.length,

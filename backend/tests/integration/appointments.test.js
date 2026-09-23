@@ -76,7 +76,7 @@ describe('Appointment Booking & Double-Booking Prevention Integration Tests', ()
     expect(res.body.message).toMatch(/already booked for another appointment/i);
   });
 
-  test('allows cancellation of an appointment', async () => {
+  test('allows cancellation of an appointment: soft-cancels, keeps document in MongoDB, and releases slot', async () => {
     const appt = await models.Appointment.create({
       salonId: salon._id,
       branchId: branch._id,
@@ -87,6 +87,15 @@ describe('Appointment Booking & Double-Booking Prevention Integration Tests', ()
       status: 'Scheduled'
     });
 
+    await models.SlotReservation.create({
+      salonId: salon._id,
+      branchId: branch._id,
+      staffId: staff._id,
+      dateStr: '2026-09-01',
+      slotMinute: 960,
+      appointmentId: appt._id
+    });
+
     const res = await request(app)
       .delete(`/api/appointments/${appt._id}`)
       .set('Authorization', `Bearer ${token}`);
@@ -94,8 +103,78 @@ describe('Appointment Booking & Double-Booking Prevention Integration Tests', ()
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
 
+    // Document MUST NOT be deleted from MongoDB
     const check = await models.Appointment.findById(appt._id);
-    expect(check).toBeNull();
+    expect(check).not.toBeNull();
+    expect(check.status).toBe('Cancelled');
+
+    // Slot reservations MUST be released
+    const remainingSlots = await models.SlotReservation.find({ appointmentId: appt._id });
+    expect(remainingSlots.length).toBe(0);
+  });
+
+  test('LIFECYCLE SCOPING: scope=active returns only active, scope=history returns completed/cancelled', async () => {
+    // Active appointments
+    const scheduled = await models.Appointment.create({
+      salonId: salon._id,
+      branchId: branch._id,
+      customerId: customer._id,
+      staffId: staff._id,
+      date: new Date('2026-09-10'),
+      time: '10:00',
+      status: 'Scheduled'
+    });
+    const inProgress = await models.Appointment.create({
+      salonId: salon._id,
+      branchId: branch._id,
+      customerId: customer._id,
+      staffId: staff._id,
+      date: new Date('2026-09-10'),
+      time: '11:00',
+      status: 'In Progress'
+    });
+
+    // Historical appointments
+    const completed = await models.Appointment.create({
+      salonId: salon._id,
+      branchId: branch._id,
+      customerId: customer._id,
+      staffId: staff._id,
+      date: new Date('2026-09-09'),
+      time: '14:00',
+      status: 'Completed'
+    });
+    const cancelled = await models.Appointment.create({
+      salonId: salon._id,
+      branchId: branch._id,
+      customerId: customer._id,
+      staffId: staff._id,
+      date: new Date('2026-09-09'),
+      time: '15:00',
+      status: 'Cancelled'
+    });
+
+    // 1. Query scope=active
+    const activeRes = await request(app)
+      .get('/api/appointments?scope=active')
+      .set('Authorization', `Bearer ${token}`);
+    expect(activeRes.status).toBe(200);
+    const activeIds = activeRes.body.data.map(a => String(a._id));
+    expect(activeIds).toContain(String(scheduled._id));
+    expect(activeIds).toContain(String(inProgress._id));
+    expect(activeIds).not.toContain(String(completed._id));
+    expect(activeIds).not.toContain(String(cancelled._id));
+
+    // 2. Query scope=history
+    const historyRes = await request(app)
+      .get('/api/appointments?scope=history')
+      .set('Authorization', `Bearer ${token}`);
+    expect(historyRes.status).toBe(200);
+    const historyIds = historyRes.body.data.map(a => String(a._id));
+    expect(historyIds).not.toContain(String(scheduled._id));
+    expect(historyIds).not.toContain(String(inProgress._id));
+    expect(historyIds).toContain(String(completed._id));
+    expect(historyIds).toContain(String(cancelled._id));
   });
 
   test('allows SALON_OWNER without branchId to book an appointment with auto-resolution', async () => {

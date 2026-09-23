@@ -2605,14 +2605,27 @@ export const AppProvider = ({ children }) => {
 
   const deleteAppointment = async (id) => {
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_URL}/appointments/${id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
+      // Optimistic local update: soft-cancel so historical view retains it while active list removes it
+      setDb(prev => {
+        const updatedAppts = (prev.appointments || []).map(a =>
+          String(a._id) === String(id) ? { ...a, status: 'Cancelled' } : a
+        );
+        localStorage.setItem('sf_appointments', JSON.stringify(updatedAppts));
+        return { ...prev, appointments: updatedAppts };
       });
-      const data = await res.json();
-      if (data.success) {
-        await syncBackendData(token);
+
+      const token = localStorage.getItem('token');
+      if (token) {
+        const res = await fetch(`${API_URL}/appointments/${id}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (data.success) {
+          await syncBackendData(token);
+          addToast('Appointment cancelled successfully!', 'info');
+        }
+      } else {
         addToast('Appointment cancelled successfully!', 'info');
       }
     } catch (err) {

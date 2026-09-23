@@ -313,7 +313,13 @@ const Appointments = ({ setActivePage, setSelectedApptForCheckout }) => {
       }
 
       // Status filter
-      if (statusFilter !== 'ALL' && appt.status !== statusFilter) return false;
+      if (statusFilter === 'ACTIVE') {
+        if (!['Scheduled', 'Confirmed', 'In Progress'].includes(appt.status)) return false;
+      } else if (statusFilter === 'HISTORY') {
+        if (!['Completed', 'Cancelled'].includes(appt.status)) return false;
+      } else if (statusFilter !== 'ALL' && appt.status !== statusFilter) {
+        return false;
+      }
 
       // Service filter
       if (serviceFilter !== 'ALL') {
@@ -712,6 +718,8 @@ const Appointments = ({ setActivePage, setSelectedApptForCheckout }) => {
           <label>Status:</label>
           <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
             <option value="ALL">All Statuses</option>
+            <option value="ACTIVE">Active Bookings</option>
+            <option value="HISTORY">Appointment History</option>
             <option value="Scheduled">Scheduled</option>
             <option value="Confirmed">Confirmed</option>
             <option value="In Progress">In Progress</option>

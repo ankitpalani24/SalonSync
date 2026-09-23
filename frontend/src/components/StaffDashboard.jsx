@@ -144,8 +144,8 @@ const StaffDashboard = ({ setActivePage }) => {
 
   // Scoped Data Collections
   const myAppointments = db.appointments.filter(a => String(a.staffId) === String(staffId));
-  const todayAppts = myAppointments.filter(a => a.date === today);
-  const completedToday = todayAppts.filter(a => a.status === 'Completed').length;
+  const todayActiveAppts = myAppointments.filter(a => a.date === today && ['Scheduled', 'Confirmed', 'In Progress'].includes(a.status));
+  const completedToday = myAppointments.filter(a => a.date === today && a.status === 'Completed').length;
   const monthAppts = myAppointments.filter(a => a.date >= startOfMonthStr);
   const completedMonth = monthAppts.filter(a => a.status === 'Completed').length;
 
@@ -529,10 +529,10 @@ const StaffDashboard = ({ setActivePage }) => {
           </div>
 
           <div className="dash-upcoming-list">
-            {todayAppts.length === 0 ? (
-              <div className="dash-empty-state">No appointments assigned to you today.</div>
+            {todayActiveAppts.length === 0 ? (
+              <div className="dash-empty-state">No active appointments assigned to you today.</div>
             ) : (
-              todayAppts.map(appt => {
+              todayActiveAppts.map(appt => {
                 const client = (() => {
                   if (appt.customerId && typeof appt.customerId === 'object') return appt.customerId;
                   return db.customers.find(c => String(c._id) === String(appt.customerId));

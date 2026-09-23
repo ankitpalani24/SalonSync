@@ -653,7 +653,11 @@ router.get('/appointments', requirePermission('appointments.view'), safeHandler(
     const myIds = myCustomers.map(c => c._id);
     filter.customerId = { $in: myIds };
   }
-  if (req.query.status && req.query.status !== 'ALL') {
+  if (req.query.scope === 'active') {
+    filter.status = { $in: ['Scheduled', 'Confirmed', 'In Progress'] };
+  } else if (req.query.scope === 'history') {
+    filter.status = { $in: ['Completed', 'Cancelled'] };
+  } else if (req.query.status && req.query.status !== 'ALL') {
     filter.status = req.query.status;
   }
   if (req.query.staffId && mongoose.Types.ObjectId.isValid(req.query.staffId)) {
@@ -1112,10 +1116,14 @@ router.put('/appointments/:id', sensitiveActionLimiter, requireIdempotency, requ
 }, 'Failed to update appointment'));
 
 router.delete('/appointments/:id', requirePermission('appointments.cancel'), validateObjectId, safeHandler(async (req, res) => {
-  const appointment = await models.Appointment.findOneAndDelete({ _id: req.params.id, ...req.tenantFilter });
+  const appointment = await models.Appointment.findOneAndUpdate(
+    { _id: req.params.id, ...req.tenantFilter },
+    { status: 'Cancelled' },
+    { returnDocument: 'after' }
+  );
   if (!appointment) return res.status(404).json({ success: false, message: 'Appointment not found' });
   await models.SlotReservation.deleteMany({ appointmentId: appointment._id });
-  res.json({ success: true, message: 'Appointment cancelled' });
+  res.json({ success: true, message: 'Appointment cancelled', data: appointment });
 }, 'Failed to cancel appointment'));
 
 // ----------------------------------------------------
@@ -3249,7 +3257,10 @@ router.get('/mobile/client/dashboard', safeHandler(async (req, res) => {
   });
 
   const upcomingAppts = myCustomer
-    ? await models.Appointment.find({ customerId: myCustomer._id, status: { $ne: 'Cancelled' } })
+    ? await models.Appointment.find({
+        customerId: myCustomer._id,
+        status: { $in: ['Scheduled', 'Confirmed', 'In Progress'] }
+      })
         .sort({ date: 1 })
         .populate('staffId')
         .limit(5)
@@ -3298,7 +3309,8 @@ router.get('/mobile/staff/schedule', safeHandler(async (req, res) => {
 
   const appointmentsToday = await models.Appointment.find({
     staffId: staffRecord._id,
-    date: { $gte: todayStart }
+    date: { $gte: todayStart },
+    status: { $in: ['Scheduled', 'Confirmed', 'In Progress'] }
   }).populate('customerId');
 
   const attendanceToday = await models.Attendance.findOne({

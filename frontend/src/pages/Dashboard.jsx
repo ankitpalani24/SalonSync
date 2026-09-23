@@ -239,9 +239,9 @@ const Dashboard = ({ setActivePage }) => {
     : (monthlyRevenue > 0 ? Number(((netProfit / monthlyRevenue) * 100).toFixed(1)) : 0);
 
   // Today's Appointments
-  const todayAppointments = branchAppointments.filter(a => isToday(a.date));
-  const todayAppointmentCount = backendStats?.todayAppointments !== undefined ? backendStats.todayAppointments : todayAppointments.length;
-  const todayCompletedCount = backendStats?.todayCompletedAppointments !== undefined ? backendStats.todayCompletedAppointments : todayAppointments.filter(a => a.status === 'Completed').length;
+  const todayActiveAppointments = branchAppointments.filter(a => isToday(a.date) && ['Scheduled', 'Confirmed', 'In Progress'].includes(a.status));
+  const todayAppointmentCount = backendStats?.todayAppointments !== undefined ? backendStats.todayAppointments : todayActiveAppointments.length;
+  const todayCompletedCount = backendStats?.todayCompletedAppointments !== undefined ? backendStats.todayCompletedAppointments : branchAppointments.filter(a => isToday(a.date) && a.status === 'Completed').length;
 
   // Total Customers
   const totalCustomers = backendStats?.totalCustomers !== undefined ? backendStats.totalCustomers : salonCustomers.length;
@@ -359,7 +359,7 @@ const Dashboard = ({ setActivePage }) => {
 
   // Widget Lists
   const upcomingAppointments = branchAppointments
-    .filter(a => a.status !== 'Completed' && a.status !== 'Cancelled')
+    .filter(a => ['Scheduled', 'Confirmed', 'In Progress'].includes(a.status))
     .slice(0, 6);
 
   const recentPayments = branchInvoices.slice(-5).reverse();
@@ -455,8 +455,8 @@ const Dashboard = ({ setActivePage }) => {
     const myInvoices = db.invoices.filter(i => matchesCustomer(i.customerId));
     const myTotalSpending = myInvoices.reduce((sum, inv) => sum + inv.finalAmount, 0);
 
-    const upcomingMyAppts = myAppointments.filter(a => a.status !== 'Completed' && a.status !== 'Cancelled');
-    const pastMyAppts = myAppointments.filter(a => a.status === 'Completed');
+    const upcomingMyAppts = myAppointments.filter(a => ['Scheduled', 'Confirmed', 'In Progress'].includes(a.status));
+    const pastMyAppts = myAppointments.filter(a => ['Completed', 'Cancelled'].includes(a.status));
 
     const myStaffIds = pastMyAppts.map(a => a.staffId);
     const favStaffId = myStaffIds.sort((a,b) =>
