@@ -57,14 +57,24 @@ export const RevenueExpenseChart = ({
   return (
     <div style={{ position: 'relative', width: '100%' }}>
       {/* Legend */}
-      <div style={{ display: 'flex', gap: '1.25rem', marginBottom: '0.75rem', justifyContent: 'flex-end' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
-          <span style={{ width: 10, height: 10, borderRadius: 2, background: 'var(--gold-primary)', display: 'inline-block' }} />
-          Revenue
+      <div 
+        role="list"
+        aria-label="Chart series legend"
+        style={{ 
+          display: 'flex', 
+          gap: '1.25rem', 
+          marginBottom: '0.85rem', 
+          justifyContent: 'flex-start',
+          paddingLeft: '0.25rem' 
+        }}
+      >
+        <div role="listitem" style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>
+          <span aria-hidden="true" style={{ width: 10, height: 10, borderRadius: 'var(--radius-sm)', background: 'var(--gold-primary)', display: 'inline-block' }} />
+          <span>Revenue</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
-          <span style={{ width: 10, height: 10, borderRadius: 2, background: 'var(--accent-red)', display: 'inline-block' }} />
-          Expenses
+        <div role="listitem" style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>
+          <span aria-hidden="true" style={{ width: 10, height: 10, borderRadius: 'var(--radius-sm)', background: 'var(--accent-red)', display: 'inline-block' }} />
+          <span>Expenses</span>
         </div>
       </div>
 

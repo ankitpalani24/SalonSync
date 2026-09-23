@@ -113,46 +113,52 @@ const Header = ({ toggleMobileSidebar, onOpenProfile, onOpenCommandPalette, setA
 
         {/* Centralized Notification Center Bell Icon */}
         <div style={{ position: 'relative' }}>
-          <button
-            onClick={() => setActivePage ? setActivePage('notifications') : null}
-            style={{
-              background: 'rgba(255,255,255,0.04)',
-              border: '1px solid var(--border-light)',
-              borderRadius: '50%',
-              width: '38px',
-              height: '38px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'var(--text-primary)',
-              cursor: 'pointer',
-              position: 'relative'
-            }}
-            title="Notification Center"
-          >
-            <Bell size={18} />
-            {(() => {
-              const unreadCount = (db.notifications || []).filter(n => !n.read).length;
-              if (unreadCount === 0) return null;
-              return (
-                <span style={{
-                  position: 'absolute',
-                  top: '-3px',
-                  right: '-3px',
-                  background: 'var(--accent-red)',
-                  color: '#fff',
-                  fontSize: '0.62rem',
-                  fontWeight: '800',
-                  borderRadius: '10px',
-                  padding: '0.1rem 0.4rem',
-                  lineHeight: 1,
-                  boxShadow: '0 0 8px rgba(231,76,60,0.6)'
-                }}>
-                  {unreadCount}
-                </span>
-              );
-            })()}
-          </button>
+          {(() => {
+            const unreadCount = (db.notifications || []).filter(n => !n.read).length;
+            return (
+              <button
+                type="button"
+                onClick={() => setActivePage ? setActivePage('notifications') : null}
+                style={{
+                  background: 'rgba(255,255,255,0.04)',
+                  border: '1px solid var(--border-light)',
+                  borderRadius: '50%',
+                  width: '38px',
+                  height: '38px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'var(--text-primary)',
+                  cursor: 'pointer',
+                  position: 'relative'
+                }}
+                title="Notification Center"
+                aria-label={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ''}`}
+              >
+                <Bell size={18} aria-hidden="true" />
+                {unreadCount > 0 && (
+                  <span 
+                    aria-hidden="true"
+                    style={{
+                      position: 'absolute',
+                      top: '-3px',
+                      right: '-3px',
+                      background: 'var(--accent-red)',
+                      color: '#fff',
+                      fontSize: '0.62rem',
+                      fontWeight: '800',
+                      borderRadius: '10px',
+                      padding: '0.1rem 0.4rem',
+                      lineHeight: 1,
+                      boxShadow: '0 0 8px rgba(231,76,60,0.6)'
+                    }}
+                  >
+                    {unreadCount}
+                  </span>
+                )}
+              </button>
+            );
+          })()}
         </div>
 
         {/* User Card */}

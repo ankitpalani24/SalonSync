@@ -54,15 +54,20 @@ const KpiCard = ({ title, value, subtitle, icon: Icon, iconColor, trend, trendUp
 );
 
 // ─── SECTION HEADER ──────────────────────────────────────────────────────────
-const SectionHeader = ({ icon: Icon, title, action, actionLabel, actionIcon: ActionIcon }) => (
+const SectionHeader = ({ icon: Icon, title, action, actionLabel, actionIcon: ActionIcon, as: Tag = 'h2' }) => (
   <div className="dash-section-header">
     <div className="dash-section-title">
-      {Icon && <Icon size={18} style={{ color: 'var(--gold-primary)' }} />}
-      <h3>{title}</h3>
+      {Icon && <Icon size={18} aria-hidden="true" style={{ color: 'var(--gold-primary)' }} />}
+      <Tag className="dash-section-heading">{title}</Tag>
     </div>
     {action && (
-      <button className="dash-section-action" onClick={action}>
-        {actionLabel} {ActionIcon && <ActionIcon size={12} />}
+      <button 
+        type="button" 
+        className="dash-section-action" 
+        onClick={action}
+        aria-label={`${actionLabel} for ${title}`}
+      >
+        {actionLabel} {ActionIcon && <ActionIcon size={12} aria-hidden="true" />}
       </button>
     )}
   </div>

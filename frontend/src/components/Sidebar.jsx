@@ -1,9 +1,9 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   LayoutDashboard, Users, Calendar, Scissors, CreditCard, 
   Package, UserCheck, BarChart3, MessageSquare, Bot, 
   Settings, LogOut, ChevronLeft, ChevronRight, Crown,
-  DollarSign, Gift, Globe, Search, Activity, Bell, ShieldCheck, Key, Building2, Zap, X
+  DollarSign, Gift, Globe, Search, Activity, Bell, ShieldCheck, Key, Building2, Zap, X, ChevronDown
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
@@ -14,6 +14,18 @@ const Sidebar = ({ activePage, setActivePage, collapsed, setCollapsed, user, log
     db,
     hasPermission, PERMISSIONS
   } = useApp();
+
+  // Collapsible category accordion state
+  const [openSections, setOpenSections] = useState({
+    OPERATIONS: true,
+    BUSINESS: true,
+    GROWTH: false,
+    ENTERPRISE: false
+  });
+
+  const toggleSection = (title) => {
+    setOpenSections(prev => ({ ...prev, [title]: !prev[title] }));
+  };
 
   // Categorized Navigation mapping according to permissions and role
   const menuSections = [
@@ -61,9 +73,17 @@ const Sidebar = ({ activePage, setActivePage, collapsed, setCollapsed, user, log
     }
   ];
 
+  // Auto-expand section containing the currently active page
+  useEffect(() => {
+    const activeSec = menuSections.find(sec => sec.items.some(item => item.id === activePage));
+    if (activeSec) {
+      setOpenSections(prev => ({ ...prev, [activeSec.title]: true }));
+    }
+  }, [activePage]);
+
   const branches = (db && db.branches) ? db.branches.filter(b => b.salonId === user?.salonId) : [];
 
-  const touchRef = React.useRef({ startX: 0 });
+  const touchRef = useRef({ startX: 0 });
 
   const handleTouchStart = (e) => {
     touchRef.current.startX = e.touches[0].clientX;
@@ -168,7 +188,7 @@ const Sidebar = ({ activePage, setActivePage, collapsed, setCollapsed, user, log
         padding: '0.75rem 0.5rem',
         display: 'flex',
         flexDirection: 'column',
-        gap: '0.85rem',
+        gap: '0.6rem',
         overflowY: 'auto'
       }}>
         {menuSections.map((sec) => {
@@ -182,45 +202,67 @@ const Sidebar = ({ activePage, setActivePage, collapsed, setCollapsed, user, log
 
           if (visibleItems.length === 0) return null;
 
-          return (
-            <div key={sec.title} style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
-              {!collapsed && (
-                <div style={{ fontSize: '0.62rem', fontWeight: '800', color: 'var(--text-muted)', letterSpacing: '0.8px', padding: '0.25rem 0.75rem', textTransform: 'uppercase' }}>
-                  {sec.title}
-                </div>
-              )}
-              {visibleItems.map((item) => {
-                const Icon = item.icon;
-                const isActive = activePage === item.id;
+          const isExpanded = openSections[sec.title] ?? true;
+          const sectionId = `nav-sec-${sec.title.toLowerCase()}`;
 
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => setActivePage(item.id)}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.85rem',
-                      padding: '0.7rem 0.85rem',
-                      width: '100%',
-                      background: isActive ? 'var(--sidebar-active-bg)' : 'transparent',
-                      color: isActive ? 'var(--gold-primary)' : 'var(--sidebar-text-inactive)',
-                      border: 'none',
-                      borderLeft: isActive ? '3px solid var(--gold-primary)' : '3px solid transparent',
-                      borderRadius: '4px',
-                      textAlign: 'left',
-                      fontSize: '0.85rem',
-                      fontWeight: isActive ? '600' : '400',
-                      transition: 'var(--transition-smooth)',
-                      whiteSpace: 'nowrap'
-                    }}
-                    className="sidebar-link"
-                  >
-                    <Icon size={17} style={{ flexShrink: 0, color: isActive ? 'var(--gold-primary)' : 'inherit' }} />
-                    {!collapsed && <span>{item.label}</span>}
-                  </button>
-                );
-              })}
+          return (
+            <div key={sec.title} className="sidebar-group" style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
+              {!collapsed && (
+                <button
+                  type="button"
+                  className="sidebar-group-toggle"
+                  onClick={() => toggleSection(sec.title)}
+                  aria-expanded={isExpanded}
+                  aria-controls={sectionId}
+                  title={`Toggle ${sec.title} category`}
+                >
+                  <span>{sec.title}</span>
+                  <ChevronDown 
+                    size={13} 
+                    aria-hidden="true"
+                    style={{ 
+                      transform: isExpanded ? 'rotate(0deg)' : 'rotate(-90deg)', 
+                      transition: 'transform 0.2s ease',
+                      opacity: 0.7
+                    }} 
+                  />
+                </button>
+              )}
+              <div
+                id={sectionId}
+                role="region"
+                aria-label={sec.title}
+                style={{
+                  display: isExpanded || collapsed ? 'flex' : 'none',
+                  flexDirection: 'column',
+                  gap: '0.15rem'
+                }}
+              >
+                {visibleItems.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = activePage === item.id;
+
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => setActivePage(item.id)}
+                      aria-current={isActive ? 'page' : undefined}
+                      className={`sidebar-link ${isActive ? 'sidebar-link-active active' : ''}`}
+                      title={collapsed ? item.label : undefined}
+                    >
+                      <Icon 
+                        size={17} 
+                        aria-hidden="true"
+                        style={{ 
+                          flexShrink: 0, 
+                          color: isActive ? 'var(--gold-accent)' : 'inherit' 
+                        }} 
+                      />
+                      {!collapsed && <span>{item.label}</span>}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           );
         })}

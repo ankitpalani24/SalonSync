@@ -70,7 +70,6 @@ function App() {
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const [showAlerts, setShowAlerts] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
 
@@ -363,95 +362,6 @@ function App() {
           </ErrorBoundary>
         </div>
 
-        {/* Floating Notification Button & Dropdown Drawer */}
-        {currentUser && (
-          <div style={{ position: 'fixed', bottom: '24px', right: '24px', zIndex: 9999 }}>
-            <button
-              onClick={() => setShowAlerts(!showAlerts)}
-              style={{
-                width: '50px',
-                height: '50px',
-                borderRadius: '50%',
-                background: 'var(--gold-primary)',
-                color: '#000000',
-                border: 'none',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-                boxShadow: '0 4px 20px rgba(112, 130, 56, 0.4)',
-                position: 'relative'
-              }}
-            >
-              <Bell size={22} />
-              {notifications.length > 0 && (
-                <span style={{
-                  position: 'absolute',
-                  top: '-2px',
-                  right: '-2px',
-                  background: 'var(--accent-red)',
-                  color: '#ffffff',
-                  fontSize: '0.65rem',
-                  fontWeight: 'bold',
-                  borderRadius: '50%',
-                  width: '18px',
-                  height: '18px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}>
-                  {notifications.length}
-                </span>
-              )}
-            </button>
-
-            {showAlerts && (
-              <div 
-                onClick={() => setShowAlerts(false)}
-                style={{
-                  position: 'fixed',
-                  inset: 0,
-                  background: 'transparent',
-                  zIndex: 9998
-                }}
-              />
-            )}
-            {showAlerts && (
-              <div style={{
-                position: 'absolute',
-                bottom: '65px',
-                right: 0,
-                width: 'calc(100vw - 48px)',
-                maxWidth: '320px',
-                background: 'var(--bg-secondary)',
-                border: '1px solid var(--border-light)',
-                borderRadius: '8px',
-                boxShadow: 'var(--shadow-premium)',
-                padding: '1.25rem',
-                zIndex: 10000
-              }}>
-                <h4 style={{ fontSize: '0.9rem', marginBottom: '0.75rem', color: 'var(--gold-primary)', borderBottom: '1px solid var(--border-light)', paddingBottom: '0.5rem' }}>
-                  WhatsApp Activity Log
-                </h4>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxHeight: '250px', overflowY: 'auto' }}>
-                  {notifications.length === 0 ? (
-                    <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>No messages sent recently.</p>
-                  ) : (
-                    notifications.map(n => (
-                      <div key={n._id} style={{ borderBottom: '1px dashed rgba(255,255,255,0.05)', paddingBottom: '0.5rem' }}>
-                        <p style={{ fontSize: '0.75rem', color: 'var(--text-primary)', fontWeight: '500' }}>
-                          {n.type === 'WhatsApp' ? '💬 WhatsApp Automation' : '✉️ SMS Outbox'}
-                        </p>
-                        <p style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{n.message}</p>
-                        <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>{new Date(n.sentAt).toLocaleTimeString()}</span>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
 
         {/* Profile Modal */}
         {showProfileModal && currentUser && (
