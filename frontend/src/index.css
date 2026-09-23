@@ -317,18 +317,22 @@ button {
   background: linear-gradient(135deg, #708238 0%, #c5a028 55%, #5b6d2b 100%);
   color: #ffffff;
   font-weight: 700;
-  border: none;
-  padding: 0.7rem 1.4rem;
-  border-radius: var(--border-radius);
+  border: 1px solid transparent;
+  height: 42px;
+  box-sizing: border-box;
+  padding: 0 1.25rem;
+  border-radius: var(--radius-md);
   transition: var(--transition-smooth);
   box-shadow: 0 4px 18px rgba(112, 130, 56, 0.35), 0 2px 10px rgba(212, 175, 55, 0.2);
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
   font-size: var(--text-sm);
   letter-spacing: 0.3px;
   position: relative;
   overflow: hidden;
+  cursor: pointer;
 }
 
 .gold-btn:hover {
@@ -341,20 +345,51 @@ button {
   transform: translateY(0) scale(0.99);
 }
 
+/* Highlighted Primary Booking Action Button */
+.btn-highlight-booking {
+  height: 42px;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0 1.25rem;
+  background: rgba(212, 175, 55, 0.12);
+  border: 1px solid var(--gold-accent);
+  color: #f8f9fa;
+  font-weight: 600;
+  font-size: var(--text-sm);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: var(--transition-smooth);
+  box-shadow: 0 2px 10px rgba(212, 175, 55, 0.15);
+}
+
+.btn-highlight-booking:hover {
+  background: rgba(212, 175, 55, 0.22);
+  color: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(212, 175, 55, 0.3);
+}
+
 /* Outline Button with Olive & Gold Border Accent */
 .outline-btn {
   background: rgba(255, 255, 255, 0.03);
   color: var(--text-primary);
   border: 1px solid rgba(112, 130, 56, 0.45);
-  padding: 0.7rem 1.4rem;
-  border-radius: var(--border-radius);
+  height: 42px;
+  box-sizing: border-box;
+  padding: 0 1.25rem;
+  border-radius: var(--radius-md);
   transition: var(--transition-smooth);
   font-weight: 600;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
   font-size: var(--text-sm);
   backdrop-filter: blur(8px);
+  cursor: pointer;
 }
 
 .outline-btn:hover {
@@ -363,6 +398,27 @@ button {
   color: var(--gold-hover);
   box-shadow: 0 4px 15px rgba(112, 130, 56, 0.25);
   transform: translateY(-1px);
+}
+
+/* Header Global Search Trigger */
+.header-search-trigger {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+  border-radius: 20px !important;
+  padding: 0.45rem 1rem !important;
+  color: var(--text-primary) !important;
+  font-size: var(--text-xs) !important;
+  font-weight: 500 !important;
+  cursor: pointer;
+  margin-left: 1rem;
+  transition: var(--transition-smooth);
+}
+.header-search-trigger:hover {
+  background: rgba(255, 255, 255, 0.12) !important;
+  border-color: var(--gold-accent) !important;
 }
 
 /* Olive-Gold Gradient Typography */
@@ -1463,9 +1519,9 @@ button:disabled {
 .dash-hero-header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   margin-bottom: 2rem;
-  gap: 1rem;
+  gap: 1.5rem;
   flex-wrap: wrap;
 }
 
@@ -1500,7 +1556,8 @@ button:disabled {
 
 .dash-hero-actions {
   display: flex;
-  gap: 0.75rem;
+  align-items: center;
+  gap: 0.65rem;
   flex-wrap: wrap;
 }
 
@@ -1585,6 +1642,11 @@ button:disabled {
 .dash-kpi-trend.down {
   background: rgba(231, 76, 60, 0.1);
   color: #e74c3c;
+}
+
+.dash-kpi-trend.neutral {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-muted);
 }
 
 .dash-kpi-value {
@@ -1696,9 +1758,14 @@ button:disabled {
   display: grid;
   grid-template-columns: 1fr 1fr minmax(280px, 0.8fr);
   gap: 1.5rem;
+  align-items: stretch;
 }
 
 .dash-panel-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  box-sizing: border-box;
   background: var(--bg-card);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
@@ -1731,9 +1798,13 @@ button:disabled {
 }
 
 /* ─── Activity List ───────────────────────────────────────────────────── */
-.dash-activity-list {
+.dash-activity-list,
+.dash-upcoming-list {
   display: flex;
   flex-direction: column;
+  flex: 1;
+  max-height: 380px;
+  overflow-y: auto;
   gap: 0;
 }
 

@@ -82,30 +82,27 @@ const Header = ({ toggleMobileSidebar, onOpenProfile, onOpenCommandPalette, setA
         </div>
 
         {/* Global Search Bar Trigger */}
-        <div
+        <button
+          type="button"
           onClick={onOpenCommandPalette}
-          className="hide-mobile"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.6rem',
-            background: 'rgba(255,255,255,0.03)',
-            border: '1px solid var(--border-light)',
-            borderRadius: '20px',
-            padding: '0.35rem 0.85rem',
-            color: 'var(--text-muted)',
-            fontSize: '0.78rem',
-            cursor: 'pointer',
-            marginLeft: '1rem',
-            transition: 'var(--transition-smooth)'
-          }}
+          className="hide-mobile header-search-trigger"
+          aria-label="Global Search and Command Palette (Ctrl + K)"
         >
-          <Search size={14} style={{ color: 'var(--gold-primary)' }} />
+          <Search size={14} style={{ color: 'var(--gold-accent)' }} aria-hidden="true" />
           <span>Global Search...</span>
-          <span style={{ fontSize: '0.65rem', background: 'rgba(255,255,255,0.06)', padding: '0.1rem 0.4rem', borderRadius: '4px', border: '1px solid var(--border-light)' }}>
+          <kbd style={{
+            fontSize: '0.65rem',
+            background: 'rgba(255, 255, 255, 0.12)',
+            color: 'var(--text-secondary)',
+            padding: '0.15rem 0.45rem',
+            borderRadius: 'var(--radius-sm)',
+            border: '1px solid var(--border-light)',
+            fontFamily: 'var(--font-sans)',
+            lineHeight: 1
+          }}>
             Ctrl + K
-          </span>
-        </div>
+          </kbd>
+        </button>
       </div>
 
       {/* Control Actions */}

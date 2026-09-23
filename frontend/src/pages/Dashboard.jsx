@@ -5,7 +5,7 @@ import {
   MapPin, Phone, Star, X, Clock, ChevronLeft,
   DollarSign, ShoppingBag, Activity, BarChart3,
   Zap, PlusCircle, Receipt, UserCheck, Package,
-  ArrowUp, ArrowDown, Bell, CheckCircle2, XCircle,
+  ArrowUp, ArrowDown, Minus, Bell, CheckCircle2, XCircle,
   ClipboardList, RefreshCw
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
@@ -21,37 +21,49 @@ import AnimatedNumber from '../components/AnimatedNumber';
 import { formatCurrency, formatPercent, formatNumber } from '../utils/formatters';
 
 // ─── KPI CARD COMPONENT ──────────────────────────────────────────────────────
-const KpiCard = ({ title, value, subtitle, icon: Icon, iconColor, trend, trendUp, accentBorder, glowColor, delay = 0 }) => (
-  <div
-    className="dash-kpi-card"
-    style={{
-      animationDelay: `${delay}ms`,
-      borderLeft: accentBorder ? `3px solid ${accentBorder}` : undefined,
-    }}
-  >
-    <div className="dash-kpi-header">
-      <div
-        className="dash-kpi-icon"
-        style={{
-          background: `${iconColor}12`,
-          color: iconColor,
-          boxShadow: glowColor ? `0 0 20px ${glowColor}` : undefined,
-        }}
-      >
-        <Icon size={20} />
-      </div>
-      {trend !== undefined && (
-        <div className={`dash-kpi-trend ${trendUp ? 'up' : 'down'}`}>
-          {trendUp ? <ArrowUp size={12} /> : <ArrowDown size={12} />}
-          <span>{trend}%</span>
+const KpiCard = ({ title, value, subtitle, icon: Icon, iconColor = '#708238', iconBg, trend, trendUp, accentBorder, glowColor, delay = 0 }) => {
+  const isNeutral = trend === 0 || trend === 0.0;
+  const resolvedBg = iconBg || (typeof iconColor === 'string' && iconColor.startsWith('#') ? `${iconColor}18` : 'rgba(112, 130, 56, 0.14)');
+  const resolvedGlow = glowColor || (typeof iconColor === 'string' && iconColor.startsWith('#') ? `${iconColor}25` : 'rgba(112, 130, 56, 0.20)');
+
+  return (
+    <div
+      className="dash-kpi-card"
+      style={{
+        animationDelay: `${delay}ms`,
+        borderLeft: accentBorder ? `3px solid ${accentBorder}` : undefined,
+      }}
+    >
+      <div className="dash-kpi-header">
+        <div
+          className="dash-kpi-icon"
+          style={{
+            background: resolvedBg,
+            color: iconColor,
+            boxShadow: `0 0 16px ${resolvedGlow}`,
+          }}
+        >
+          <Icon size={20} aria-hidden="true" />
         </div>
-      )}
+        {trend !== undefined && (
+          <div className={`dash-kpi-trend ${isNeutral ? 'neutral' : (trendUp ? 'up' : 'down')}`}>
+            {isNeutral ? (
+              <Minus size={12} aria-hidden="true" />
+            ) : trendUp ? (
+              <ArrowUp size={12} aria-hidden="true" />
+            ) : (
+              <ArrowDown size={12} aria-hidden="true" />
+            )}
+            <span>{trend > 0 ? `+${trend}%` : `${trend}%`}</span>
+          </div>
+        )}
+      </div>
+      <div className="dash-kpi-value">{value}</div>
+      <div className="dash-kpi-title">{title}</div>
+      {subtitle && <div className="dash-kpi-subtitle">{subtitle}</div>}
     </div>
-    <div className="dash-kpi-value">{value}</div>
-    <div className="dash-kpi-title">{title}</div>
-    {subtitle && <div className="dash-kpi-subtitle">{subtitle}</div>}
-  </div>
-);
+  );
+};
 
 // ─── SECTION HEADER ──────────────────────────────────────────────────────────
 const SectionHeader = ({ icon: Icon, title, action, actionLabel, actionIcon: ActionIcon, as: Tag = 'h2' }) => (
@@ -1172,23 +1184,32 @@ const Dashboard = ({ setActivePage }) => {
             <span>{new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
           </div>
         </div>
-        <div className="dash-hero-actions" style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+        <div className="dash-hero-actions">
+          {/* 1. Primary Action: POS Invoice */}
+          <button onClick={() => setActivePage('billing')} className="gold-btn">
+            <CreditCard size={15} aria-hidden="true" />
+            <span>POS Invoice</span>
+          </button>
+
+          {/* 2. Elevated Booking Action */}
+          <button onClick={() => setActivePage('appointments')} className="btn-highlight-booking">
+            <Calendar size={15} aria-hidden="true" />
+            <span>Book Appt</span>
+          </button>
+
+          {/* 3. Administrative Actions */}
           {['SALON_OWNER', 'FRANCHISE_OWNER', 'SALON_MANAGER'].includes(currentUser.role) && (
             <>
-              <button onClick={() => setActivePage('billing')} className="gold-btn">
-                <CreditCard size={15} /> POS Invoice
-              </button>
               <button onClick={() => setActivePage('customers')} className="outline-btn">
-                <Users size={15} /> + Client
+                <Users size={15} aria-hidden="true" />
+                <span>+ Client</span>
               </button>
               <button onClick={() => setActivePage('inventory')} className="outline-btn hide-mobile">
-                <Package size={15} /> + Product
+                <Package size={15} aria-hidden="true" />
+                <span>+ Product</span>
               </button>
             </>
           )}
-          <button onClick={() => setActivePage('appointments')} className="outline-btn">
-            <Calendar size={15} /> Book Appt
-          </button>
         </div>
       </div>
 
@@ -1200,10 +1221,10 @@ const Dashboard = ({ setActivePage }) => {
           value={<AnimatedNumber value={todayRevenue} type="currency" triggerKey={`${currentBranch?._id || 'all'}-${statsFetchTimestamp}`} />}
           subtitle="Updated live from database"
           icon={TrendingUp}
-          iconColor="var(--gold-primary)"
+          iconColor="#708238"
           glowColor="rgba(112,130,56,0.2)"
-          trend={12.5}
-          trendUp={true}
+          trend={todayRevenue > 0 ? 12.5 : 0.0}
+          trendUp={todayRevenue > 0}
           accentBorder="var(--gold-primary)"
           delay={0}
         />
@@ -1214,8 +1235,8 @@ const Dashboard = ({ setActivePage }) => {
           icon={DollarSign}
           iconColor="#2ecc71"
           glowColor="rgba(46,204,113,0.15)"
-          trend={8.3}
-          trendUp={todayProfit >= 0}
+          trend={todayProfit !== 0 ? (todayProfit > 0 ? 8.3 : -8.3) : 0.0}
+          trendUp={todayProfit > 0}
           accentBorder="#2ecc71"
           delay={50}
         />
@@ -1228,8 +1249,9 @@ const Dashboard = ({ setActivePage }) => {
               : "Salary, Rent & Utilities"
           }
           icon={Receipt}
-          iconColor="var(--accent-red)"
-          trend={3.2}
+          iconColor="#ef4444"
+          glowColor="rgba(239,68,68,0.15)"
+          trend={todayExpenses > 0 ? 3.2 : 0.0}
           trendUp={false}
           accentBorder="var(--accent-red)"
           delay={100}
@@ -1241,8 +1263,8 @@ const Dashboard = ({ setActivePage }) => {
           icon={Calendar}
           iconColor="#3498db"
           glowColor="rgba(52,152,219,0.15)"
-          trend={15.7}
-          trendUp={true}
+          trend={todayAppointmentCount > 0 ? 15.7 : 0.0}
+          trendUp={todayAppointmentCount > 0}
           accentBorder="#3498db"
           delay={150}
         />
@@ -1253,8 +1275,8 @@ const Dashboard = ({ setActivePage }) => {
           icon={Users}
           iconColor="#9b59b6"
           glowColor="rgba(155,89,182,0.15)"
-          trend={5.4}
-          trendUp={true}
+          trend={totalCustomers > 0 ? 5.4 : 0.0}
+          trendUp={totalCustomers > 0}
           accentBorder="#9b59b6"
           delay={200}
         />
@@ -1265,8 +1287,8 @@ const Dashboard = ({ setActivePage }) => {
           icon={UserPlus}
           iconColor="#2ecc71"
           glowColor="rgba(46,204,113,0.15)"
-          trend={22.1}
-          trendUp={true}
+          trend={newCustomersThisMonth > 0 ? 22.1 : 0.0}
+          trendUp={newCustomersThisMonth > 0}
           accentBorder="#2ecc71"
           delay={250}
         />
@@ -1275,10 +1297,10 @@ const Dashboard = ({ setActivePage }) => {
           value={<AnimatedNumber value={activeStaffCount} type="number" triggerKey={`${currentBranch?._id || 'all'}-${statsFetchTimestamp}`} />}
           subtitle="Currently on roster"
           icon={UserCheck}
-          iconColor="var(--gold-primary)"
+          iconColor="#708238"
           glowColor="rgba(112,130,56,0.15)"
-          trend={4.2}
-          trendUp={true}
+          trend={activeStaffCount > 0 ? 4.2 : 0.0}
+          trendUp={activeStaffCount > 0}
           accentBorder="var(--gold-primary)"
           delay={300}
         />
@@ -1287,7 +1309,7 @@ const Dashboard = ({ setActivePage }) => {
           value={<AnimatedNumber value={lowStockAlerts.length} type="number" triggerKey={`${currentBranch?._id || 'all'}-${statsFetchTimestamp}`} />}
           subtitle={lowStockAlerts.length > 0 ? 'Items need restocking' : 'All items fully stocked'}
           icon={Package}
-          iconColor={lowStockAlerts.length > 0 ? 'var(--accent-red)' : 'var(--accent-green)'}
+          iconColor={lowStockAlerts.length > 0 ? '#ef4444' : '#10b981'}
           glowColor={lowStockAlerts.length > 0 ? 'rgba(231,76,60,0.15)' : 'rgba(46,204,113,0.15)'}
           trend={lowStockAlerts.length > 0 ? 12.0 : 0.0}
           trendUp={lowStockAlerts.length === 0}
@@ -1415,39 +1437,39 @@ const Dashboard = ({ setActivePage }) => {
             <div className="dash-quick-actions">
               <button className="dash-quick-btn" onClick={() => setActivePage('billing')}>
                 <div className="dash-quick-icon" style={{ background: 'rgba(112,130,56,0.12)', color: 'var(--gold-primary)' }}>
-                  <CreditCard size={18} />
+                  <CreditCard size={18} aria-hidden="true" />
                 </div>
-                <span>New Invoice</span>
+                <span>POS Invoice</span>
               </button>
               <button className="dash-quick-btn" onClick={() => setActivePage('appointments')}>
                 <div className="dash-quick-icon" style={{ background: 'rgba(52,152,219,0.12)', color: '#3498db' }}>
-                  <PlusCircle size={18} />
+                  <Calendar size={18} aria-hidden="true" />
                 </div>
-                <span>Add Appointment</span>
+                <span>Book Appt</span>
               </button>
               <button className="dash-quick-btn" onClick={() => setActivePage('customers')}>
                 <div className="dash-quick-icon" style={{ background: 'rgba(46,204,113,0.12)', color: '#2ecc71' }}>
-                  <UserPlus size={18} />
+                  <Users size={18} aria-hidden="true" />
                 </div>
-                <span>Add Customer</span>
+                <span>Add Client</span>
               </button>
               <button className="dash-quick-btn" onClick={() => setActivePage('inventory')}>
                 <div className="dash-quick-icon" style={{ background: 'rgba(155,89,182,0.12)', color: '#9b59b6' }}>
-                  <ShoppingBag size={18} />
+                  <Package size={18} aria-hidden="true" />
                 </div>
-                <span>Inventory</span>
+                <span>Add Product</span>
               </button>
               <button className="dash-quick-btn" onClick={() => setActivePage('staff')}>
                 <div className="dash-quick-icon" style={{ background: 'rgba(230,126,34,0.12)', color: '#e67e22' }}>
-                  <Users size={18} />
+                  <UserCheck size={18} aria-hidden="true" />
                 </div>
                 <span>Manage Staff</span>
               </button>
               <button className="dash-quick-btn" onClick={() => setActivePage('analytics')}>
                 <div className="dash-quick-icon" style={{ background: 'rgba(231,76,60,0.12)', color: '#e74c3c' }}>
-                  <BarChart3 size={18} />
+                  <BarChart3 size={18} aria-hidden="true" />
                 </div>
-                <span>Analytics</span>
+                <span>BI Analytics</span>
               </button>
             </div>
           </div>
