@@ -182,15 +182,19 @@ const Sidebar = ({ activePage, setActivePage, collapsed, setCollapsed, user, log
       </div>
 
       {/* Nav List */}
-      <div style={{
-        flex: 1,
-        minHeight: 0,
-        padding: '0.75rem 0.5rem',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '0.6rem',
-        overflowY: 'auto'
-      }}>
+      <nav 
+        aria-label="Main Navigation"
+        className="sidebar-nav"
+        style={{
+          flex: 1,
+          minHeight: 0,
+          padding: '0.75rem 0.5rem',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '0.6rem',
+          overflowY: 'auto'
+        }}
+      >
         {menuSections.map((sec) => {
           const visibleItems = sec.items.filter(item => {
             if (user?.role === 'SUPER_ADMIN') return item.id === 'super-admin';
@@ -223,7 +227,7 @@ const Sidebar = ({ activePage, setActivePage, collapsed, setCollapsed, user, log
                     style={{ 
                       transform: isExpanded ? 'rotate(0deg)' : 'rotate(-90deg)', 
                       transition: 'transform 0.2s ease',
-                      opacity: 0.7
+                      opacity: 0.85
                     }} 
                   />
                 </button>
@@ -266,7 +270,7 @@ const Sidebar = ({ activePage, setActivePage, collapsed, setCollapsed, user, log
             </div>
           );
         })}
-      </div>
+      </nav>
 
       {/* Footer / Toggle */}
       <div style={{

@@ -146,7 +146,7 @@ button {
 }
 ::-webkit-scrollbar-thumb {
   background: var(--gold-border);
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
 }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--gold-primary);
@@ -268,21 +268,26 @@ button {
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  background: transparent;
-  border: none;
-  padding: 0.5rem 0.75rem 0.25rem 0.75rem;
-  color: #717686;
-  font-size: 0.65rem;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid transparent;
+  padding: 0.45rem 0.75rem;
+  color: var(--text-secondary);
+  font-size: var(--text-2xs);
   font-weight: 700;
-  letter-spacing: 1px;
+  letter-spacing: 0.8px;
   text-transform: uppercase;
   cursor: pointer;
   border-radius: var(--radius-sm);
   transition: var(--transition-smooth);
 }
 .sidebar-group-toggle:hover {
-  color: var(--text-secondary);
-  background: rgba(255, 255, 255, 0.02);
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--border-light);
+}
+.sidebar-group-toggle:focus-visible {
+  outline: 2px solid var(--gold-accent);
+  outline-offset: 1px;
 }
 
 .sidebar-link {
@@ -323,7 +328,7 @@ button {
   padding: 0 1.25rem;
   border-radius: var(--radius-md);
   transition: var(--transition-smooth);
-  box-shadow: 0 4px 18px rgba(112, 130, 56, 0.35), 0 2px 10px rgba(212, 175, 55, 0.2);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35), 0 1px 4px rgba(112, 130, 56, 0.28);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -337,7 +342,7 @@ button {
 
 .gold-btn:hover {
   transform: translateY(-2px) scale(1.01);
-  box-shadow: 0 8px 25px rgba(112, 130, 56, 0.5), 0 0 18px rgba(212, 175, 55, 0.35);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45), 0 2px 8px rgba(112, 130, 56, 0.4);
   background: linear-gradient(135deg, #849945 0%, #d4af37 60%, #708238 100%);
 }
 
@@ -362,14 +367,14 @@ button {
   border-radius: var(--radius-md);
   cursor: pointer;
   transition: var(--transition-smooth);
-  box-shadow: 0 2px 10px rgba(212, 175, 55, 0.15);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25), 0 1px 3px rgba(212, 175, 55, 0.2);
 }
 
 .btn-highlight-booking:hover {
   background: rgba(212, 175, 55, 0.22);
   color: #ffffff;
   transform: translateY(-1px);
-  box-shadow: 0 4px 16px rgba(212, 175, 55, 0.3);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35), 0 2px 6px rgba(212, 175, 55, 0.3);
 }
 
 /* Outline Button with Olive & Gold Border Accent */
@@ -396,7 +401,7 @@ button {
   background: linear-gradient(135deg, rgba(112, 130, 56, 0.18) 0%, rgba(212, 175, 55, 0.1) 100%);
   border-color: var(--gold-accent);
   color: var(--gold-hover);
-  box-shadow: 0 4px 15px rgba(112, 130, 56, 0.25);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25), 0 1px 4px rgba(112, 130, 56, 0.2);
   transform: translateY(-1px);
 }
 
@@ -407,7 +412,7 @@ button {
   gap: 0.65rem;
   background: rgba(255, 255, 255, 0.08) !important;
   border: 1px solid rgba(255, 255, 255, 0.16) !important;
-  border-radius: 20px !important;
+  border-radius: var(--radius-full) !important;
   padding: 0.45rem 1rem !important;
   color: var(--text-primary) !important;
   font-size: var(--text-xs) !important;
@@ -4174,11 +4179,11 @@ button:disabled {
 .billing-qty-btn {
   width: 24px;
   height: 24px;
-  border-radius: 5px;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--border-light);
-  background: rgba(255,255,255,0.05);
+  background: rgba(255, 255, 255, 0.05);
   color: var(--text-primary);
-  font-size: 0.85rem;
+  font-size: var(--text-sm);
   font-weight: 700;
   cursor: pointer;
   display: flex;
@@ -4195,9 +4200,9 @@ button:disabled {
 
 /* Bill Summary Box */
 .billing-summary-box {
-  background: rgba(255,255,255,0.02);
+  background: rgba(255, 255, 255, 0.02);
   border: 1px solid var(--border-light);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   padding: 1.25rem;
   display: flex;
   flex-direction: column;
@@ -4209,15 +4214,23 @@ button:disabled {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 0.85rem;
+  font-size: var(--text-sm);
   color: var(--text-secondary);
+  padding: 0.2rem 0;
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.05);
+}
+
+.billing-sum-input-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
 }
 
 .billing-sum-total {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 1.1rem;
+  font-size: var(--text-md);
   font-weight: 800;
   color: var(--gold-primary);
   border-top: 1px solid var(--border-light);
@@ -4227,27 +4240,36 @@ button:disabled {
 
 /* Payment Method Buttons */
 .billing-pay-btn {
-  padding: 0.55rem;
+  height: 40px;
+  padding: 0.45rem 0.6rem;
   border: 1px solid var(--border-light);
-  border-radius: 6px;
-  background: rgba(255,255,255,0.03);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.03);
   color: var(--text-secondary);
-  font-size: 0.8rem;
-  font-weight: 600;
+  font-size: var(--text-sm);
+  font-weight: 500;
   cursor: pointer;
   transition: var(--transition-smooth);
-  text-align: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  user-select: none;
 }
 
-.billing-pay-btn.active {
-  background: var(--gold-primary);
-  color: #000;
-  border-color: var(--gold-primary);
+.billing-pay-btn:hover:not(.active):not([aria-checked="true"]) {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(212, 175, 55, 0.4);
+  color: var(--text-primary);
 }
 
-.billing-pay-btn:hover:not(.active) {
-  border-color: var(--gold-primary);
-  background: var(--gold-bg);
+.billing-pay-btn.active,
+.billing-pay-btn[aria-checked="true"] {
+  background: rgba(112, 130, 56, 0.18);
+  color: #ffffff;
+  font-weight: 600;
+  border-color: var(--gold-accent);
+  box-shadow: 0 0 10px rgba(212, 175, 55, 0.18), inset 0 0 8px rgba(112, 130, 56, 0.15);
 }
 
 /* History Section */
@@ -4287,7 +4309,7 @@ button:disabled {
 .billing-kpi-icon {
   width: 48px;
   height: 48px;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;

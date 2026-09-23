@@ -577,13 +577,13 @@ const Billing = ({ apptForCheckout, clearApptCheckout }) => {
           <h1>Enterprise Billing</h1>
           <p>POS checkout, professional invoicing, and complete billing history ledger</p>
         </div>
-        <div style={{ display: 'flex', gap: '4px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-light)', padding: '3px', borderRadius: '8px' }}>
+        <div style={{ display: 'flex', gap: '4px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-light)', padding: '3px', borderRadius: 'var(--radius-md)' }}>
           {[{ key: 'pos', label: 'POS Terminal', icon: <CreditCard size={14} /> }, { key: 'history', label: 'Invoice History', icon: <FileText size={14} /> }].map(tab => (
             <button key={tab.key} onClick={() => setActivePane(tab.key)} style={{
               display: 'flex', alignItems: 'center', gap: '6px', border: 'none',
               background: activePane === tab.key ? 'var(--gold-primary)' : 'transparent',
               color: activePane === tab.key ? '#000' : 'var(--text-secondary)',
-              fontSize: '0.8rem', fontWeight: '600', padding: '0.5rem 1rem', borderRadius: '6px',
+              fontSize: '0.8rem', fontWeight: '600', padding: '0.5rem 1rem', borderRadius: 'var(--radius-md)',
               transition: 'var(--transition-smooth)'
             }}>{tab.icon} {tab.label}</button>
           ))}
@@ -597,26 +597,26 @@ const Billing = ({ apptForCheckout, clearApptCheckout }) => {
         <form onSubmit={handleCheckoutSubmit} className="billing-pos-grid">
           {/* LEFT: Cart */}
           <div className="glass-card billing-cart-card">
-            <h3 style={{ fontSize: '1rem', color: 'var(--gold-primary)', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <h2 style={{ fontSize: '1rem', color: 'var(--gold-primary)', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <ShoppingBag size={18} /> Sales Register Cart
-            </h3>
+            </h2>
 
             {/* Add Service */}
-            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
-              <select className="form-control" style={{ flex: '1 1 200px', minWidth: '180px' }} value={tempSrvId} onChange={(e) => setTempSrvId(e.target.value)}>
+            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
+              <select className="form-control" style={{ flex: '1 1 200px', minWidth: '180px', height: '42px', boxSizing: 'border-box' }} value={tempSrvId} onChange={(e) => setTempSrvId(e.target.value)}>
                 <option value="">-- Add Treatment Service --</option>
                 {services.map(s => <option key={s._id} value={s._id}>{s.category ? `[${s.category}] ` : ''}{s.name} (₹{s.price})</option>)}
               </select>
-              <button type="button" onClick={handleAddService} className="outline-btn" style={{ padding: '0.5rem 1rem', whiteSpace: 'nowrap', minHeight: '40px' }}><Plus size={14} /> Add</button>
+              <button type="button" onClick={handleAddService} className="outline-btn" style={{ height: '42px', padding: '0 1.25rem', whiteSpace: 'nowrap', boxSizing: 'border-box' }}><Plus size={14} /> Add</button>
             </div>
 
             {/* Add Product */}
-            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
-              <select className="form-control" style={{ flex: '1 1 200px', minWidth: '180px' }} value={tempProdId} onChange={(e) => setTempProdId(e.target.value)}>
+            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem', flexWrap: 'wrap', alignItems: 'center' }}>
+              <select className="form-control" style={{ flex: '1 1 200px', minWidth: '180px', height: '42px', boxSizing: 'border-box' }} value={tempProdId} onChange={(e) => setTempProdId(e.target.value)}>
                 <option value="">-- Add Retail Product --</option>
                 {products.map(p => <option key={p._id} value={p._id}>{p.name} (₹{p.sellingPrice} • Stock: {p.quantity})</option>)}
               </select>
-              <button type="button" onClick={handleAddProduct} className="outline-btn" style={{ padding: '0.5rem 1rem', whiteSpace: 'nowrap', minHeight: '40px' }}><Plus size={14} /> Add</button>
+              <button type="button" onClick={handleAddProduct} className="outline-btn" style={{ height: '42px', padding: '0 1.25rem', whiteSpace: 'nowrap', boxSizing: 'border-box' }}><Plus size={14} /> Add</button>
             </div>
 
             {/* Items Table */}
@@ -712,9 +712,9 @@ const Billing = ({ apptForCheckout, clearApptCheckout }) => {
 
           {/* RIGHT: Checkout Details */}
           <div className="glass-card billing-checkout-card">
-            <h3 style={{ fontSize: '1rem', color: 'var(--gold-primary)', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <h2 style={{ fontSize: '1rem', color: 'var(--gold-primary)', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <Receipt size={18} /> Checkout Details
-            </h3>
+            </h2>
 
             <div className="form-group">
               <label>Customer</label>
@@ -734,7 +734,7 @@ const Billing = ({ apptForCheckout, clearApptCheckout }) => {
 
             {/* Loyalty Point Redemption */}
             {selectedCustId && pointsAvailable > 0 && (
-              <div style={{ background: 'var(--gold-bg)', border: '1px solid var(--gold-border)', padding: '0.65rem 0.85rem', borderRadius: '6px', marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ background: 'var(--gold-bg)', border: '1px solid var(--gold-border)', padding: '0.65rem 0.85rem', borderRadius: 'var(--radius-md)', marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
                   <span style={{ color: 'var(--gold-primary)', fontWeight: 'bold', fontSize: '0.8rem', display: 'block' }}>🎁 Redeem Loyalty Points</span>
                   <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Available: {pointsAvailable} pts (1 pt = ₹1)</span>
@@ -748,12 +748,16 @@ const Billing = ({ apptForCheckout, clearApptCheckout }) => {
               <div className="billing-sum-row"><span>Subtotal</span><span>{formatCurrency(subTotal)}</span></div>
               <div className="billing-sum-row">
                 <span>GST (%)</span>
-                <input type="number" className="form-control" style={{ width: '60px', padding: '0.2rem 0.4rem', fontSize: '0.8rem', textAlign: 'center' }} value={taxPercent} onChange={(e) => setTaxPercent(e.target.value)} />
+                <div className="billing-sum-input-wrap">
+                  <input type="number" className="form-control" style={{ width: '60px', padding: '0.2rem 0.4rem', fontSize: '0.8rem', textAlign: 'center' }} value={taxPercent} onChange={(e) => setTaxPercent(e.target.value)} />
+                </div>
               </div>
               <div className="billing-sum-row"><span>Tax Amount</span><span>{formatCurrency(calculatedTax)}</span></div>
               <div className="billing-sum-row">
                 <span>Discount (₹)</span>
-                <input type="number" className="form-control" style={{ width: '85px', padding: '0.2rem 0.4rem', fontSize: '0.8rem', textAlign: 'center' }} value={discountAmt} onChange={(e) => setDiscountAmt(e.target.value)} />
+                <div className="billing-sum-input-wrap">
+                  <input type="number" className="form-control" style={{ width: '85px', padding: '0.2rem 0.4rem', fontSize: '0.8rem', textAlign: 'center' }} value={discountAmt} onChange={(e) => setDiscountAmt(e.target.value)} />
+                </div>
               </div>
               {actualPointsRedeemed > 0 && (
                 <div className="billing-sum-row" style={{ color: 'var(--gold-primary)' }}>
@@ -769,11 +773,19 @@ const Billing = ({ apptForCheckout, clearApptCheckout }) => {
 
             {/* Payment Method */}
             <div className="form-group">
-              <label>Payment Method</label>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem' }}>
+              <label id="pay-method-label">Payment Method</label>
+              <div role="radiogroup" aria-labelledby="pay-method-label" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem' }}>
                 {['UPI', 'Cash', 'Card'].map(method => (
-                  <button key={method} type="button" onClick={() => setPayMethod(method)} className={`billing-pay-btn ${payMethod === method ? 'active' : ''}`}>
-                    {method === 'UPI' ? '📱' : method === 'Cash' ? '💵' : '💳'} {method}
+                  <button 
+                    key={method} 
+                    type="button" 
+                    role="radio"
+                    aria-checked={payMethod === method}
+                    onClick={() => setPayMethod(method)} 
+                    className={`billing-pay-btn ${payMethod === method ? 'active' : ''}`}
+                  >
+                    <span>{method === 'UPI' ? '📱' : method === 'Cash' ? '💵' : '💳'}</span>
+                    <span>{method}</span>
                   </button>
                 ))}
               </div>
