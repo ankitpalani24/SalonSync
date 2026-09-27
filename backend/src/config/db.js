@@ -6,11 +6,17 @@ const connectDB = async () => {
   const fallbackURI = 'mongodb://127.0.0.1:27017/salonsync';
 
   try {
-    console.log('Connecting to Primary MongoDB Database...');
+    console.log('[SalonSync] Connecting to Primary MongoDB Database...');
     const conn = await mongoose.connect(primaryURI, {
       serverSelectionTimeoutMS: 5000 // 5s timeout
     });
-    console.log(`MongoDB Connected (Primary): ${conn.connection.host}`);
+    const dbName = conn.connection.name;
+    console.log('[SalonSync] Database: ' + dbName);
+    console.log('[SalonSync] Host: ' + conn.connection.host);
+    console.log('[SalonSync] Database connected');
+    if (dbName !== 'Salonsync' && dbName !== 'salonsync') {
+      console.warn('[SalonSync] WARNING: Connected to "' + dbName + '" instead of expected "Salonsync".');
+    }
     
     // Auto-seed default users and multi-tenant structures if User database is empty
     await seedDatabase();
@@ -23,7 +29,9 @@ const connectDB = async () => {
         const conn = await mongoose.connect(fallbackURI, {
           serverSelectionTimeoutMS: 3000 // 3s timeout
         });
-        console.log(`MongoDB Connected (Local Fallback): ${conn.connection.host}`);
+        console.log('[SalonSync] Database: ' + conn.connection.name);
+        console.log('[SalonSync] Host (Fallback): ' + conn.connection.host);
+        console.log('[SalonSync] Database connected (local fallback)');
         await seedDatabase();
       } catch (fallbackError) {
         console.error(`Local fallback Database connection also failed: ${fallbackError.message}`);
@@ -655,3 +663,4 @@ const seedDatabase = async () => {
 };
 
 module.exports = connectDB;
+

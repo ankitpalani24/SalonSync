@@ -77,6 +77,22 @@ app.get(['/health', '/health/live'], (req, res) => {
   });
 });
 
+
+// Database identity endpoint (isolation verification)
+app.get('/health/database', (req, res) => {
+  const isConnected = mongoose.connection.readyState === 1;
+  const response = {
+    project: 'salonsync',
+    database: isConnected ? mongoose.connection.name : null,
+    connected: isConnected,
+    timestamp: new Date().toISOString(),
+  };
+  if (process.env.NODE_ENV !== 'production') {
+    response.host = isConnected ? mongoose.connection.host : null;
+  }
+  res.status(isConnected ? 200 : 503).json(response);
+});
+
 app.get('/health/ready', async (req, res) => {
   const isDbReady = mongoose.connection.readyState === 1;
   const redisHealth = await getRedisHealth();
